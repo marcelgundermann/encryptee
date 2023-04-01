@@ -1,5 +1,10 @@
 lockfileVersion: '6.0'
 
+dependencies:
+  cal-sans:
+    specifier: ^1.0.1
+    version: 1.0.1
+
 devDependencies:
   '@fontsource/fira-mono':
     specifier: ^4.5.10
@@ -716,6 +721,10 @@ packages:
     dependencies:
       streamsearch: 1.1.0
     dev: true
+
+  /cal-sans@1.0.1:
+    resolution: {integrity: sha512-XwN3/7jez8WmFVcNnNqO2K9lh133KiIcURCyGFnSM+ZmNZ8zIcOTNfr3SpenLAkRceYsq+fQNX/PL4C1rIkEPQ==}
+    dev: false
 
   /callsites@3.1.0:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}

@@ -34,5 +34,8 @@
 		"vite": "^4.2.1",
 		"vitest": "^0.25.8"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"cal-sans": "^1.0.1"
+	}
 }
