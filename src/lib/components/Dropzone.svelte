@@ -170,8 +170,7 @@
 											fill="none"
 											viewBox="0 0 24 24"
 											stroke-width="2.5"
-											stroke="currentColor"
-											class="w-5 h-5 mr-1"
+											class="w-5 h-5 mr-1 stroke-red-500"
 										>
 											<path
 												stroke-linecap="round"

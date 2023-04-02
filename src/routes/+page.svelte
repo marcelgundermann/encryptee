@@ -10,6 +10,6 @@
 	/>
 </svelte:head>
 
-<div class="w-full h-full flex flex-col items-center pt-20">
+<div class="w-full h-full flex flex-col items-center pt-28">
 	<Dropzone />
 </div>
