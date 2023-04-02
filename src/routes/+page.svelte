@@ -1,9 +1,12 @@
-<script>
+<script lang="ts">
+	import Dropzone from '$lib/components/Dropzone.svelte';
 </script>
 
 <svelte:head>
-	<title>Home</title>
+	<title>Encryptee - Encyrpt & Decrypt files</title>
 	<meta name="description" content="Svelte demo app" />
 </svelte:head>
 
-<h1 class="text-3xl font-bold underline">Hello world!</h1>
+<div class="mx-auto w-full h-full flex flex-col items-center pt-20">
+	<Dropzone />
+</div>
