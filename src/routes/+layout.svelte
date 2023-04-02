@@ -36,7 +36,7 @@
 	};
 </script>
 
-<main class="max-w-screen-lg mx-auto p-10 h-screen">
+<main class="max-w-screen-lg mx-auto p-5 sm:p-10 h-screen">
 	<Header />
 	<slot />
 </main>
