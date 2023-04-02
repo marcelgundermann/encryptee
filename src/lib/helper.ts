@@ -1,3 +1,11 @@
+/**
+ * Converts the given file size in bytes to a more readable format, including
+ * a unit (KB, MB, or GB) and a maximum of 2 decimal places.
+ *
+ * @param fileSizeBytes - The file size in bytes (number).
+ *
+ * @returns A formatted string representing the file size with its appropriate unit.
+ */
 export const convertFileSize = (fileSizeBytes: File['size']) => {
 	let fileSize: number;
 	let unit: string;
