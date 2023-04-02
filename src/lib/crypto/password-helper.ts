@@ -1,5 +1,19 @@
 import type { PasswordStrength } from '$lib/types';
 
+export const generateRandomPassword = (): string => {
+	const length = 18;
+	const randomBytes = new Uint8Array(Math.ceil((length * 3) / 4));
+
+	// Fill the randomBytes array with cryptographically secure random values
+	crypto.getRandomValues(randomBytes);
+
+	// Convert the random bytes to a base64-encoded string
+	const base64Password = window.btoa(String.fromCharCode(...randomBytes));
+
+	// Trim the base64-encoded password to the desired length
+	return base64Password.substring(0, length);
+};
+
 export const estimatePasswordStrength = (password: string): PasswordStrength => {
 	if (typeof password !== 'string') {
 		throw new Error('Invalid input: Password must be a string');

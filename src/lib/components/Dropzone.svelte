@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { deriveKey } from '$lib/crypto/crypto';
-	import type { DecryptResult, EncryptResult, PasswordStrength } from '$lib/types';
-	import { estimatePasswordStrength } from '$lib/crypto/password-strength';
+	import { decryptFile, encryptFile } from '$lib/crypto/crypto';
+	import { estimatePasswordStrength, generateRandomPassword } from '$lib/crypto/password-helper';
 
 	import { files$, removeFile } from '$lib/store/files';
 	import { get } from 'svelte/store';
@@ -14,25 +13,15 @@
 		files$.set(null);
 	};
 
-	const generateRandomPassword = (): void => {
-		const length = 18;
-		const randomBytes = new Uint8Array(Math.ceil((length * 3) / 4));
-
-		// Fill the randomBytes array with cryptographically secure random values
-		crypto.getRandomValues(randomBytes);
-
-		// Convert the random bytes to a base64-encoded string
-		const base64Password = window.btoa(String.fromCharCode(...randomBytes));
-
-		// Trim the base64-encoded password to the desired length
-		password = base64Password.substring(0, length);
-	};
-
 	const fileChangedHandler = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
 		if (!input.files) return;
 
 		// files = input.files;
+	};
+
+	const copyPassword = async (): Promise<void> => {
+		navigator.clipboard.writeText(password);
 	};
 
 	const submitHandler = async (): Promise<void> => {
@@ -46,11 +35,13 @@
 	};
 
 	const decryptSubmitHandler = async (): Promise<void> => {
-		const file = get(files$);
-		if (!file) return;
+		const files = get(files$);
+		if (!files) return;
 
-		const { decryptedBlob, fileName } = await decryptFile(file.item(0)!, password);
-		await downloadFile(decryptedBlob, fileName);
+		for await (const file of files) {
+			const { decryptedBlob, fileName } = await decryptFile(file, password);
+			await downloadFile(decryptedBlob, fileName);
+		}
 	};
 
 	const downloadFile = async (blob: Blob, filename: string) => {
@@ -62,77 +53,6 @@
 		link.download = filename;
 		link.dispatchEvent(new MouseEvent('click'));
 		URL.revokeObjectURL(url);
-	};
-
-	const encryptFile = async (file: File, password: string): Promise<EncryptResult> => {
-		if (!file || !password) {
-			throw new Error('File and password must be provided');
-		}
-
-		if (!(window.crypto && window.crypto.subtle)) {
-			throw new Error('Web Crypto API not supported in this browser');
-		}
-
-		const arrayBuffer = await file.arrayBuffer();
-		const salt = crypto.getRandomValues(new Uint8Array(16));
-		const key = await deriveKey(password, salt);
-		const iv = crypto.getRandomValues(new Uint8Array(12));
-
-		const encryptedBuffer = await window.crypto.subtle.encrypt(
-			{
-				name: 'AES-GCM',
-				iv
-			},
-			key,
-			arrayBuffer
-		);
-
-		const encryptedBlob = new Blob([salt, iv, encryptedBuffer], { type: file.type });
-
-		return {
-			encryptedBlob,
-			fileName: file.name
-		};
-	};
-
-	const decryptFile = async (file: File, password: string): Promise<DecryptResult> => {
-		if (!file || !password) {
-			throw new Error('File and password must be provided');
-		}
-
-		if (!(window.crypto && window.crypto.subtle)) {
-			throw new Error('Web Crypto API not supported in this browser');
-		}
-
-		const getFileExtension = (fileName: string): string => {
-			const fileParts = fileName.split('.');
-			return fileParts.length > 1 ? fileParts.pop() || '' : '';
-		};
-
-		const encryptedBuffer = await file.arrayBuffer();
-		const salt = new Uint8Array(encryptedBuffer.slice(0, 16));
-		const iv = new Uint8Array(encryptedBuffer.slice(16, 28));
-		const dataBuffer = encryptedBuffer.slice(28);
-		const key = await deriveKey(password, salt);
-
-		const decryptedBuffer = await crypto.subtle.decrypt(
-			{
-				name: 'AES-GCM',
-				iv
-			},
-			key,
-			dataBuffer
-		);
-
-		const originalFileName = file.name.replace(/\.cre$/, '');
-		const fileExtension = getFileExtension(originalFileName);
-		const decryptedBlob = new Blob([decryptedBuffer], { type: file.type });
-
-		return {
-			decryptedBlob,
-			fileName: originalFileName,
-			fileExtension
-		};
 	};
 
 	$: pluralizedFilesLabel = $files$?.length === 1 ? 'File' : 'Files';
@@ -201,7 +121,7 @@
 				<div class="flex flex-col items-center justify-items-stretch space-y-5">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-10 w-10 stroke-blue-600"
+						class="h-10 w-10 stroke-white"
 						width="24"
 						height="24"
 						viewBox="0 0 24 24"
@@ -229,7 +149,12 @@
 	</div>
 
 	<div>
-		<label for="password" class="text-sm font-medium">Password</label>
+		<div class="flex justify-between items-center">
+			<label for="password" class="text-sm font-medium">Password</label>
+			<button on:click={copyPassword} type="button">
+				<span class="text-xs leading-6 text-blue-500 hover:underline">Copy Password</span>
+			</button>
+		</div>
 		<div class="relative mt-1 rounded-lg">
 			<input
 				bind:value={password}
@@ -239,7 +164,7 @@
 				placeholder="Enter a strong password"
 			/>
 			<div class="absolute inset-y-0 right-0 flex items-center mr-2">
-				<button class="hover:bg-white/10 rounded-lg p-1.5" on:click={generateRandomPassword}>
+				<button class="hover:bg-white/10 rounded-lg p-1.5" on:click={() => (password = generateRandomPassword())}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -264,8 +189,9 @@
 
 	<button
 		on:click={submitHandler}
+		disabled={!$files$ || !password}
 		type="button"
-		class="mt-2 w-full rounded-lg bg-white/5 px-3.5 py-2.5 text-sm text-white hover:bg-white/10 transition-all"
+		class="mt-2 w-full rounded-lg bg-white/5 px-3.5 py-2.5 text-sm text-white hover:bg-white/10 transition-all disabled:pointer-events-none"
 	>
 		Download Encrypted Files
 	</button>
