@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { decryptFile, encryptFile } from '$lib/crypto';
-	import { estimatePasswordStrength, generateRandomPassword } from '$lib/crypto/password-helper';
+	import { estimatePasswordStrength, generateRandomPassword } from '$lib/password-helper';
 	import { convertFileSize } from '$lib/helper';
 
 	import { addFiles, files$, removeFile } from '$lib/store/files';
