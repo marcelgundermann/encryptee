@@ -37,7 +37,11 @@
 
 		for await (const file of files) {
 			const { encryptedBlob, fileName } = await encryptFile(file, password);
-			await downloadFile(encryptedBlob, `${fileName}.cre`);
+			try {
+				await downloadFile(encryptedBlob, `${fileName}.cre`);
+			} catch (e) {
+				throw new Error(String(e));
+			}
 		}
 	};
 
@@ -47,17 +51,21 @@
 
 		for await (const file of files) {
 			const { decryptedBlob, fileName } = await decryptFile(file, password);
-			await downloadFile(decryptedBlob, fileName);
+			try {
+				await downloadFile(decryptedBlob, fileName);
+			} catch (e) {
+				throw new Error(String(e));
+			}
 		}
 	};
 
-	const downloadFile = async (blob: Blob, filename: string) => {
+	const downloadFile = async (blob: Blob, fileName: string) => {
 		const dataUrl = URL.createObjectURL(blob);
 		const response = await fetch(dataUrl);
 		const url = response.url;
 		const link = document.createElement('a');
 		link.href = url;
-		link.download = filename;
+		link.download = fileName;
 		link.dispatchEvent(new MouseEvent('click'));
 		URL.revokeObjectURL(url);
 	};
@@ -198,9 +206,11 @@
 	<div>
 		<div class="flex justify-between items-center">
 			<label for="password" class="text-sm font-medium">Password</label>
-			<button on:click={copyPassword} type="button">
-				<span class="text-xs leading-6 text-blue-500 hover:underline">Copy Password</span>
-			</button>
+			{#if password}
+				<button on:click={copyPassword} type="button">
+					<span class="text-xs leading-6 text-blue-500 hover:underline">Copy Password</span>
+				</button>
+			{/if}
 		</div>
 		<div class="relative mt-1 rounded-lg">
 			<input

@@ -23,7 +23,7 @@ export const encryptFile = async (file: File, password: string): Promise<Encrypt
 		arrayBuffer
 	);
 
-	const encryptedBlob = new Blob([salt, iv, encryptedBuffer], { type: file.type });
+	const encryptedBlob = new Blob([salt, iv, encryptedBuffer]);
 
 	return {
 		encryptedBlob,
