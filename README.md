@@ -1,38 +1,22 @@
-# create-svelte
+# Encryptee
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
+[Encryptee](https://www.encryptee.io/) is a user-friendly web app built with [Svelte Kit](https://github.com/sveltejs/kit), designed for secure client-side file encryption and decryption. Keep your sensitive data safe and under your control with Encryptee's simple and efficient process.
 
-## Creating a project
+## Features
+- Client-side encryption and decryption using the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API), ensuring your data never leaves your device.
+- Intuitive user interface built with [Svelte Kit](https://github.com/sveltejs/kit), providing a seamless and efficient experience for users.
+- Supports a wide range of file formats for both encryption and decryption.
+- Secure password-based file encryption with a user-friendly password strength estimator.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Privacy and Security
+Encryptee is committed to protecting your data. By leveraging the power of the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API), all encryption and decryption operations are performed on your device, ensuring that your sensitive information is never sent over the internet or stored on our servers. With Encryptee, you can have confidence that your files are secure and private.
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
+## Easy to handle
+Simply upload your files, enter a secure password, and let [Encryptee](https://www.encryptee.io/) handle the rest. Your encrypted or decrypted files will be available for download immediately after the process is complete.
 
-# create a new project in my-app
-npm create svelte@latest my-app
-```
+## Upcoming Features
 
-## Developing
+- [ ] Implement asymmetric encryption
+- [ ] Move encryption/decryption to a service worker
+- [ ] Enable offline functionality
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```bash
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
