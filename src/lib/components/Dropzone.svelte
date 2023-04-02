@@ -56,7 +56,7 @@
 		for await (const file of files) {
 			const { encryptedBlob, fileName } = await encryptFile(file, password);
 			try {
-				await downloadFile(encryptedBlob, `${fileName}.cre`);
+				await downloadFile(encryptedBlob, fileName);
 			} catch (e) {
 				throw new Error(String(e));
 			}
@@ -365,7 +365,7 @@
 				type="button"
 				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
 			>
-				Download Encrypted Files
+				Encrypted Files
 			</button>
 		{:else if mode === 'decrypt'}
 			<button
@@ -373,7 +373,7 @@
 				type="button"
 				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
 			>
-				Download Decrypted Files
+				Decrypted Files
 			</button>
 		{/if}
 	{/if}

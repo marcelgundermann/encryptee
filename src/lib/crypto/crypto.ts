@@ -10,6 +10,14 @@ export const encryptFile = async (file: File, password: string): Promise<Encrypt
 	}
 
 	const arrayBuffer = await file.arrayBuffer();
+	const fileNameArrayBuffer = new TextEncoder().encode(file.name);
+
+	const combinedArrayBuffer = new ArrayBuffer(fileNameArrayBuffer.byteLength + 1 + arrayBuffer.byteLength);
+	const combinedView = new Uint8Array(combinedArrayBuffer);
+	combinedView.set(fileNameArrayBuffer, 0);
+	combinedView.set([0], fileNameArrayBuffer.byteLength);
+	combinedView.set(new Uint8Array(arrayBuffer), fileNameArrayBuffer.byteLength + 1);
+
 	const salt = crypto.getRandomValues(new Uint8Array(16));
 	const key = await deriveKey(password, salt);
 	const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -20,14 +28,16 @@ export const encryptFile = async (file: File, password: string): Promise<Encrypt
 			iv
 		},
 		key,
-		arrayBuffer
+		combinedArrayBuffer
 	);
 
 	const encryptedBlob = new Blob([salt, iv, encryptedBuffer]);
+	const randomBytes = crypto.getRandomValues(new Uint8Array(24));
+	const randomFileName = window.btoa(String.fromCharCode(...randomBytes)) + '.cre';
 
 	return {
 		encryptedBlob,
-		fileName: file.name
+		fileName: randomFileName
 	};
 };
 
@@ -39,11 +49,6 @@ export const decryptFile = async (file: File, password: string): Promise<Decrypt
 	if (!(window.crypto && window.crypto.subtle)) {
 		throw new Error('Web Crypto API not supported in this browser');
 	}
-
-	const getFileExtension = (fileName: string): string => {
-		const fileParts = fileName.split('.');
-		return fileParts.length > 1 ? fileParts.pop() || '' : '';
-	};
 
 	const encryptedBuffer = await file.arrayBuffer();
 	const salt = new Uint8Array(encryptedBuffer.slice(0, 16));
@@ -72,13 +77,22 @@ export const decryptFile = async (file: File, password: string): Promise<Decrypt
 		throw new Error(String(error));
 	}
 
-	const originalFileName = file.name.replace(/\.cre$/, '');
-	const fileExtension = getFileExtension(originalFileName);
-	const decryptedBlob = new Blob([decryptedBuffer], { type: file.type });
+	const decryptedUint8Array = new Uint8Array(decryptedBuffer);
+	let nullIndex = decryptedUint8Array.indexOf(0);
+	if (nullIndex === -1) {
+		throw new Error('File name not found in decrypted data');
+	}
+
+	const fileNameArrayBuffer = decryptedBuffer.slice(0, nullIndex);
+	const fileContentArrayBuffer = decryptedBuffer.slice(nullIndex + 1);
+
+	const fileName = new TextDecoder().decode(fileNameArrayBuffer);
+	const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+	const decryptedBlob = new Blob([fileContentArrayBuffer], { type: file.type });
 
 	return {
 		decryptedBlob,
-		fileName: originalFileName,
+		fileName,
 		fileExtension,
 		type: 'success'
 	};
