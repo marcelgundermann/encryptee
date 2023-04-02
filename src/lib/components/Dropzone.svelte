@@ -14,10 +14,16 @@
 
 	const removeAllFiles = (): void => {
 		files$.set(null);
+		password = '';
 	};
 
 	const addFileHandler = (): void => {
 		fileInputRef.click();
+	};
+
+	const removeFileHandler = (file: File): void => {
+		removeFile(file);
+		if (!$files$ || !$files$.length) password = '';
 	};
 
 	const fileChangedHandler = (event: Event): void => {
@@ -34,18 +40,18 @@
 	const submitHandler = async (): Promise<void> => {
 		if (!password || !$files$) return;
 
+		const files = get(files$);
+		if (!files) return;
+
 		if (mode === 'encrypt') {
-			await encryptSubmitHandler();
+			await encryptSubmitHandler(files);
 		} else if (mode === 'decrypt') {
-			await decryptSubmitHandler();
+			await decryptSubmitHandler(files);
 		}
 	};
 
-	const encryptSubmitHandler = async (): Promise<void> => {
+	const encryptSubmitHandler = async (files: FileList): Promise<void> => {
 		if (mode !== 'encrypt' || !password || !$files$) return;
-
-		const files = get(files$);
-		if (!files) return;
 
 		for await (const file of files) {
 			const { encryptedBlob, fileName } = await encryptFile(file, password);
@@ -57,11 +63,8 @@
 		}
 	};
 
-	const decryptSubmitHandler = async (): Promise<void> => {
+	const decryptSubmitHandler = async (files: FileList): Promise<void> => {
 		if (mode !== 'decrypt' || !password || !$files$) return;
-
-		const files = get(files$);
-		if (!files) return;
 
 		for await (const file of files) {
 			const decryptedFile = await decryptFile(file, password);
@@ -143,7 +146,7 @@
 										</div>
 
 										<button
-											on:click={() => removeFile(file)}
+											on:click={() => removeFileHandler(file)}
 											type="button"
 											class="absolute right-2 bottom-2 cursor-pointer hover:bg-white/10 rounded-lg p-1 transition-all"
 										>
@@ -237,7 +240,7 @@
 					</div>
 				</div>
 			{:else}
-				{#if !$files$}
+				{#if !$files$ || !$files$.length}
 					<button on:click={addFileHandler} type="button" class="absolute left-0 top-0 cursor-pointer w-full h-full">
 						<input bind:this={fileInputRef} on:change={fileChangedHandler} type="file" multiple hidden />
 					</button>
