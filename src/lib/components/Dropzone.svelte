@@ -10,6 +10,7 @@
 	let fileInputRef: HTMLInputElement;
 	let password = '';
 	let passwordPlaceholder = '';
+	let decryptionErrorMessage = '';
 
 	const removeAllFiles = (): void => {
 		files$.set(null);
@@ -31,6 +32,18 @@
 	};
 
 	const submitHandler = async (): Promise<void> => {
+		if (!password || !$files$) return;
+
+		if (mode === 'encrypt') {
+			await encryptSubmitHandler();
+		} else if (mode === 'decrypt') {
+			await decryptSubmitHandler();
+		}
+	};
+
+	const encryptSubmitHandler = async (): Promise<void> => {
+		if (mode !== 'encrypt' || !password || !$files$) return;
+
 		const files = get(files$);
 		if (!files) return;
 
@@ -45,11 +58,19 @@
 	};
 
 	const decryptSubmitHandler = async (): Promise<void> => {
+		if (mode !== 'decrypt' || !password || !$files$) return;
+
 		const files = get(files$);
 		if (!files) return;
 
 		for await (const file of files) {
-			const { decryptedBlob, fileName } = await decryptFile(file, password);
+			const decryptedFile = await decryptFile(file, password);
+			if (decryptedFile.type === 'error') {
+				decryptionErrorMessage = decryptedFile.error;
+				return;
+			}
+
+			const { decryptedBlob, fileName } = decryptedFile;
 			try {
 				await downloadFile(decryptedBlob, fileName);
 			} catch (e) {
@@ -106,7 +127,7 @@
 	$: totalSizeOfFiles = convertFileSize(Array.from($files$ ?? []).reduce((prev, curr) => prev + curr.size, 0));
 </script>
 
-<div class="max-w-screen-sm w-full space-y-8">
+<form class="max-w-screen-sm w-full space-y-8" on:submit|preventDefault={submitHandler}>
 	<div>
 		<div class="bg-neutral-800 rounded-lg w-full transition-all relative overflow-hidden">
 			{#if $files$ && $files$.length > 0}
@@ -264,7 +285,7 @@
 				placeholder={passwordPlaceholder}
 			/>
 			<div class="absolute inset-y-0 right-0 flex items-center mr-2">
-				<button class="hover:bg-white/10 rounded-lg p-1.5" on:click={() => (password = generateRandomPassword())}>
+				<button type="button" class="hover:bg-white/10 rounded-lg p-1.5" on:click={() => (password = generateRandomPassword())}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -285,26 +306,30 @@
 		{#if password.length > 0 && mode === 'encrypt'}
 			<p class="mt-2 text-xs text-white/30">Password strength: <b>{passwordStrength}</b></p>
 		{/if}
+		{#if decryptionErrorMessage}
+			<p class="mt-2 text-xs font-light text-red-600">
+				{decryptionErrorMessage}
+			</p>
+		{/if}
 	</div>
 
 	{#if $files$ && password}
 		{#if mode === 'encrypt'}
 			<button
 				on:click={submitHandler}
-				disabled={!$files$ || !password}
 				type="button"
-				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all disabled:cursor-not-allowed"
+				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
 			>
 				Download Encrypted Files
 			</button>
 		{:else if mode === 'decrypt'}
 			<button
-				on:click={decryptSubmitHandler}
+				on:click={submitHandler}
 				type="button"
-				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all disabled:pointer-events-none"
+				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
 			>
 				Download Decrypted Files
 			</button>
 		{/if}
 	{/if}
-</div>
+</form>

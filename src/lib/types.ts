@@ -5,10 +5,16 @@ export type EncryptResult = {
 	fileName: string;
 };
 
-export type DecryptResult = {
-	decryptedBlob: Blob;
-	fileName: string;
-	fileExtension: string;
-};
+export type DecryptResult =
+	| {
+			type: 'success';
+			decryptedBlob: Blob;
+			fileName: string;
+			fileExtension: string;
+	  }
+	| {
+			type: 'error';
+			error: string;
+	  };
 
 export type PasswordStrength = 'Very Weak' | 'Weak' | 'Moderate' | 'Strong' | 'Very Strong';

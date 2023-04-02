@@ -51,14 +51,26 @@ export const decryptFile = async (file: File, password: string): Promise<Decrypt
 	const dataBuffer = encryptedBuffer.slice(28);
 	const key = await deriveKey(password, salt);
 
-	const decryptedBuffer = await crypto.subtle.decrypt(
-		{
-			name: 'AES-GCM',
-			iv
-		},
-		key,
-		dataBuffer
-	);
+	let decryptedBuffer: ArrayBuffer;
+	try {
+		decryptedBuffer = await crypto.subtle.decrypt(
+			{
+				name: 'AES-GCM',
+				iv
+			},
+			key,
+			dataBuffer
+		);
+	} catch (error) {
+		if (error instanceof Error) {
+			if (error.name === 'OperationError')
+				return {
+					error: 'Invalid Password',
+					type: 'error'
+				};
+		}
+		throw new Error(String(error));
+	}
 
 	const originalFileName = file.name.replace(/\.cre$/, '');
 	const fileExtension = getFileExtension(originalFileName);
@@ -67,7 +79,8 @@ export const decryptFile = async (file: File, password: string): Promise<Decrypt
 	return {
 		decryptedBlob,
 		fileName: originalFileName,
-		fileExtension
+		fileExtension,
+		type: 'success'
 	};
 };
 
