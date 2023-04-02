@@ -3,7 +3,7 @@
 	import 'cal-sans';
 
 	import Header from '$lib/components/Header.svelte';
-	import { addFiles, files$ } from '$lib/store/files';
+	import { addFiles } from '$lib/store/files';
 	import { onMount } from 'svelte';
 
 	onMount(() => {
@@ -36,7 +36,7 @@
 	};
 </script>
 
-<main class="max-w-screen-lg mx-auto p-10">
+<main class="max-w-screen-lg mx-auto p-10 h-screen">
 	<Header />
 	<slot />
 </main>

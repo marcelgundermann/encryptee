@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { decryptFile, encryptFile } from '$lib/crypto/crypto';
 	import { estimatePasswordStrength, generateRandomPassword } from '$lib/crypto/password-helper';
+	import { convertFileSize } from '$lib/helper';
 
-	import { files$, removeFile } from '$lib/store/files';
+	import { addFiles, files$, removeFile } from '$lib/store/files';
 	import { get } from 'svelte/store';
+
+	let fileInputRef: HTMLInputElement;
 
 	let password = '';
 
@@ -13,11 +16,15 @@
 		files$.set(null);
 	};
 
+	const addFileHandler = (): void => {
+		fileInputRef.click();
+	};
+
 	const fileChangedHandler = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
 		if (!input.files) return;
 
-		// files = input.files;
+		addFiles(input.files);
 	};
 
 	const copyPassword = async (): Promise<void> => {
@@ -56,69 +63,109 @@
 	};
 
 	$: pluralizedFilesLabel = $files$?.length === 1 ? 'File' : 'Files';
-	$: sizeInMB = new Intl.NumberFormat(undefined, {
-		style: 'decimal',
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2
-	}).format(Array.from($files$ ?? []).reduce((prev, curr) => prev + curr.size, 0) / (1024 * 1024));
+	$: totalSizeOfFiles = convertFileSize(Array.from($files$ ?? []).reduce((prev, curr) => prev + curr.size, 0));
 </script>
 
-<div class="max-w-screen-sm w-full space-y-10">
+<div class="max-w-screen-sm w-full space-y-8">
 	<div>
-		<div class="bg-neutral-800 rounded-lg p-6 w-full transition-all">
-			<!-- <input type="file" on:change={fileChangedHandler} /> -->
-
+		<div class="bg-neutral-800 rounded-lg w-full transition-all relative overflow-hidden">
 			{#if $files$ && $files$.length > 0}
-				<ul class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8">
-					{#each $files$ as file}
-						<li class="cursor-default">
-							<div class="aspect-h-7 aspect-w-10 w-full rounded-lg bg-white/10">
-								<div>
-									<div class="flex justify-center items-center h-full">
-										<p class="font-cal text-xl text-white/90">
-											{file.name.substring(file.name.lastIndexOf('.')).toUpperCase()}
-										</p>
-									</div>
+				<div class="max-h-80 overflow-y-auto p-6 pb-20">
+					<ul class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8">
+						{#each $files$ as file}
+							<li class="cursor-default">
+								<div class="aspect-h-7 aspect-w-10 w-full rounded-lg bg-white/10">
+									<div>
+										<div class="flex justify-center items-center h-full">
+											<p class="font-cal text-xl text-white/90">
+												{file.name.substring(file.name.lastIndexOf('.')).toUpperCase()}
+											</p>
+										</div>
 
-									<button
-										on:click={() => removeFile(file)}
-										type="button"
-										class="absolute right-2 bottom-2 cursor-pointer hover:bg-white/10 rounded-lg p-1 transition-all"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke-width="1.5"
-											class="w-5 h-5 stroke-red-600"
+										<button
+											on:click={() => removeFile(file)}
+											type="button"
+											class="absolute right-2 bottom-2 cursor-pointer hover:bg-white/10 rounded-lg p-1 transition-all"
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-											/>
-										</svg>
-									</button>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												class="w-5 h-5 stroke-red-600"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+												/>
+											</svg>
+										</button>
+									</div>
 								</div>
-							</div>
-							<p class="mt-2 truncate text-sm font-medium text-white">{file.name}</p>
-							<p class="text-xs font-light text-white/30">
-								{new Intl.NumberFormat(undefined, {
-									style: 'decimal',
-									minimumFractionDigits: 2,
-									maximumFractionDigits: 2
-								}).format(file.size / (1024 * 1024))} MB
-							</p>
-						</li>
-					{/each}
-				</ul>
+								<p class="mt-2 truncate text-sm font-medium text-white" title={file.name}>{file.name}</p>
+								<p class="text-xs font-light text-white/30">
+									{convertFileSize(file.size)}
+								</p>
+							</li>
+						{/each}
+					</ul>
+				</div>
 
-				<div class="flex justify-between mt-10">
-					<button>Add files</button>
-					<button type="button" on:click={removeAllFiles}>Remove all files</button>
+				<div class="absolute left-0 bottom-0 w-full bg-black/5 backdrop-blur-md backdrop-filter">
+					<div class="flex justify-between p-3">
+						<button
+							on:click={addFileHandler}
+							type="button"
+							class="rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
+						>
+							<input bind:this={fileInputRef} on:change={fileChangedHandler} type="file" multiple hidden />
+
+							<div class="flex items-center">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="w-5 h-5 -ml-0.5 mr-1"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+								</svg>
+								<span>Add files</span>
+							</div>
+						</button>
+						<button
+							on:click={removeAllFiles}
+							type="button"
+							class="rounded-lg bg-red-500 px-3.5 py-2.5 text-sm text-white hover:bg-red-500/90 transition-all"
+						>
+							<div class="flex items-center">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									class="w-5 h-5 -ml-0.5 mr-1 stroke-white"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+									/>
+								</svg>
+								<span>Remove all files</span>
+							</div>
+						</button>
+					</div>
 				</div>
 			{:else}
-				<div class="flex flex-col items-center justify-items-stretch space-y-5">
+				{#if !$files$}
+					<button on:click={addFileHandler} type="button" class="absolute left-0 top-0 cursor-pointer w-full h-full">
+						<input bind:this={fileInputRef} on:change={fileChangedHandler} type="file" multiple hidden />
+					</button>
+				{/if}
+				<div class="flex flex-col items-center justify-items-stretch space-y-5 p-6">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-10 w-10 stroke-white"
@@ -143,7 +190,7 @@
 		{#if $files$ && $files$?.length > 0}
 			<div class="flex justify-between">
 				<p class="mt-2 text-xs text-white/20">{$files$.length} {pluralizedFilesLabel}</p>
-				<p class="mt-2 text-xs text-white/20">Total size: {sizeInMB}MB</p>
+				<p class="mt-2 text-xs text-white/20">Total size: {totalSizeOfFiles}</p>
 			</div>
 		{/if}
 	</div>
