@@ -1,3 +1,5 @@
+export type Mode = 'encrypt' | 'decrypt' | 'mixed';
+
 export type EncryptResult = {
 	encryptedBlob: Blob;
 	fileName: string;

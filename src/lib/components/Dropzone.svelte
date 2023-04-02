@@ -4,13 +4,12 @@
 	import { convertFileSize } from '$lib/helper';
 
 	import { addFiles, files$, removeFile } from '$lib/store/files';
+	import type { Mode } from '$lib/types';
 	import { get } from 'svelte/store';
 
 	let fileInputRef: HTMLInputElement;
-
 	let password = '';
-
-	$: passwordStrength = estimatePasswordStrength(password);
+	let passwordPlaceholder = '';
 
 	const removeAllFiles = (): void => {
 		files$.set(null);
@@ -70,6 +69,39 @@
 		URL.revokeObjectURL(url);
 	};
 
+	/**
+	 * Determines the mode (encrypt or decrypt) based on the file extensions in the given FileList.
+	 * If all files have the '.cre' extension, the mode is set to 'decrypt'.
+	 * If there are mixed extensions or none of them is '.cre', the mode is set to 'encrypt'.
+	 * If no files are provided, the default mode is 'encrypt'.
+	 *
+	 * @param {FileList | null} files - The list of files to determine the mode from.
+	 *
+	 * @returns {Mode} - The determined mode ('encrypt' or 'decrypt').
+	 */
+	const determineMode = (files: FileList | null): Mode => {
+		if (!files) return 'encrypt';
+
+		const fileExtensionSet = new Set<string>();
+
+		for (const { name } of files) {
+			fileExtensionSet.add(name.substring(name.lastIndexOf('.')).toLowerCase());
+		}
+
+		if (fileExtensionSet.size === 1 && fileExtensionSet.has('.cre')) return 'decrypt';
+		if (fileExtensionSet.size > 1 && fileExtensionSet.has('.cre')) return 'mixed';
+
+		return 'encrypt';
+	};
+
+	$: mode = determineMode($files$);
+	$: if (mode === 'encrypt') {
+		passwordPlaceholder = 'Enter a strong password';
+	} else if (mode === 'decrypt') {
+		passwordPlaceholder = 'Enter the decryption password';
+	}
+
+	$: passwordStrength = estimatePasswordStrength(password);
 	$: pluralizedFilesLabel = $files$?.length === 1 ? 'File' : 'Files';
 	$: totalSizeOfFiles = convertFileSize(Array.from($files$ ?? []).reduce((prev, curr) => prev + curr.size, 0));
 </script>
@@ -195,6 +227,17 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if mode === 'mixed'}
+			<div class="bg-red-600 p-4 rounded-lg mt-2">
+				<p class="text-sm font-light text-red-100">
+					Please don't mix encrypted '.cre' files with unencrypted ones.
+					<br />
+					Select either files to encrypt or decrypt at a time. Remove the conflicting files from your selection to proceed.
+				</p>
+			</div>
+		{/if}
+
 		{#if $files$ && $files$?.length > 0}
 			<div class="flex justify-between">
 				<p class="mt-2 text-xs text-white/20">{$files$.length} {pluralizedFilesLabel}</p>
@@ -205,10 +248,10 @@
 
 	<div>
 		<div class="flex justify-between items-center">
-			<label for="password" class="text-sm font-medium">Password</label>
-			{#if password}
+			<label for="password" class="text-sm leading-6 font-medium">Password</label>
+			{#if password && mode === 'encrypt'}
 				<button on:click={copyPassword} type="button">
-					<span class="text-xs leading-6 text-blue-500 hover:underline">Copy Password</span>
+					<span class="text-xs text-blue-500 hover:underline">Copy Password</span>
 				</button>
 			{/if}
 		</div>
@@ -218,7 +261,7 @@
 				type="password"
 				name="password"
 				class="w-full rounded-lg px-3.5 py-3 pr-10 border-none text-sm focus:ring-0 bg-white/5"
-				placeholder="Enter a strong password"
+				placeholder={passwordPlaceholder}
 			/>
 			<div class="absolute inset-y-0 right-0 flex items-center mr-2">
 				<button class="hover:bg-white/10 rounded-lg p-1.5" on:click={() => (password = generateRandomPassword())}>
@@ -239,25 +282,29 @@
 				</button>
 			</div>
 		</div>
-		{#if password.length > 0}
+		{#if password.length > 0 && mode === 'encrypt'}
 			<p class="mt-2 text-xs text-white/30">Password strength: <b>{passwordStrength}</b></p>
 		{/if}
 	</div>
 
-	<button
-		on:click={submitHandler}
-		disabled={!$files$ || !password}
-		type="button"
-		class="mt-2 w-full rounded-lg bg-white/5 px-3.5 py-2.5 text-sm text-white hover:bg-white/10 transition-all disabled:pointer-events-none"
-	>
-		Download Encrypted Files
-	</button>
-
-	<button
-		on:click={decryptSubmitHandler}
-		type="button"
-		class="mt-2 w-full rounded-lg bg-white/5 px-3.5 py-2.5 text-sm text-white hover:bg-white/10 transition-all"
-	>
-		Download Decrypted Files
-	</button>
+	{#if $files$ && password}
+		{#if mode === 'encrypt'}
+			<button
+				on:click={submitHandler}
+				disabled={!$files$ || !password}
+				type="button"
+				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all disabled:cursor-not-allowed"
+			>
+				Download Encrypted Files
+			</button>
+		{:else if mode === 'decrypt'}
+			<button
+				on:click={decryptSubmitHandler}
+				type="button"
+				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all disabled:pointer-events-none"
+			>
+				Download Decrypted Files
+			</button>
+		{/if}
+	{/if}
 </div>
