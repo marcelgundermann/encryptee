@@ -131,14 +131,14 @@
 	<div>
 		<div class="bg-neutral-800 rounded-lg w-full transition-all relative overflow-hidden">
 			{#if $files$ && $files$.length > 0}
-				<div class="max-h-80 overflow-y-auto p-6 pb-20">
-					<ul class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8">
+				<div class="max-h-80 overflow-y-auto overflow-x-hidden p-6 pb-20">
+					<ul class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-6">
 						{#each $files$ as file}
 							<li class="cursor-default">
-								<div class="aspect-h-7 aspect-w-10 w-full rounded-lg bg-white/10">
+								<div class="aspect-h-8 aspect-w-10 w-full rounded-lg bg-white/10">
 									<div>
 										<div class="flex justify-center items-center h-full">
-											<p class="font-cal text-xl text-white/90">
+											<p class="font-cal text-white/90 truncate px-2">
 												{file.name.substring(file.name.lastIndexOf('.')).toUpperCase()}
 											</p>
 										</div>
