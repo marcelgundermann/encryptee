@@ -121,7 +121,6 @@
 	} else if (mode === 'decrypt') {
 		passwordPlaceholder = 'Enter the decryption password';
 	}
-
 	$: passwordStrength = estimatePasswordStrength(password);
 	$: pluralizedFilesLabel = $files$?.length === 1 ? 'File' : 'Files';
 	$: totalSizeOfFiles = convertFileSize(Array.from($files$ ?? []).reduce((prev, curr) => prev + curr.size, 0));
@@ -164,7 +163,25 @@
 										</button>
 									</div>
 								</div>
-								<p class="mt-2 truncate text-sm font-medium text-white" title={file.name}>{file.name}</p>
+								<div class="flex justify-between items-center mt-2">
+									{#if file.name.substring(file.name.lastIndexOf('.')).toUpperCase() === '.CRE'}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke-width="2.5"
+											stroke="currentColor"
+											class="w-5 h-5 mr-1"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+											/>
+										</svg>
+									{/if}
+									<p class="truncate text-sm text-white" title={file.name}>{file.name}</p>
+								</div>
 								<p class="text-xs font-light text-white/30">
 									{convertFileSize(file.size)}
 								</p>
@@ -199,7 +216,7 @@
 						<button
 							on:click={removeAllFiles}
 							type="button"
-							class="rounded-lg bg-red-500 px-3.5 py-2.5 text-sm text-white hover:bg-red-500/90 transition-all"
+							class="rounded-lg bg-red-600 px-3.5 py-2.5 text-sm text-white hover:bg-red-600/90 transition-all"
 						>
 							<div class="flex items-center">
 								<svg
@@ -249,69 +266,95 @@
 			{/if}
 		</div>
 
-		{#if mode === 'mixed'}
-			<div class="bg-red-600 p-4 rounded-lg mt-2">
-				<p class="text-sm font-light text-red-100">
-					Please don't mix encrypted '.cre' files with unencrypted ones.
-					<br />
-					Select either files to encrypt or decrypt at a time. Remove the conflicting files from your selection to proceed.
-				</p>
+		{#if $files$ && $files$?.length > 0}
+			<div class="flex justify-between text-xs text-white/40 mt-2">
+				<p>{$files$.length} {pluralizedFilesLabel}</p>
+				<p>Total size: {totalSizeOfFiles}</p>
 			</div>
 		{/if}
 
-		{#if $files$ && $files$?.length > 0}
-			<div class="flex justify-between">
-				<p class="mt-2 text-xs text-white/20">{$files$.length} {pluralizedFilesLabel}</p>
-				<p class="mt-2 text-xs text-white/20">Total size: {totalSizeOfFiles}</p>
+		{#if mode === 'mixed'}
+			<div class="bg-red-600 p-4 rounded-lg mt-4">
+				<div class="flex">
+					<div class="flex-shrink-0">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+							stroke="currentColor"
+							class="w-5 h-5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+							/>
+						</svg>
+					</div>
+					<div class="ml-3 text-sm text-red-100 space-y-2">
+						<div>Please don't mix encrypted '.cre' files with unencrypted ones.</div>
+						<div>
+							Select either files to encrypt or decrypt at a time. Remove the conflicting files from your selection to
+							proceed.
+						</div>
+					</div>
+				</div>
 			</div>
 		{/if}
 	</div>
 
-	<div>
-		<div class="flex justify-between items-center">
-			<label for="password" class="text-sm leading-6 font-medium">Password</label>
-			{#if password && mode === 'encrypt'}
-				<button on:click={copyPassword} type="button">
-					<span class="text-xs text-blue-500 hover:underline">Copy Password</span>
-				</button>
+	{#if mode !== 'mixed'}
+		<div>
+			<div class="flex justify-between items-center">
+				<label for="password" class="text-sm leading-6 font-medium">Password</label>
+				{#if password && mode === 'encrypt'}
+					<button on:click={copyPassword} type="button">
+						<span class="text-xs text-blue-500 hover:underline">Copy Password</span>
+					</button>
+				{/if}
+			</div>
+			<div class="relative mt-1 rounded-lg">
+				<input
+					bind:value={password}
+					type="password"
+					name="password"
+					class="w-full rounded-lg px-3.5 py-3 pr-10 border-none text-sm focus:ring-0 bg-white/5"
+					placeholder={passwordPlaceholder}
+				/>
+				<div class="absolute inset-y-0 right-0 flex items-center mr-2">
+					<button
+						type="button"
+						class="hover:bg-white/10 rounded-lg p-1.5"
+						on:click={() => (password = generateRandomPassword())}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+							stroke="currentColor"
+							class="w-5 h-5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+							/>
+						</svg>
+					</button>
+				</div>
+			</div>
+			{#if password.length > 0 && mode === 'encrypt'}
+				<p class="mt-2 text-xs text-white/30">Password strength: <b>{passwordStrength}</b></p>
+			{/if}
+			{#if decryptionErrorMessage}
+				<p class="mt-2 text-xs font-light text-red-600">
+					{decryptionErrorMessage}
+				</p>
 			{/if}
 		</div>
-		<div class="relative mt-1 rounded-lg">
-			<input
-				bind:value={password}
-				type="password"
-				name="password"
-				class="w-full rounded-lg px-3.5 py-3 pr-10 border-none text-sm focus:ring-0 bg-white/5"
-				placeholder={passwordPlaceholder}
-			/>
-			<div class="absolute inset-y-0 right-0 flex items-center mr-2">
-				<button type="button" class="hover:bg-white/10 rounded-lg p-1.5" on:click={() => (password = generateRandomPassword())}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-						stroke="currentColor"
-						class="w-5 h-5"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-						/>
-					</svg>
-				</button>
-			</div>
-		</div>
-		{#if password.length > 0 && mode === 'encrypt'}
-			<p class="mt-2 text-xs text-white/30">Password strength: <b>{passwordStrength}</b></p>
-		{/if}
-		{#if decryptionErrorMessage}
-			<p class="mt-2 text-xs font-light text-red-600">
-				{decryptionErrorMessage}
-			</p>
-		{/if}
-	</div>
+	{/if}
 
 	{#if $files$ && password}
 		{#if mode === 'encrypt'}
