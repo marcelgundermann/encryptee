@@ -7,7 +7,7 @@
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 
-	onMount(async () => {
+	onMount(() => {
 		worker = new Worker(new URL('$lib/crypto.worker.ts', import.meta.url), {
 			type: 'module'
 		});
