@@ -6,11 +6,6 @@ export default defineConfig({
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}']
 	},
-	server: {
-		fs: {
-			allow: ['static']
-		}
-	},
 	// https://github.com/sveltejs/kit/issues/9528#issuecomment-1493912401
 	worker: {
 		plugins: [
@@ -20,7 +15,7 @@ export default defineConfig({
 					const manifestPlugin = c.worker.plugins.findIndex((p) => p.name === 'vite:manifest');
 					c.worker.plugins.splice(manifestPlugin, 1);
 					const ssrManifestPlugin = c.worker.plugins.findIndex((p) => p.name === 'vite:ssr-manifest');
-					c.plugins?.splice(ssrManifestPlugin, 1);
+					c.plugins?.slice(ssrManifestPlugin, 1);
 				}
 			}
 		]

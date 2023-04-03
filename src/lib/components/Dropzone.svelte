@@ -6,12 +6,8 @@
 	import type { DecryptResult, EncryptResult, Mode, WebWorkerOutgoingMessage } from '$lib/types';
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
-	//import cryptoWorkerURL from '$lib/crypto.worker?url';
 
 	onMount(async () => {
-		// const { cryptoWorkerInstance } = await import('$lib/crypto.worker.instance');
-		// worker = cryptoWorkerInstance;
-		// worker = new Worker(cryptoWorkerURL);
 		worker = new Worker(new URL('$lib/crypto.worker.ts', import.meta.url), {
 			type: 'module'
 		});
