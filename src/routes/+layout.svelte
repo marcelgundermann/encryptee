@@ -9,14 +9,32 @@
 	onMount(() => {
 		window.addEventListener('drop', handleDrop);
 		window.addEventListener('dragover', handleDragOver);
+		window.addEventListener('dragenter', handleDragEnter);
+		window.addEventListener('dragleave', handleDragLeave);
 
 		return () => {
 			window.removeEventListener('drop', handleDrop);
 			window.removeEventListener('dragover', handleDragOver);
+			window.removeEventListener('dragenter', handleDragEnter);
+			window.removeEventListener('dragleave', handleDragLeave);
 		};
 	});
 
 	let dragOver = false;
+
+	const handleDragEnter = (event: DragEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		dragOver = true;
+	};
+
+	const handleDragLeave = (event: DragEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		if (!event.relatedTarget || (event.relatedTarget as HTMLElement).tagName === 'HTML') {
+			dragOver = false;
+		}
+	};
 
 	const handleDrop = (event: DragEvent) => {
 		event.preventDefault();
@@ -32,7 +50,6 @@
 	const handleDragOver = (event: DragEvent) => {
 		event.preventDefault();
 		event.stopPropagation();
-		dragOver = true;
 	};
 </script>
 
