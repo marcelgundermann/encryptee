@@ -10,7 +10,6 @@ export type DecryptResult =
 			type: 'success';
 			decryptedBlob: Blob;
 			fileName: string;
-			fileExtension: string;
 	  }
 	| {
 			type: 'error';
@@ -18,3 +17,14 @@ export type DecryptResult =
 	  };
 
 export type PasswordStrength = 'Very Weak' | 'Weak' | 'Moderate' | 'Strong' | 'Very Strong';
+
+export type WebWorkerIncomingMessage = {
+	type: Exclude<Mode, 'mixed'>;
+	file: File;
+	password: string;
+};
+
+export type WebWorkerOutgoingMessage = {
+	type: Exclude<Mode, 'mixed'>;
+	result: EncryptResult | DecryptResult;
+};

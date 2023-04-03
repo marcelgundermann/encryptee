@@ -1,12 +1,19 @@
 <script lang="ts">
-	import { decryptFile, encryptFile } from '$lib/crypto';
 	import { estimatePasswordStrength, generateRandomPassword } from '$lib/password-helper';
 	import { convertFileSize } from '$lib/helper';
 
 	import { addFiles, files$, removeFile } from '$lib/store/files';
-	import type { Mode } from '$lib/types';
+	import type { DecryptResult, EncryptResult, Mode, WebWorkerOutgoingMessage } from '$lib/types';
 	import { get } from 'svelte/store';
+	import { onMount } from 'svelte';
 
+	onMount(() => {
+		worker = new Worker(new URL('$lib/crypto.worker.ts', import.meta.url), {
+			type: 'module'
+		});
+	});
+
+	let worker: Worker;
 	let fileInputRef: HTMLInputElement;
 	let password = '';
 	let passwordPlaceholder = '';
@@ -53,32 +60,45 @@
 	const encryptSubmitHandler = async (files: FileList): Promise<void> => {
 		if (mode !== 'encrypt' || !password || !$files$) return;
 
-		for await (const file of files) {
-			const { encryptedBlob, fileName } = await encryptFile(file, password);
-			try {
+		worker.onmessage = async (event: MessageEvent<WebWorkerOutgoingMessage>) => {
+			const { type, result } = event.data;
+			if (type === 'encrypt') {
+				const { encryptedBlob, fileName } = result as EncryptResult;
 				await downloadFile(encryptedBlob, fileName);
-			} catch (e) {
-				throw new Error(String(e));
 			}
+		};
+
+		for (const file of files) {
+			worker.postMessage({
+				type: 'encrypt',
+				file,
+				password
+			});
 		}
 	};
 
 	const decryptSubmitHandler = async (files: FileList): Promise<void> => {
 		if (mode !== 'decrypt' || !password || !$files$) return;
 
-		for await (const file of files) {
-			const decryptedFile = await decryptFile(file, password);
-			if (decryptedFile.type === 'error') {
-				decryptionErrorMessage = decryptedFile.error;
-				return;
-			}
-
-			const { decryptedBlob, fileName } = decryptedFile;
-			try {
+		worker.onmessage = async (event: MessageEvent<WebWorkerOutgoingMessage>) => {
+			const { type, result } = event.data;
+			if (type === 'decrypt') {
+				const decryptedFile = result as DecryptResult;
+				if (decryptedFile.type === 'error') {
+					decryptionErrorMessage = decryptedFile.error;
+					return;
+				}
+				const { decryptedBlob, fileName } = decryptedFile;
 				await downloadFile(decryptedBlob, fileName);
-			} catch (e) {
-				throw new Error(String(e));
 			}
+		};
+
+		for (const file of files) {
+			worker.postMessage({
+				type: 'decrypt',
+				file,
+				password
+			});
 		}
 	};
 
@@ -245,7 +265,7 @@
 						<input bind:this={fileInputRef} on:change={fileChangedHandler} type="file" multiple hidden />
 					</button>
 				{/if}
-				<div class="flex flex-col items-center justify-items-stretch space-y-5 p-6">
+				<div class="flex flex-col items-center justify-items-stretch space-y-5 p-12">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-10 w-10 stroke-white"
@@ -263,7 +283,7 @@
 						<path d="M7 9l5 -5l5 5" />
 						<path d="M12 4l0 12" />
 					</svg>
-					<p class="font-semibold">Drag & Drop or browse files</p>
+					<p class="font-cal text-xl tracking-wide">Drag & Drop or browse files</p>
 				</div>
 			{/if}
 		</div>
