@@ -62,6 +62,6 @@
 	class="{dragOver ? 'absolute' : 'hidden'} h-screen w-screen z-10 inset-0 bg-black/5 backdrop-blur-sm backdrop-filter"
 >
 	<div class="flex justify-center items-center h-full">
-		<p class="font-cal text-3xl text-white/90">Drop files to encrypt</p>
+		<p class="font-cal text-3xl text-white">Drop files to encrypt/decrypt</p>
 	</div>
 </div>
