@@ -1,4 +1,11 @@
-export type Mode = 'encrypt' | 'decrypt' | 'mixed';
+export type Mode =
+	| 'encrypt'
+	| 'encryption_in_progress'
+	| 'encryption_done'
+	| 'decrypt'
+	| 'decryption_in_progress'
+	| 'decryption_done'
+	| 'mixed';
 
 export type EncryptResult = {
 	encryptedBlob: Blob;

@@ -19,6 +19,9 @@
 	let passwordPlaceholder = '';
 	let decryptionErrorMessage = '';
 
+	let fileToDownload: Blob;
+	let fileToDownloadName: string;
+
 	const removeAllFiles = (): void => {
 		files$.set(null);
 		password = '';
@@ -45,26 +48,33 @@
 	};
 
 	const submitHandler = async (): Promise<void> => {
+		if (mode === 'encryption_done' || mode === 'decryption_done') {
+			await downloadFile(fileToDownload, fileToDownloadName);
+			return;
+		}
+
 		if (!password || !$files$) return;
 
 		const files = get(files$);
 		if (!files) return;
 
 		if (mode === 'encrypt') {
+			mode = 'encryption_in_progress';
 			await encryptSubmitHandler(files);
 		} else if (mode === 'decrypt') {
+			mode = 'decryption_in_progress';
 			await decryptSubmitHandler(files);
 		}
 	};
 
 	const encryptSubmitHandler = async (files: FileList): Promise<void> => {
-		if (mode !== 'encrypt' || !password || !$files$) return;
-
 		worker.onmessage = async (event: MessageEvent<WebWorkerOutgoingMessage>) => {
 			const { type, result } = event.data;
 			if (type === 'encrypt') {
 				const { encryptedBlob, fileName } = result as EncryptResult;
-				await downloadFile(encryptedBlob, fileName);
+				fileToDownload = encryptedBlob;
+				fileToDownloadName = fileName;
+				mode = 'encryption_done';
 			}
 		};
 
@@ -78,18 +88,21 @@
 	};
 
 	const decryptSubmitHandler = async (files: FileList): Promise<void> => {
-		if (mode !== 'decrypt' || !password || !$files$) return;
-
 		worker.onmessage = async (event: MessageEvent<WebWorkerOutgoingMessage>) => {
 			const { type, result } = event.data;
 			if (type === 'decrypt') {
 				const decryptedFile = result as DecryptResult;
 				if (decryptedFile.type === 'error') {
 					decryptionErrorMessage = decryptedFile.error;
+					mode = 'decrypt';
 					return;
 				}
+
 				const { decryptedBlob, fileName } = decryptedFile;
-				await downloadFile(decryptedBlob, fileName);
+				fileToDownload = decryptedBlob;
+				fileToDownloadName = fileName;
+				decryptionErrorMessage = '';
+				mode = 'decryption_done';
 			}
 		};
 
@@ -330,7 +343,7 @@
 		<div>
 			<div class="flex justify-between items-center">
 				<label for="password" class="text-sm leading-6 font-medium">Password</label>
-				{#if password && mode === 'encrypt'}
+				{#if (password && mode === 'encrypt') || mode === 'encryption_in_progress' || mode === 'encryption_done'}
 					<button on:click={copyPassword} type="button">
 						<span class="text-xs text-blue-500 hover:underline">Copy Password</span>
 					</button>
@@ -378,23 +391,57 @@
 		</div>
 	{/if}
 
-	{#if $files$ && password}
-		{#if mode === 'encrypt'}
-			<button
-				on:click={submitHandler}
-				type="button"
-				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
-			>
-				Encrypted Files
-			</button>
-		{:else if mode === 'decrypt'}
-			<button
-				on:click={submitHandler}
-				type="button"
-				class="mt-2 w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
-			>
-				Decrypted Files
-			</button>
-		{/if}
+	{#if $files$ && password && mode !== 'mixed'}
+		<button
+			on:click={submitHandler}
+			disabled={mode === 'encryption_in_progress' || mode === 'decryption_in_progress'}
+			type="button"
+			class="mt-2 inline-flex items-center justify-center w-full rounded-lg bg-white px-3.5 py-2.5 text-sm text-black hover:bg-white/90 transition-all"
+		>
+			{#if mode === 'encryption_in_progress' || mode === 'decryption_in_progress'}
+				<svg
+					class="animate-spin -ml-1 mr-2 h-4 w-4 text-black"
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+					<path
+						class="opacity-75"
+						fill="currentColor"
+						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+					/>
+				</svg>
+			{:else if mode === 'encryption_done' || mode === 'decryption_done'}
+				<svg
+					class="-ml-1 mr-2 h-4 w-4 text-black"
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="2"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+					/>
+				</svg>
+			{/if}
+
+			{#if mode === 'encrypt'}
+				Encrypt Files
+			{:else if mode === 'encryption_in_progress'}
+				Encrypting Files...
+			{:else if mode === 'encryption_done'}
+				Download Encrypted Files
+			{:else if mode === 'decrypt'}
+				Decrypt Files
+			{:else if mode === 'decryption_in_progress'}
+				Decrypting Files...
+			{:else if mode === 'decryption_done'}
+				Download Decrypted Files
+			{/if}
+		</button>
 	{/if}
 </form>
