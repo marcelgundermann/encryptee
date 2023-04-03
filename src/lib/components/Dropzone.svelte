@@ -3,18 +3,13 @@
 	import { convertFileSize } from '$lib/helper';
 
 	import { addFiles, files$, removeFile } from '$lib/store/files';
-	import type {
-		DecryptResult,
-		EncryptResult,
-		Mode,
-		WebWorkerOutgoingMessage
-	} from '$lib/types';
+	import type { DecryptResult, EncryptResult, Mode, WebWorkerOutgoingMessage } from '$lib/types';
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
-	import CryptoWorker from '$lib/crypto.worker?worker';
+	import cryptoWorkerURL from '$lib/crypto.worker?url';
 
-	onMount(() => {
-		worker = new CryptoWorker();
+	onMount(async () => {
+		worker = new Worker(cryptoWorkerURL);
 	});
 
 	let worker: Worker;
