@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { estimatePasswordStrength, generateRandomPassword } from '$lib/password-helper';
+	import { generateRandomPassword } from '$lib/password-helper';
 	import type { Mode } from '$lib/types';
 
 	export let mode: Mode;
@@ -13,7 +13,6 @@
 		navigator.clipboard.writeText(password);
 	};
 
-	$: passwordStrength = estimatePasswordStrength(password);
 	$: if (mode === 'encrypt') {
 		passwordPlaceholder = 'Enter a strong password';
 	} else if (mode === 'decrypt') {
@@ -66,9 +65,6 @@
 				{/if}
 			</div>
 		</div>
-		{#if (password.length > 0 && mode === 'encrypt') || mode === 'encryption_in_progress' || mode === 'encryption_done'}
-			<p class="mt-2 text-xs text-white/30">Password strength: <b>{passwordStrength}</b></p>
-		{/if}
 		{#if errorMessage}
 			<p class="mt-2 text-xs font-light text-red-600">
 				{errorMessage}
