@@ -2,7 +2,7 @@
 	import CryptoActionButton from '$lib/components/CryptoActionButton.svelte';
 	import Password from '$lib/components/shared/Password.svelte';
 	import { processChunks } from '$lib/utils/chunk';
-	import { cipherOperationState$, cryptoMode$, files$, isFastMode$, isFastModeSupported$ } from '$lib/store/files';
+	import { cipherOperationState$, cryptoMode$, files$, isFastMode$, supportsFileSystemAccess$ } from '$lib/store/files';
 	import type { WebWorkerOutgoingMessageChunk, WebWorkerOutgoingMessageFile } from '$lib/types';
 
 	import { onMount } from 'svelte';
@@ -23,37 +23,44 @@
 			type: 'module'
 		});
 
-		worker.addEventListener('message', async (event: MessageEvent<WebWorkerOutgoingMessageChunk | WebWorkerOutgoingMessageFile>) => {
-			const { transferType, type } = event.data;
+		worker.addEventListener(
+			'message',
+			async (event: MessageEvent<WebWorkerOutgoingMessageChunk | WebWorkerOutgoingMessageFile>) => {
+				const { transferType, type } = event.data;
 
-			if (transferType === 'chunk') {
-				const { chunk, isLastChunk, writerId } = event.data;
+				if (transferType === 'chunk') {
+					const { chunk, isLastChunk, writerId } = event.data;
 
-				if (!writerMap.has(writerId)) throw new Error('Writer not found');
-				const writer = await writerMap.get(writerId)!;
+					if (!writerMap.has(writerId)) throw new Error('Writer not found');
+					const writer = await writerMap.get(writerId)!;
 
-				await writer.write(chunk);
-				progress += chunk.byteLength;
+					await writer.write(chunk);
+					progress += chunk.byteLength;
 
-				if (isLastChunk) {
-					cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_last_chunk' : 'chunk_decryption_last_chunk');
-					await writer.close();
-					writerMap.delete(writerId);
-					cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_done' : 'chunk_decryption_done');
+					if (isLastChunk) {
+						cipherOperationState$.set(
+							type === 'encrypt' ? 'chunk_encryption_last_chunk' : 'chunk_decryption_last_chunk'
+						);
+						await writer.close();
+						writerMap.delete(writerId);
+						cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_done' : 'chunk_decryption_done');
+					}
+					return;
 				}
-				return;
-			}
 
-			if (transferType === 'file') {
-				const { blob, fileName } = event.data;
-				// ...
+				if (transferType === 'file') {
+					const { blob, fileName } = event.data;
+					// ...
+				}
 			}
-		});
+		);
 
-		worker.addEventListener('message', async (event: MessageEvent<WebWorkerOutgoingMessageChunk | WebWorkerOutgoingMessageFile>) => {
-			console.log(event);
-			
-		});
+		worker.addEventListener(
+			'message',
+			async (event: MessageEvent<WebWorkerOutgoingMessageChunk | WebWorkerOutgoingMessageFile>) => {
+				console.log(event);
+			}
+		);
 	});
 
 	const submitHandler = async (): Promise<void> => {
@@ -108,7 +115,7 @@
 
 <FileInputPanel />
 
-{#if $isFastMode$ && !$isFastModeSupported$}
+{#if $isFastMode$ && !$supportsFileSystemAccess$}
 	<AlertPanel title="Your browser cannot encrypt or decrypt files over 2GB." type="warning">
 		<div>To process files larger than 2GB, consider using one of the following compatible browsers:</div>
 
