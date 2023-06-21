@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { addAbortedFiles, addFiles, isFastMode$, supportsFileSystemAccess$ } from '$lib/store/files';
+	import { addFiles, supportsFileSystemAccess$ } from '$lib/store/files';
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
 
 	onMount(() => {
-		supportsFileSystemAccess$.set('showDirectoryPicker' in window);
+		const supportsFileSystemAccess = 'showDirectoryPicker' in window;
+		supportsFileSystemAccess$.set(supportsFileSystemAccess);
+
+		if (!supportsFileSystemAccess) return;
 
 		window.addEventListener('drop', handleDrop);
 		window.addEventListener('dragover', handleDragOver);

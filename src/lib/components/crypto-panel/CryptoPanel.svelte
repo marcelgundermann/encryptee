@@ -2,7 +2,7 @@
 	import CryptoActionButton from '$lib/components/CryptoActionButton.svelte';
 	import Password from '$lib/components/shared/Password.svelte';
 	import { processChunks } from '$lib/utils/chunk';
-	import { cipherOperationState$, cryptoMode$, files$, isFastMode$, supportsFileSystemAccess$ } from '$lib/store/files';
+	import { cipherOperationState$, cryptoMode$, files$, supportsFileSystemAccess$ } from '$lib/store/files';
 	import type { WebWorkerOutgoingMessageChunk, WebWorkerOutgoingMessageFile } from '$lib/types';
 
 	import { onMount } from 'svelte';
@@ -115,9 +115,9 @@
 
 <FileInputPanel />
 
-{#if $isFastMode$ && !$supportsFileSystemAccess$}
-	<AlertPanel title="Your browser cannot encrypt or decrypt files over 2GB." type="warning">
-		<div>To process files larger than 2GB, consider using one of the following compatible browsers:</div>
+{#if !$supportsFileSystemAccess$}
+	<AlertPanel title="File System Access API not supported" type="warning">
+		<div>Please consider using one of the following compatible browsers:</div>
 
 		<ul class="list-disc list-inside">
 			<li>Google Chrome (version 86 or later)</li>
@@ -125,25 +125,26 @@
 			<li>Opera (version 72 or later)</li>
 		</ul>
 	</AlertPanel>
-{/if}
-
-{#if $cryptoMode$ === 'mixed'}
-	<AlertPanel title="Please don't mix encrypted '.cre' files with unencrypted ones.">
-		<div>
-			Select either files to encrypt or decrypt at a time. Remove the conflicting files from your selection to proceed.
-		</div>
-	</AlertPanel>
-{/if}
-
-<Password bind:password errorMessage={''} />
-
-{#if showCryptoActionButton}
-	<div class="w-full">
-		<CryptoActionButton on:click={submitHandler} bind:fileSize bind:progress />
-		{#if $cipherOperationState$ === 'chunk_encryption_done' || $cipherOperationState$ === 'chunk_decryption_done'}
-			<div class="text-xs text-white/40 mt-2">
-				All files have been saved into the directory: <span class="font-semibold">{saveDirectory}/Encryptee</span>
+{:else}
+	{#if $cryptoMode$ === 'mixed'}
+		<AlertPanel title="Please don't mix encrypted '.cre' files with unencrypted ones.">
+			<div>
+				Select either files to encrypt or decrypt at a time. Remove the conflicting files from your selection to
+				proceed.
 			</div>
-		{/if}
-	</div>
+		</AlertPanel>
+	{/if}
+
+	<Password bind:password errorMessage={''} />
+
+	{#if showCryptoActionButton}
+		<div class="w-full">
+			<CryptoActionButton on:click={submitHandler} bind:fileSize bind:progress />
+			{#if $cipherOperationState$ === 'chunk_encryption_done' || $cipherOperationState$ === 'chunk_decryption_done'}
+				<div class="text-xs text-white/40 mt-2">
+					All files have been saved into the directory: <span class="font-semibold">{saveDirectory}/Encryptee</span>
+				</div>
+			{/if}
+		</div>
+	{/if}
 {/if}

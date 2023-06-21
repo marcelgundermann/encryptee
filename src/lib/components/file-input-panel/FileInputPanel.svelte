@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { convertFileSize } from '$lib/helper';
-	import { addFiles, files$, password$, removeFile } from '$lib/store/files';
+	import { addFiles, files$, password$, removeFile, supportsFileSystemAccess$ } from '$lib/store/files';
 	import Button from '../shared/Button.svelte';
 	import FileInputPanelFooter from './FileInputPanelFooter.svelte';
 	import FileInputPanelInfo from './FileInputPanelInfo.svelte';
@@ -52,7 +52,7 @@
 </script>
 
 <div class="w-full h-full">
-	<div class="bg-neutral-900 rounded-md h-full relative max-h-72 overflow-hidden">
+	<div class="bg-neutral-900 rounded-md h-full relative max-h-72 overflow-hidden" class:pointer-events-none={!$supportsFileSystemAccess$}>
 		{#if hasFiles}
 			<div class="overflow-y-auto h-full overflow-x-hidden p-6 pb-20">
 				<ul class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-6">

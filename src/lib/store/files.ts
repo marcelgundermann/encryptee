@@ -6,15 +6,12 @@ export const files$ = writable<FileList | null>();
 export const abortedFiles$ = writable<Set<string>>();
 
 export const supportsFileSystemAccess$ = writable<boolean>(true);
-export const isFastMode$ = writable<boolean>(false);
 export const password$ = writable<string>('');
 export const applicationMode$ = writable<Mode>('encrypt');
 export const cipherOperationState$ = writable<CipherOperationFileState | CipherOperationChunkState | null>(null);
 
 export const addFiles = (newFiles: FileList) => {
 	const existingFiles = Array.from(get(files$) ?? []);
-	const supportsFileSystemAccess = get(supportsFileSystemAccess$);
-	const abortedFiles: Array<string> = [];
 
 	const newDroppedFiles = Array.from(newFiles).filter(
 		(newFiles) =>
@@ -24,26 +21,11 @@ export const addFiles = (newFiles: FileList) => {
 	const combinedFiles = [...existingFiles, ...newDroppedFiles];
 	const filesToAdd = new DataTransfer();
 
-	isFastMode$.set(false);
-
 	for (const file of combinedFiles) {
-		const fileSize = file.size;
-
-		if (fileSize < 2_147_483_648) {
-			filesToAdd.items.add(file);
-		} else {
-			isFastMode$.set(true);
-			if (supportsFileSystemAccess) {
-				filesToAdd.items.add(file);
-			} else {
-				abortedFiles.push(file.name);
-			}
-		}
+		filesToAdd.items.add(file);
 	}
 
 	files$.set(filesToAdd.files);
-
-	addAbortedFiles(abortedFiles);
 };
 
 export const removeFile = (fileToRemove: File) => {

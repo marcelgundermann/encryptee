@@ -5,7 +5,7 @@
 	export let type: AlertType = 'error';
 </script>
 
-<div class="{type === 'error' ? 'bg-red-600' : 'bg-yellow-500'} p-4 rounded-lg mt-4">
+<div class="{type === 'error' ? 'bg-red-600' : 'bg-yellow-500'} p-4 rounded-lg mt-4 w-full">
 	<div class="flex">
 		<div class="flex-shrink-0">
 			<svg
