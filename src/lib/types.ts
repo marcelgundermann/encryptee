@@ -71,8 +71,6 @@ export type DecryptResult =
 			error: string;
 	  };
 
-export type PasswordStrength = 'Very Weak' | 'Weak' | 'Moderate' | 'Strong' | 'Very Strong';
-
 interface AbstractWebWorkerMessage {
 	type: Exclude<Mode, 'mixed'>;
 	transferType: TransferType;

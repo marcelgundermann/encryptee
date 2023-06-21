@@ -1,5 +1,3 @@
-import type { PasswordStrength } from '$lib/types';
-
 /**
  * Generates a cryptographically secure random password of the specified length
  * using the Web Crypto API.
