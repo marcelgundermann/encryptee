@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { addAbortedFiles, addFiles, isFastMode$ } from '$lib/store/files';
+	import { addAbortedFiles, addFiles, isFastMode$, supportsFileSystemAccess$ } from '$lib/store/files';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 
 	onMount(() => {
-		// @ts-expect-error
-		isChrome = !!window.chrome;
+		supportsFileSystemAccess$.set('showDirectoryPicker' in window);
 
 		window.addEventListener('drop', handleDrop);
 		window.addEventListener('dragover', handleDragOver);
@@ -18,8 +18,6 @@
 			window.removeEventListener('dragleave', handleDragLeave);
 		};
 	});
-
-	let isChrome = false;
 	let dragOver = false;
 
 	const handleDragEnter = (event: DragEvent) => {
@@ -44,24 +42,7 @@
 		const droppedFiles = event.dataTransfer?.files;
 		if (!droppedFiles) return;
 
-		const filesToAdd = new DataTransfer();
-		const abortedFiles: Array<string> = [];
-
-		[...droppedFiles].forEach((file) => {
-			const fileSize = file.size;
-
-			if (fileSize < 1000000000) {
-				filesToAdd.items.add(file);
-			}
-
-			if (fileSize > 1000000000) {
-				filesToAdd.items.add(file);
-				isFastMode$.set(true); // Refactor
-			}
-		});
-
-		addFiles(filesToAdd.files);
-		addAbortedFiles(abortedFiles);
+		addFiles(droppedFiles);
 	};
 
 	const handleDragOver = (event: DragEvent) => {

@@ -1,35 +1,49 @@
 // store.ts
 import type { CipherOperationChunkState, CipherOperationFileState, Mode } from '$lib/types';
-import { derived, writable } from 'svelte/store';
+import { derived, get, writable } from 'svelte/store';
 
 export const files$ = writable<FileList | null>();
 export const abortedFiles$ = writable<Set<string>>();
 
-export const isFastModeSupported$ = writable<boolean>(true);
+export const supportsFileSystemAccess$ = writable<boolean>(true);
 export const isFastMode$ = writable<boolean>(false);
 export const password$ = writable<string>('');
 export const applicationMode$ = writable<Mode>('encrypt');
 export const cipherOperationState$ = writable<CipherOperationFileState | CipherOperationChunkState | null>(null);
 
 export const addFiles = (newFiles: FileList) => {
-	files$.update((store) => {
-		if (!store) return newFiles;
+	const existingFiles = Array.from(get(files$) ?? []);
+	const supportsFileSystemAccess = get(supportsFileSystemAccess$);
+	const abortedFiles: Array<string> = [];
 
-		const existingFiles = Array.from(store);
-		const newDroppedFiles = Array.from(newFiles).filter(
-			(newFile) =>
-				!existingFiles.some((existingFile) => existingFile.name === newFile.name && existingFile.size === newFile.size)
-		);
+	const newDroppedFiles = Array.from(newFiles).filter(
+		(newFiles) =>
+			!existingFiles.some((existingFile) => existingFile.name === newFiles.name && existingFile.size === newFiles.size)
+	);
 
-		const combinedFiles = [...existingFiles, ...newDroppedFiles];
-		const fileList = new DataTransfer();
+	const combinedFiles = [...existingFiles, ...newDroppedFiles];
+	const filesToAdd = new DataTransfer();
 
-		for (const file of combinedFiles) {
-			fileList.items.add(file);
+	isFastMode$.set(false);
+
+	for (const file of combinedFiles) {
+		const fileSize = file.size;
+
+		if (fileSize < 2_147_483_648) {
+			filesToAdd.items.add(file);
+		} else {
+			isFastMode$.set(true);
+			if (supportsFileSystemAccess) {
+				filesToAdd.items.add(file);
+			} else {
+				abortedFiles.push(file.name);
+			}
 		}
+	}
 
-		return fileList.files;
-	});
+	files$.set(filesToAdd.files);
+
+	addAbortedFiles(abortedFiles);
 };
 
 export const removeFile = (fileToRemove: File) => {
