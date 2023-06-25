@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { generateRandomPassword } from '$lib/password-helper';
+	import { generateRandomPassword } from '$lib/helpers/password';
 	import { applicationMode$, cryptoMode$ } from '$lib/store/files';
 	import type { Mode } from '$lib/types';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import Input from './Input.svelte';
 
 	export let password: string;
-	export let errorMessage: string;
 
 	let passwordPlaceholder = '';
 	let inputType: HTMLInputAttributes['type'] = 'password';

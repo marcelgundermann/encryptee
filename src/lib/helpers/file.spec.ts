@@ -1,4 +1,4 @@
-import { convertFileSize } from './helper';
+import { convertFileSize } from './file';
 import { describe, test, expect } from 'vitest';
 
 describe('convertFileSize', () => {

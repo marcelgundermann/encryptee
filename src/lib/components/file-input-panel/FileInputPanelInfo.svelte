@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { convertFileSize } from '$lib/helper';
+	import { convertFileSize } from '$lib/helpers/file';
 
 	export let files: Array<File>;
 

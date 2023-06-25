@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { convertFileSize } from '$lib/helper';
+	import { convertFileSize } from '$lib/helpers/file';
 	import { cipherOperationState$ } from '$lib/store/files';
 	import type { CipherOperationChunkState, CipherOperationFileState } from '$lib/types';
 	import Button from './shared/Button.svelte';

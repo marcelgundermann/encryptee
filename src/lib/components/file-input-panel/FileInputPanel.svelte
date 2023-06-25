@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { convertFileSize } from '$lib/helper';
+	import { convertFileSize } from '$lib/helpers/file';
 	import { addFiles, files$, password$, removeFile, supportsFileSystemAccess$ } from '$lib/store/files';
 	import Button from '../shared/Button.svelte';
 	import FileInputPanelFooter from './FileInputPanelFooter.svelte';

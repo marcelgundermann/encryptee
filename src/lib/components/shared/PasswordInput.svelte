@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { generateRandomPassword } from '$lib/password-helper';
+	import { generateRandomPassword } from '$lib/helpers/password';
 	import type { Mode } from '$lib/types';
 
 	export let mode: Mode;

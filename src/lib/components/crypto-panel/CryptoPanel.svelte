@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CryptoActionButton from '$lib/components/CryptoActionButton.svelte';
 	import Password from '$lib/components/shared/Password.svelte';
-	import { processChunks } from '$lib/utils/chunk';
+	import { processChunks } from '$lib/helpers/chunk';
 	import { cipherOperationState$, cryptoMode$, files$, supportsFileSystemAccess$ } from '$lib/store/files';
 	import type { WebWorkerOutgoingMessageChunk } from '$lib/types';
 
@@ -19,7 +19,7 @@
 	let saveDirectory = '';
 
 	onMount(() => {
-		worker = new Worker(new URL('$lib/crypto.worker.ts', import.meta.url), {
+		worker = new Worker(new URL('$lib/web.worker.ts', import.meta.url), {
 			type: 'module'
 		});
 
@@ -114,7 +114,7 @@
 		</AlertPanel>
 	{/if}
 
-	<Password bind:password errorMessage={''} />
+	<Password bind:password />
 
 	{#if showCryptoActionButton}
 		<div class="w-full">
