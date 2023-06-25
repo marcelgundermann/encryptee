@@ -1,5 +1,3 @@
-export type CryptoMode = 'encrypt' | 'decrypt';
-
 export type CipherOperationState =
 	| 'encrypt'
 	| 'encryption_in_progress'
@@ -10,16 +8,6 @@ export type CipherOperationState =
 	| 'decryption_last_chunk'
 	| 'decryption_done'
 	| 'mixed';
-
-export type ChunkMode =
-	| {
-			transferType: 'chunk';
-			cryptoMode: 'encrypt';
-	  }
-	| {
-			transferType: 'chunk';
-			cryptoMode: 'decrypt';
-	  };
 
 interface AbstractWebWorkerMessage {
 	type: Exclude<CipherOperationState, 'mixed'>;
