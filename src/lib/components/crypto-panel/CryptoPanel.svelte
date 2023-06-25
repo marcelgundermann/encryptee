@@ -3,7 +3,7 @@
 	import Password from '$lib/components/shared/Password.svelte';
 	import { processChunks } from '$lib/utils/chunk';
 	import { cipherOperationState$, cryptoMode$, files$, supportsFileSystemAccess$ } from '$lib/store/files';
-	import type { WebWorkerOutgoingMessageChunk, WebWorkerOutgoingMessageFile } from '$lib/types';
+	import type { WebWorkerOutgoingMessageChunk } from '$lib/types';
 
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
@@ -23,44 +23,23 @@
 			type: 'module'
 		});
 
-		worker.addEventListener(
-			'message',
-			async (event: MessageEvent<WebWorkerOutgoingMessageChunk | WebWorkerOutgoingMessageFile>) => {
-				const { transferType, type } = event.data;
+		worker.addEventListener('message', async (event: MessageEvent<WebWorkerOutgoingMessageChunk>) => {
+			const { type, chunk, isLastChunk, writerId } = event.data;
 
-				if (transferType === 'chunk') {
-					const { chunk, isLastChunk, writerId } = event.data;
+			if (!writerMap.has(writerId)) throw new Error('Writer not found');
+			const writer = await writerMap.get(writerId)!;
 
-					if (!writerMap.has(writerId)) throw new Error('Writer not found');
-					const writer = await writerMap.get(writerId)!;
+			await writer.write(chunk);
+			progress += chunk.byteLength;
 
-					await writer.write(chunk);
-					progress += chunk.byteLength;
-
-					if (isLastChunk) {
-						cipherOperationState$.set(
-							type === 'encrypt' ? 'chunk_encryption_last_chunk' : 'chunk_decryption_last_chunk'
-						);
-						await writer.close();
-						writerMap.delete(writerId);
-						cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_done' : 'chunk_decryption_done');
-					}
-					return;
-				}
-
-				if (transferType === 'file') {
-					const { blob, fileName } = event.data;
-					// ...
-				}
+			if (isLastChunk) {
+				cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_last_chunk' : 'chunk_decryption_last_chunk');
+				await writer.close();
+				writerMap.delete(writerId);
+				cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_done' : 'chunk_decryption_done');
 			}
-		);
-
-		worker.addEventListener(
-			'message',
-			async (event: MessageEvent<WebWorkerOutgoingMessageChunk | WebWorkerOutgoingMessageFile>) => {
-				console.log(event);
-			}
-		);
+			return;
+		});
 	});
 
 	const submitHandler = async (): Promise<void> => {

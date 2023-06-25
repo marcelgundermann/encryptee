@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { generateRandomPassword } from '$lib/password-helper';
-	import { applicationMode$ } from '$lib/store/files';
+	import { applicationMode$, cryptoMode$ } from '$lib/store/files';
 	import type { Mode } from '$lib/types';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import Input from './Input.svelte';
@@ -81,7 +81,7 @@
 				</svg>
 			</button>
 		{/if}
-		{#if $applicationMode$ === 'encrypt'}
+		{#if $cryptoMode$ === 'encrypt'}
 			<button
 				type="button"
 				disabled={!canEdit}

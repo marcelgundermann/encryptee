@@ -33,8 +33,6 @@ export type CipherOperationChunkState =
 	| 'chunk_decryption_last_chunk'
 	| 'chunk_decryption_done';
 
-export type TransferType = 'chunk' | 'file' | 'is_valid_password';
-
 export type ChunkMode =
 	| {
 			transferType: 'chunk';
@@ -42,16 +40,6 @@ export type ChunkMode =
 	  }
 	| {
 			transferType: 'chunk';
-			cryptoMode: 'decrypt';
-	  };
-
-export type FileMode =
-	| {
-			transferType: 'file';
-			cryptoMode: 'encrypt';
-	  }
-	| {
-			transferType: 'file';
 			cryptoMode: 'decrypt';
 	  };
 
@@ -73,20 +61,14 @@ export type DecryptResult =
 
 interface AbstractWebWorkerMessage {
 	type: Exclude<Mode, 'mixed'>;
-	transferType: TransferType;
 	password: string;
 }
 
 interface AbstractWebWorkerMessageChunk extends AbstractWebWorkerMessage {
 	chunk: ArrayBuffer;
-	transferType: 'chunk';
 	isLastChunk: boolean;
 	writerId: string;
 	index?: number;
-}
-
-interface AbstractWebWorkerIncomingMessageFile extends AbstractWebWorkerMessage {
-	transferType: 'file';
 }
 
 export interface WebWorkerIncomingMessageChunk extends AbstractWebWorkerMessageChunk {
@@ -95,11 +77,8 @@ export interface WebWorkerIncomingMessageChunk extends AbstractWebWorkerMessageC
 
 export interface WebWorkerOutgoingMessageChunk extends Omit<AbstractWebWorkerMessageChunk, 'password'> {}
 
-export interface WebWorkerIncomingMessageFile extends AbstractWebWorkerIncomingMessageFile {
-	file: File;
-}
-
-export interface WebWorkerOutgoingMessageFile extends Omit<AbstractWebWorkerIncomingMessageFile, 'password'> {
-	blob: Blob;
-	fileName: string;
+export interface ChunkData {
+	buffer: ArrayBufferLike;
+	isFirstChunk: boolean;
+	isLastChunk: boolean;
 }
