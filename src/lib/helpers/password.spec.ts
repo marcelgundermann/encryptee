@@ -1,4 +1,4 @@
-import { generateRandomPassword } from './password-helper';
+import { generateRandomPassword } from './password';
 import { describe, test, expect } from 'vitest';
 
 describe('generateRandomPassword', () => {

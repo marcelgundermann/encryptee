@@ -1,48 +1,33 @@
 <script lang="ts">
-	import { convertFileSize } from '$lib/helper';
+	import { convertFileSize } from '$lib/helpers/file';
 	import { cipherOperationState$ } from '$lib/store/files';
-	import type { CipherOperationChunkState, CipherOperationFileState } from '$lib/types';
+	import type { CipherOperationState } from '$lib/types';
 	import Button from './shared/Button.svelte';
 
 	export let fileSize: number;
 	export let progress: number;
 
-	let inProgressModes: Array<CipherOperationChunkState | CipherOperationFileState> = [
-		'encryption_in_progress',
-		'decryption_in_progress',
-		'chunk_encryption_in_progress',
-		'chunk_decryption_in_progress',
-		'chunk_encryption_last_chunk',
-		'chunk_decryption_last_chunk'
-	];
+	let inProgressModes: Array<CipherOperationState> = ['encryption_in_progress', 'decryption_in_progress'];
+	let isLastChunkModes: Array<CipherOperationState> = ['encryption_last_chunk', 'decryption_last_chunk'];
+	let isDoneModes: Array<CipherOperationState> = ['encryption_done', 'decryption_done'];
 
-	let isLastChunkModes: Array<CipherOperationChunkState | CipherOperationFileState> = [
-		'encryption_last_chunk',
-		'decryption_last_chunk',
-		'chunk_encryption_last_chunk',
-		'chunk_decryption_last_chunk'
-	];
-
-	let isDoneModes: Array<CipherOperationChunkState | CipherOperationFileState> = [
-		'encryption_done',
-		'decryption_done',
-		'chunk_encryption_done',
-		'chunk_decryption_done'
-	];
-
-	const buttonLabel = (progress: number, mode: CipherOperationChunkState | CipherOperationFileState | null): string => {
+	const buttonLabel = (progress: number, mode: CipherOperationState | null): string => {
 		switch (mode) {
-			case 'chunk_encryption_in_progress':
+			case 'encrypt':
+				return 'Select Directory to Save Encrypted Files';
+			case 'decrypt':
+				return 'Select Directory to Save Decrypted Files';
+			case 'encryption_in_progress':
 				return `${convertFileSize(progress)} / ${convertFileSize(fileSize)} encrypted`;
-			case 'chunk_encryption_last_chunk':
+			case 'encryption_last_chunk':
 				return 'Finish Encryption...';
-			case 'chunk_encryption_done':
+			case 'encryption_done':
 				return 'Files successfully encrypted';
-			case 'chunk_decryption_in_progress':
+			case 'decryption_in_progress':
 				return `${convertFileSize(progress)} / ${convertFileSize(fileSize)} decrypted`;
-			case 'chunk_decryption_last_chunk':
+			case 'decryption_last_chunk':
 				return 'Finish Decryption...';
-			case 'chunk_decryption_done':
+			case 'decryption_done':
 				return 'Files successfully decrypted';
 			default:
 				break;
@@ -53,14 +38,14 @@
 
 	$: label = buttonLabel(progress, $cipherOperationState$);
 
-	$: inProgess = inProgressModes.includes($cipherOperationState$!);
-	$: isLastChunk = isLastChunkModes.includes($cipherOperationState$!);
-	$: isDone = isDoneModes.includes($cipherOperationState$!);
+	$: inProgess = inProgressModes.includes($cipherOperationState$);
+	$: isLastChunk = isLastChunkModes.includes($cipherOperationState$);
+	$: isDone = isDoneModes.includes($cipherOperationState$);
 
 	$: disabled = inProgess || isLastChunk || isDone;
 </script>
 
-<Button {label} color="light" class="w-full" on:click {disabled}>
+<Button {label} color={isDone ? 'green' : 'light'} class="w-full" on:click {disabled}>
 	<span slot="leading-icon">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { generateRandomPassword } from '$lib/password-helper';
-	import type { Mode } from '$lib/types';
+	import { generateRandomPassword } from '$lib/helpers/password';
+	import type { CipherOperationState } from '$lib/types';
 
-	export let mode: Mode;
+	export let mode: CipherOperationState;
 	export let canEdit: boolean;
 	export let password: string;
 	export let errorMessage: string;

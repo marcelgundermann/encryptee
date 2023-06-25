@@ -53,7 +53,6 @@ export const processChunks = async ({
 	for await (const { buffer, isFirstChunk, isLastChunk } of readChunks(file, chunkSize, type)) {
 		const message: WebWorkerIncomingMessageChunk = {
 			type,
-			transferType: 'chunk',
 			chunk: buffer,
 			isLastChunk,
 			password,

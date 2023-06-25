@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Mode } from '$lib/types';
+	import type { CipherOperationState } from '$lib/types';
 
-	export let mode: Mode;
+	export let mode: CipherOperationState;
 </script>
 
 {#if mode === 'mixed'}
