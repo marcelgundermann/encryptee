@@ -47,11 +47,6 @@
 					}
 					return;
 				}
-
-				if (transferType === 'file') {
-					const { blob, fileName } = event.data;
-					// ...
-				}
 			}
 		);
 

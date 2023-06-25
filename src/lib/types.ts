@@ -103,3 +103,9 @@ export interface WebWorkerOutgoingMessageFile extends Omit<AbstractWebWorkerInco
 	blob: Blob;
 	fileName: string;
 }
+
+export interface ChunkData {
+	buffer: ArrayBufferLike;
+	isFirstChunk: boolean;
+	isLastChunk: boolean;
+}
