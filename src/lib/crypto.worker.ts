@@ -1,16 +1,8 @@
-import type {
-	WebWorkerIncomingMessageFile,
-	WebWorkerIncomingMessageChunk,
-	WebWorkerOutgoingMessageChunk
-} from './types';
+import type { WebWorkerIncomingMessageChunk, WebWorkerOutgoingMessageChunk } from './types';
 
 import { SIGNATURE, SIGNATURE_BYTE_LENGTH, IV_BYTE_LENGTH, SALT_BYTE_LENGTH } from './constants';
 
-onmessage = async (event: MessageEvent<WebWorkerIncomingMessageChunk | WebWorkerIncomingMessageFile>) => {
-	const { transferType } = event.data;
-
-	if (transferType !== 'chunk') return;
-
+onmessage = async (event: MessageEvent<WebWorkerIncomingMessageChunk>) => {
 	const { type, chunk, isFirstChunk, isLastChunk, password, writerId } = event.data;
 
 	if (type === 'encrypt') {
@@ -20,7 +12,6 @@ onmessage = async (event: MessageEvent<WebWorkerIncomingMessageChunk | WebWorker
 				isLastChunk,
 				chunk: encryptedChunk,
 				type: 'encrypt',
-				transferType: 'chunk',
 				writerId
 			};
 			return postMessage(message);
@@ -30,7 +21,6 @@ onmessage = async (event: MessageEvent<WebWorkerIncomingMessageChunk | WebWorker
 			isLastChunk,
 			chunk: encryptedChunk,
 			type: 'encrypt',
-			transferType: 'chunk',
 			writerId
 		};
 		return postMessage(message);
@@ -41,7 +31,6 @@ onmessage = async (event: MessageEvent<WebWorkerIncomingMessageChunk | WebWorker
 				isLastChunk,
 				chunk: decryptedChunk,
 				type: 'decrypt',
-				transferType: 'chunk',
 				writerId
 			};
 			return postMessage(message);
@@ -51,7 +40,6 @@ onmessage = async (event: MessageEvent<WebWorkerIncomingMessageChunk | WebWorker
 			isLastChunk,
 			chunk: decryptedChunk,
 			type: 'decrypt',
-			transferType: 'chunk',
 			writerId
 		};
 		return postMessage(message);
