@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
-	type Color = 'light' | 'dark' | 'red' | 'red-invert';
+	type Color = 'light' | 'dark' | 'green' | 'red' | 'red-invert';
 
 	export let label = '';
 	export let type: HTMLButtonAttributes['type'] = 'button';
@@ -38,6 +38,14 @@
 
 	.button-dark:hover {
 		@apply bg-white text-black ring-black;
+	}
+
+	.button-green {
+		@apply bg-green-600 text-white ring-transparent;
+	}
+
+	.button-green:hover {
+		@apply bg-white text-green-600;
 	}
 
 	.button-red {

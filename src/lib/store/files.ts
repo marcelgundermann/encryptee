@@ -1,14 +1,10 @@
-// store.ts
-import type { CipherOperationChunkState, CipherOperationFileState, Mode } from '$lib/types';
 import { derived, get, writable } from 'svelte/store';
+import type { CipherOperationState } from '$lib/types';
 
 export const files$ = writable<FileList | null>();
-export const abortedFiles$ = writable<Set<string>>();
-
 export const supportsFileSystemAccess$ = writable<boolean>(true);
 export const password$ = writable<string>('');
-export const applicationMode$ = writable<Mode>('encrypt');
-export const cipherOperationState$ = writable<CipherOperationFileState | CipherOperationChunkState | null>(null);
+export const cipherOperationState$ = writable<CipherOperationState>('encrypt');
 
 export const addFiles = (newFiles: FileList) => {
 	const existingFiles = Array.from(get(files$) ?? []);
@@ -20,10 +16,15 @@ export const addFiles = (newFiles: FileList) => {
 
 	const combinedFiles = [...existingFiles, ...newDroppedFiles];
 	const filesToAdd = new DataTransfer();
+	const fileExtensionSet = new Set<string>();
 
 	for (const file of combinedFiles) {
 		filesToAdd.items.add(file);
+		fileExtensionSet.add(file.name.substring(file.name.lastIndexOf('.')).toLowerCase());
 	}
+
+	if (fileExtensionSet.size === 1 && fileExtensionSet.has('.cre')) cipherOperationState$.set('decrypt');
+	if (fileExtensionSet.size > 1 && fileExtensionSet.has('.cre')) cipherOperationState$.set('mixed');
 
 	files$.set(filesToAdd.files);
 };
@@ -45,28 +46,6 @@ export const removeFile = (fileToRemove: File) => {
 	});
 };
 
-export const addAbortedFiles = (abortedFiles: Array<string>) => {
-	abortedFiles$.update((store) => {
-		if (!store) return new Set(abortedFiles);
-
-		for (const file of abortedFiles) {
-			store.add(file);
-		}
-
-		return store;
-	});
-};
-
-export const addAbortedFile = (file: File) => {
-	abortedFiles$.update((store) => {
-		if (!store) return new Set([file.name]);
-
-		store.add(file.name);
-
-		return store;
-	});
-};
-
 /**
  * Determines the mode (encrypt or decrypt) based on the file extensions in the given FileList.
  * If all files have the '.cre' extension, the mode is set to 'decrypt'.
@@ -75,9 +54,9 @@ export const addAbortedFile = (file: File) => {
  *
  * @param {FileList | null} files - The list of files to determine the mode from.
  *
- * @returns {Mode} - The determined mode ('encrypt' or 'decrypt').
+ * @returns {CipherOperationState} - The determined mode ('encrypt' or 'decrypt').
  */
-export const cryptoMode$ = derived(files$, (files): Mode => {
+export const cryptoMode$ = derived(files$, (files): CipherOperationState => {
 	if (!files) return 'encrypt';
 
 	const fileExtensionSet = new Set<string>();

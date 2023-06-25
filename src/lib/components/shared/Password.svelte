@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { generateRandomPassword } from '$lib/helpers/password';
-	import { applicationMode$, cryptoMode$ } from '$lib/store/files';
-	import type { Mode } from '$lib/types';
+	import { cipherOperationState$, cryptoMode$ } from '$lib/store/files';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import Input from './Input.svelte';
+	import type { CipherOperationState } from '$lib/types';
 
 	export let password: string;
 
@@ -14,11 +14,11 @@
 		navigator.clipboard.writeText(password);
 	};
 
-	const canEditPassword = (mode: Mode): boolean => {
+	const canEditPassword = (mode: CipherOperationState): boolean => {
 		return mode === 'encrypt' || mode === 'decrypt';
 	};
 
-	const passwordPlaceholderText = (mode: Mode): string => {
+	const passwordPlaceholderText = (mode: CipherOperationState): string => {
 		if (mode === 'encrypt') {
 			return 'Enter a strong password';
 		} else if (mode === 'decrypt') {
@@ -31,12 +31,12 @@
 		inputType = inputType === 'password' ? 'text' : 'password';
 	};
 
-	$: canEdit = canEditPassword($applicationMode$);
+	$: canEdit = canEditPassword($cipherOperationState$);
 	$: showCopyPasswordButton =
-		(password && $applicationMode$ === 'encrypt') ||
-		$applicationMode$ === 'encryption_in_progress' ||
-		$applicationMode$ === 'encryption_done';
-	$: passwordPlaceholder = passwordPlaceholderText($applicationMode$);
+		(password && $cipherOperationState$ === 'encrypt') ||
+		$cipherOperationState$ === 'encryption_in_progress' ||
+		$cipherOperationState$ === 'encryption_done';
+	$: passwordPlaceholder = passwordPlaceholderText($cipherOperationState$);
 </script>
 
 <Input bind:value={password} bind:type={inputType} label="Password" placeholder={passwordPlaceholder} id="password">

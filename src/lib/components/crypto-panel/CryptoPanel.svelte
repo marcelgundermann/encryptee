@@ -33,10 +33,10 @@
 			progress += chunk.byteLength;
 
 			if (isLastChunk) {
-				cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_last_chunk' : 'chunk_decryption_last_chunk');
+				cipherOperationState$.set(type === 'encrypt' ? 'encryption_last_chunk' : 'decryption_last_chunk');
 				await writer.close();
 				writerMap.delete(writerId);
-				cipherOperationState$.set(type === 'encrypt' ? 'chunk_encryption_done' : 'chunk_decryption_done');
+				cipherOperationState$.set(type === 'encrypt' ? 'encryption_done' : 'decryption_done');
 			}
 			return;
 		});
@@ -66,9 +66,7 @@
 		saveDirectory = directoryHandle.name;
 		fileSize = [...files].map((file) => file.size).reduce((a, b) => a + b, 0);
 
-		cipherOperationState$.set(
-			operationType === 'encrypt' ? 'chunk_encryption_in_progress' : 'chunk_decryption_in_progress'
-		);
+		cipherOperationState$.set(operationType === 'encrypt' ? 'encryption_in_progress' : 'decryption_in_progress');
 		for await (const file of files) {
 			const newDirectory = await directoryHandle.getDirectoryHandle('Encryptee', { create: true });
 			const newFileHandle = await newDirectory.getFileHandle(
@@ -119,7 +117,7 @@
 	{#if showCryptoActionButton}
 		<div class="w-full">
 			<CryptoActionButton on:click={submitHandler} bind:fileSize bind:progress />
-			{#if $cipherOperationState$ === 'chunk_encryption_done' || $cipherOperationState$ === 'chunk_decryption_done'}
+			{#if $cipherOperationState$?.includes('done')}
 				<div class="text-xs text-white/40 mt-2">
 					All files have been saved into the directory: <span class="font-semibold">{saveDirectory}/Encryptee</span>
 				</div>

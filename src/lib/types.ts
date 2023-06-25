@@ -1,37 +1,15 @@
 export type CryptoMode = 'encrypt' | 'decrypt';
 
-export type Mode =
-	| 'fast_single_encryption'
-	| 'fast_multi_encryption'
+export type CipherOperationState =
 	| 'encrypt'
-	| 'encryption_in_progress'
-	| 'encryption_done'
-	| 'decrypt'
-	| 'decryption_in_progress'
-	| 'decryption_done'
-	| 'chunk_encryption_in_progress'
-	| 'chunk_encryption_last_chunk'
-	| 'chunk_encryption_done'
-	| 'chunk_decryption_in_progress'
-	| 'chunk_decryption_last_chunk'
-	| 'chunk_decryption_done'
-	| 'mixed';
-
-export type CipherOperationFileState =
 	| 'encryption_in_progress'
 	| 'encryption_last_chunk'
 	| 'encryption_done'
+	| 'decrypt'
 	| 'decryption_in_progress'
 	| 'decryption_last_chunk'
-	| 'decryption_done';
-
-export type CipherOperationChunkState =
-	| 'chunk_encryption_in_progress'
-	| 'chunk_encryption_last_chunk'
-	| 'chunk_encryption_done'
-	| 'chunk_decryption_in_progress'
-	| 'chunk_decryption_last_chunk'
-	| 'chunk_decryption_done';
+	| 'decryption_done'
+	| 'mixed';
 
 export type ChunkMode =
 	| {
@@ -43,24 +21,8 @@ export type ChunkMode =
 			cryptoMode: 'decrypt';
 	  };
 
-export type EncryptResult = {
-	encryptedBlob: Blob;
-	fileName: string;
-};
-
-export type DecryptResult =
-	| {
-			type: 'success';
-			decryptedBlob: Blob;
-			fileName: string;
-	  }
-	| {
-			type: 'error';
-			error: string;
-	  };
-
 interface AbstractWebWorkerMessage {
-	type: Exclude<Mode, 'mixed'>;
+	type: Exclude<CipherOperationState, 'mixed'>;
 	password: string;
 }
 
