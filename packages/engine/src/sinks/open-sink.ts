@@ -1,6 +1,6 @@
 import { EngineError, type SerializedError } from '../errors.ts';
 import { OPFS_STAGING_DIR, type ByteSink, type SinkDescriptor, type SinkResult } from './sink.ts';
-import { SW_MAX_MESSAGE_BYTES, type DownloadPortMessage } from './sw-protocol.ts';
+import { SwDownloadSink } from './sw-stream.ts';
 
 declare global {
 	interface FileSystemHandle {
@@ -115,58 +115,6 @@ class OpfsSink implements ByteSink {
 		} catch {}
 
 		await this.directory.removeEntry(this.name).catch(() => {});
-	}
-}
-
-/**
- * Feeds the service worker's download stream. Each message is at most 256 KiB
- * (Safari drops larger ones) and waits for a credit from the SW, so a slow disk
- * on the download side throttles the whole pipeline.
- */
-class SwDownloadSink implements ByteSink {
-	private credits = 0;
-	private waiting: (() => void) | null = null;
-	private cancelled = false;
-
-	constructor(private readonly port: MessagePort) {
-		port.onmessage = ({ data }: MessageEvent<DownloadPortMessage>) => {
-			if (data.type === 'credit') this.credits += data.credits;
-
-			if (data.type === 'cancelled') this.cancelled = true;
-			this.waiting?.();
-			this.waiting = null;
-		};
-
-		port.start();
-	}
-
-	async write(chunk: Uint8Array<ArrayBuffer>): Promise<void> {
-		for (let offset = 0; offset < chunk.length; offset += SW_MAX_MESSAGE_BYTES) {
-			while (this.credits === 0 && !this.cancelled) {
-				await new Promise<void>((resolve) => (this.waiting = resolve));
-			}
-
-			if (this.cancelled) throw new EngineError('cancelled', 'the download was cancelled');
-			this.credits--;
-			const piece = chunk.slice(offset, offset + SW_MAX_MESSAGE_BYTES).buffer;
-			this.post({ type: 'chunk', data: piece }, [piece]);
-		}
-	}
-
-	async close(): Promise<SinkResult> {
-		this.post({ type: 'end' });
-		this.port.close();
-
-		return { kind: 'saved' };
-	}
-
-	async abort(reason: SerializedError): Promise<void> {
-		this.post({ type: 'abort', message: reason.message });
-		this.port.close();
-	}
-
-	private post(message: DownloadPortMessage, transfer: Transferable[] = []): void {
-		this.port.postMessage(message, transfer);
 	}
 }
 
