@@ -82,8 +82,8 @@ describe.runIf(available)('age CLI interop', () => {
 			passphrase: 'key-pass'
 		});
 
-		expect(opened.ok).toBe(true);
-		const identity = new TextDecoder().decode(fromBase64((opened as { output: string }).output));
+		if (!opened.ok) throw new Error(opened.error);
+		const identity = new TextDecoder().decode(fromBase64(opened.output));
 		const sealed = await encrypt(plain, { kind: 'public-keys', publicKeys: [pair.publicKey] });
 		const result = await commands.ageDecrypt({ input: toBase64(sealed), identity });
 		expect(result.ok).toBe(true);

@@ -1,4 +1,4 @@
-import { EngineError } from '../errors.ts';
+import { EngineError, serializeError } from '../errors.ts';
 import {
 	MAX_HEADER_SIZE,
 	PAYLOAD_NONCE_SIZE,
@@ -21,7 +21,7 @@ const HEADER_PROBE_SIZE = 64 * 1024;
 
 interface Prepared {
 	layout: PayloadLayout;
-	payloadKey: Uint8Array;
+	payloadKey: Uint8Array<ArrayBuffer>;
 	/** Header and payload nonce, written before the payload when sealing. */
 	prefix: Uint8Array<ArrayBuffer> | null;
 	outputSize: number;
@@ -58,7 +58,7 @@ export async function runFileTask(
 		return await sink.close();
 	} catch (error) {
 		const reason = signal.aborted ? new EngineError('cancelled', 'cancelled') : error;
-		await sink?.abort(reason);
+		await sink?.abort(serializeError(reason));
 		throw reason;
 	} finally {
 		pool.forget();

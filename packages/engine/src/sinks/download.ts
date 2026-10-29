@@ -81,7 +81,7 @@ export async function downloadStagedFile(path: string[], name: string): Promise<
  * while a staged download may still be reading.
  */
 export async function clearStagingArea(): Promise<void> {
-	if (typeof navigator.storage?.getDirectory !== 'function') return;
+	if (!navigator.storage?.getDirectory) return;
 	const root = await navigator.storage.getDirectory();
 	await root.removeEntry(OPFS_STAGING_DIR, { recursive: true }).catch(() => {});
 }

@@ -24,9 +24,10 @@ function run(
 			file,
 			args,
 			{ env: { ...env, ...options.env }, encoding: 'buffer', maxBuffer: 1 << 30 },
-			(error, stdout, stderr) =>
+			(_error, stdout, stderr) =>
 				resolve({
-					code: error ? ((error as { code?: number }).code ?? 1) : 0,
+					// Null after a signal, a negative errno if the binary didn't start.
+					code: child.exitCode ?? 1,
 					stdout,
 					stderr: stderr.toString()
 				})
@@ -98,10 +99,16 @@ const ageDecrypt: BrowserCommand<
 
 export const ageCommands = { ageAvailable, ageKeygen, ageEncrypt, ageDecrypt };
 
+const ALL_BROWSERS = ['chromium', 'firefox', 'webkit'] as const;
+
 /** `BROWSERS=chromium,webkit pnpm test` narrows the run; all three by default. */
-const browsers = (process.env.BROWSERS ?? 'chromium,firefox,webkit').split(',') as Array<
-	'chromium' | 'firefox' | 'webkit'
->;
+const browsers = (process.env.BROWSERS?.split(',') ?? ALL_BROWSERS).map((name) => {
+	const browser = ALL_BROWSERS.find((known) => known === name);
+
+	if (!browser) throw new Error(`BROWSERS: unknown browser ${name}`);
+
+	return browser;
+});
 
 export default defineConfig({
 	optimizeDeps: {

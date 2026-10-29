@@ -102,7 +102,7 @@ describe('compatibility with typage', () => {
 		const encrypter = new Encrypter();
 		encrypter.setScryptWorkFactor(TEST_LOG_N);
 		encrypter.setPassphrase('hunter2');
-		const sealed = (await encrypter.encrypt(plain)) as Uint8Array<ArrayBuffer>;
+		const sealed = new Uint8Array(await encrypter.encrypt(plain));
 		const { output } = await decrypt(sealed, { kind: 'passphrase', passphrase: 'hunter2' });
 		expect(equalBytes(output!, plain)).toBe(true);
 	});
@@ -151,11 +151,11 @@ describe('failures', () => {
 	});
 
 	test.each([
-		['flipped payload byte', (b: Uint8Array) => ((b[b.length - 100]! ^= 1), b)],
-		['truncated mid-chunk', (b: Uint8Array) => b.slice(0, b.length - 1000)],
+		['flipped payload byte', (b: Uint8Array<ArrayBuffer>) => ((b[b.length - 100]! ^= 1), b)],
+		['truncated mid-chunk', (b: Uint8Array<ArrayBuffer>) => b.slice(0, b.length - 1000)],
 		[
 			'appended byte',
-			(b: Uint8Array) => {
+			(b: Uint8Array<ArrayBuffer>) => {
 				const longer = new Uint8Array(b.length + 1);
 				longer.set(b);
 
@@ -164,12 +164,12 @@ describe('failures', () => {
 		],
 		[
 			'truncated at a chunk boundary (dropped final chunk)',
-			(b: Uint8Array) => b.slice(0, b.length - (CHUNK + 16))
+			(b: Uint8Array<ArrayBuffer>) => b.slice(0, b.length - (CHUNK + 16))
 		]
 	])('%s is detected and nothing is delivered', async (_, tamper) => {
 		const sealed = await encrypt(randomBytes(4 * CHUNK), passphrase);
 
-		const { snapshot, output } = await decrypt(tamper(sealed.slice()) as Uint8Array<ArrayBuffer>, {
+		const { snapshot, output } = await decrypt(tamper(sealed.slice()), {
 			kind: 'passphrase',
 			passphrase: passphrase.passphrase
 		});
@@ -197,9 +197,7 @@ describe('failures', () => {
 	});
 
 	test('legacy and plain files are rejected with their own codes', async () => {
-		const legacy = new TextEncoder().encode(
-			'encryptee.io' + 'x'.repeat(100)
-		) as Uint8Array<ArrayBuffer>;
+		const legacy = new TextEncoder().encode('encryptee.io' + 'x'.repeat(100));
 
 		expect(
 			(await decrypt(legacy, { kind: 'passphrase', passphrase: 'x' })).snapshot.files[0]!.error

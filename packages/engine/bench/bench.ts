@@ -31,6 +31,8 @@ interface Row {
 	mibps: number;
 }
 
+// SAFETY: bench/index.html holds every id looked up here, each as the
+// element type its call site names.
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const capabilities = detectCapabilities();
 const native = await nativeChaChaAvailable();
@@ -59,10 +61,14 @@ $('stop').addEventListener('click', () => {
 $<HTMLFormElement>('form').addEventListener('submit', async (event) => {
 	event.preventDefault();
 	stopped = false;
+	// SAFETY: the scenario <select> only offers `Scenario` values.
 	const scenario = $<HTMLSelectElement>('scenario').value as Scenario;
 	const size = Math.round(Number($<HTMLInputElement>('size').value) * 1024 ** 3);
 	const passphrase = $<HTMLInputElement>('passphrase').value;
-	const backends = list('backends').filter((b) => b === 'noble' || native) as Backend[];
+
+	const backends = list('backends').filter(
+		(b): b is Backend => b === 'noble' || (b === 'webcrypto' && native)
+	);
 
 	// Pickers need the click's user activation, so ask once up front.
 	let picked: File | null = null;
@@ -161,8 +167,8 @@ async function latestStagedFile(): Promise<File | null> {
 	let latest: File | null = null;
 
 	for await (const handle of dir.values()) {
-		if (handle.kind !== 'file') continue;
-		const file = await (handle as FileSystemFileHandle).getFile();
+		if (!(handle instanceof FileSystemFileHandle)) continue;
+		const file = await handle.getFile();
 
 		if (!latest || file.lastModified > latest.lastModified) latest = file;
 	}

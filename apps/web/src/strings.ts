@@ -1,4 +1,4 @@
-import type { EngineErrorCode, PreflightWarning } from '@encryptee/engine';
+import { EngineError, type EngineErrorCode, type PreflightWarning } from '@encryptee/engine';
 
 /** All UI copy lives here (D12). Terms follow GLOSSARY.md. */
 
@@ -165,9 +165,7 @@ export function formatDuration(seconds: number): string {
 	return `${(seconds / 3600).toFixed(1)} h`;
 }
 
-/** The message for an engine error, whatever shape it arrives in. */
-export function errorMessage(error: unknown): string {
-	const code = (error as { code?: EngineErrorCode } | null)?.code;
-
-	return code && code in strings.errors ? strings.errors[code] : strings.errors.internal;
+/** The message for a thrown value: its engine error's, else the generic one. */
+export function errorMessage(cause: unknown): string {
+	return cause instanceof EngineError ? strings.errors[cause.code] : strings.errors.internal;
 }

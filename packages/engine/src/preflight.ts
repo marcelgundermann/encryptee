@@ -64,7 +64,7 @@ export async function preflight(input: {
 	if (sink === 'opfs' && navigator.storage?.estimate) {
 		const { quota = 0, usage = 0 } = await navigator.storage
 			.estimate()
-			.catch(() => ({}) as StorageEstimate);
+			.catch((): StorageEstimate => ({}));
 
 		const available = quota - usage;
 

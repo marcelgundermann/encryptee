@@ -1,4 +1,4 @@
-import { EngineError } from '../errors.ts';
+import { EngineError, type SerializedError } from '../errors.ts';
 import { OPFS_STAGING_DIR, type ByteSink, type SinkDescriptor, type SinkResult } from './sink.ts';
 import { SW_MAX_MESSAGE_BYTES, type DownloadPortMessage } from './sw-protocol.ts';
 
@@ -54,7 +54,7 @@ class FsaSink implements ByteSink {
 		return { kind: 'saved' };
 	}
 
-	async abort(reason: unknown): Promise<void> {
+	async abort(reason: SerializedError): Promise<void> {
 		// Nothing written through a writable is visible until close(), so
 		// abort() leaves no partial plaintext or ciphertext behind.
 		await this.writable.abort(reason).catch(() => {});
@@ -64,6 +64,8 @@ class FsaSink implements ByteSink {
 		} else if (this.wasEmpty) {
 			// showSaveFilePicker creates an empty file up front. Remove it, but
 			// never a file that had content before (abort kept that intact).
+			// SAFETY: `remove()` is a Chromium extension the typings lack; it stays
+			// optional here and is only called through `?.`.
 			const removable = this.handle as FileSystemFileHandle & { remove?: () => Promise<void> };
 			await removable.remove?.().catch(() => {});
 		}
@@ -154,11 +156,8 @@ class SwDownloadSink implements ByteSink {
 		return { kind: 'saved' };
 	}
 
-	async abort(reason: unknown): Promise<void> {
-		this.post({
-			type: 'abort',
-			message: reason instanceof Error ? reason.message : String(reason)
-		});
+	async abort(reason: SerializedError): Promise<void> {
+		this.post({ type: 'abort', message: reason.message });
 		this.port.close();
 	}
 

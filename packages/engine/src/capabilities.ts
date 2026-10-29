@@ -37,6 +37,8 @@ export function detectCapabilities(): Capabilities {
 	const ua = navigator.userAgent;
 	const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 
+	// SAFETY: the DOM typings lack User-Agent Client Hints; `userAgentData`
+	// stays optional here, and Firefox and Safari leave it undefined.
 	const brands = (
 		navigator as Navigator & { userAgentData?: { brands: { brand: string }[]; mobile: boolean } }
 	).userAgentData;
@@ -58,7 +60,7 @@ export function detectCapabilities(): Capabilities {
 		serviceWorkerDownload: !!navigator.serviceWorker?.controller,
 		// SyncAccessHandle is only exposed in dedicated workers, so it can't be
 		// probed here; every browser with getDirectory has it there.
-		opfs: typeof navigator.storage?.getDirectory === 'function'
+		opfs: !!navigator.storage?.getDirectory
 	};
 }
 
@@ -82,12 +84,17 @@ export function sizeLimit(capabilities: Capabilities, sink: SinkChoice): number 
 	return SIZE_LIMITS[capabilities.browser];
 }
 
-/** Tuning from the plan: N = clamp(cores − 1, 1, 8), 4 MiB batches (1 MiB on mobile), 2N in flight. */
-export function defaultTuning(capabilities: Capabilities): {
+export interface Tuning {
+	/** Crypto workers. */
 	workers: number;
+	/** 64 KiB chunks per batch. */
 	batchChunks: number;
+	/** Batches in flight. */
 	window: number;
-} {
+}
+
+/** Tuning from the plan: N = clamp(cores − 1, 1, 8), 4 MiB batches (1 MiB on mobile), 2N in flight. */
+export function defaultTuning(capabilities: Capabilities): Tuning {
 	const workers = Math.min(8, Math.max(1, capabilities.cores - 1));
 
 	return { workers, batchChunks: capabilities.mobile ? 16 : 64, window: 2 * workers };
