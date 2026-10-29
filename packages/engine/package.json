@@ -1,0 +1,30 @@
+{
+	"name": "@encryptee/engine",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./sw": "./src/sinks/sw-route.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
+		"test": "vitest run",
+		"bench": "vite --config bench/vite.config.ts"
+	},
+	"dependencies": {
+		"@noble/ciphers": "catalog:",
+		"@noble/hashes": "catalog:",
+		"age-encryption": "catalog:"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"@types/wicg-file-system-access": "catalog:",
+		"@vitest/browser": "catalog:",
+		"@vitest/browser-playwright": "catalog:",
+		"cctv-age": "catalog:",
+		"playwright": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	}
+}
