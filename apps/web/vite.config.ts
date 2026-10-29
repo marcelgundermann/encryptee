@@ -5,9 +5,8 @@ import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { prerenderPages } from './vite/prerender.ts';
 
-/** Content pages, prerendered to HTML with no JavaScript. */
+/** Content pages, each its own HTML entry. */
 const PAGES = ['how-it-works', 'security', 'faq'];
 
 /**
@@ -30,7 +29,6 @@ export default defineConfig({
 		react(),
 		babel({ presets: [reactCompilerPreset()] }),
 		tailwindcss(),
-		prerenderPages(resolve(import.meta.dirname, 'src/pages/render.tsx')),
 		VitePWA({
 			strategies: 'injectManifest',
 			srcDir: 'src',

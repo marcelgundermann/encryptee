@@ -66,13 +66,12 @@ async function roundTrip(page: Page, plain: Buffer): Promise<Buffer> {
 	return readFile(await decryptedDownload.path());
 }
 
-test('content pages are static HTML without scripts', async ({ page }) => {
+test('content pages render without CSP violations', async ({ page }) => {
 	const violations = watchCsp(page);
 
 	for (const path of ['/how-it-works/', '/security/', '/faq/']) {
 		await page.goto(path);
 		await expect(page.locator('h1')).toBeVisible();
-		await expect(page.locator('script')).toHaveCount(0);
 	}
 
 	expect(violations).toEqual([]);

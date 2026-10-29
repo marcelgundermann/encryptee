@@ -7,8 +7,7 @@ const NAV = [
 ];
 
 /**
- * Shell for the prerendered content pages, in the same "Drop" look as the
- * tool. Static markup only: no state, no effects.
+ * Shell for the content pages, in the same "Drop" look as the tool.
  */
 export function Layout({ children }: { children: ReactNode }) {
 	return (
