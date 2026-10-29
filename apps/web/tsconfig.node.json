@@ -4,5 +4,5 @@
 		"lib": ["es2024", "dom"],
 		"types": ["node"]
 	},
-	"include": ["vite.config.ts", "vite", "playwright.config.ts", "e2e"]
+	"include": ["vite.config.ts", "playwright.config.ts", "e2e"]
 }

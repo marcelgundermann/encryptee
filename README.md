@@ -9,7 +9,7 @@ Encrypt and decrypt files in the browser, entirely on your device. Files use the
 ## Layout
 
 - `packages/engine`: the age engine (header via typage, parallel payload in workers, save paths, keys). The UI only talks to its Job API.
-- `apps/web`: the Vite + React app, prerendered content pages, service worker and `_headers`.
+- `apps/web`: the Vite + React app, content pages, service worker and `_headers`.
 - `docs/research`, `docs/adr`, `GLOSSARY.md`: background, decisions and vocabulary.
 - `deploy/v1`: the v1 archive Worker.
 
