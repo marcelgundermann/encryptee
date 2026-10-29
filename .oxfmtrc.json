@@ -4,5 +4,21 @@
 	"singleQuote": true,
 	"trailingComma": "none",
 	"printWidth": 100,
-	"ignorePatterns": ["pnpm-lock.yaml", "docs/research/**"]
+	"ignorePatterns": [
+		"pnpm-lock.yaml",
+		"docs/research/**",
+		".agent/**",
+		".agents/**",
+		".claude/**",
+		".codex/**",
+		".continue/**",
+		".cursor/**",
+		".gemini/**",
+		".grok/**",
+		".opencode/**",
+		".pi/**",
+		".roo/**",
+		".windsurf/**",
+		"tools/oxlint/anti-slop/**"
+	]
 }

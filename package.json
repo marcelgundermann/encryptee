@@ -15,6 +15,7 @@
 		"deploy:v1": "wrangler deploy -c deploy/v1/wrangler.jsonc"
 	},
 	"devDependencies": {
+		"@oxlint/plugins": "catalog:",
 		"oxfmt": "catalog:",
 		"oxlint": "catalog:",
 		"typescript": "catalog:",
