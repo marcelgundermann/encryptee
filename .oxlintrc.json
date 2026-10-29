@@ -1,0 +1,36 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "import", "promise", "react", "jsx-a11y", "vitest"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "warn",
+		"perf": "warn"
+	},
+	"env": {
+		"browser": true,
+		"worker": true,
+		"serviceworker": true,
+		"es2024": true
+	},
+	"rules": {
+		"no-console": [
+			"warn",
+			{
+				"allow": ["warn", "error", "info"]
+			}
+		],
+		"no-empty": [
+			"error",
+			{
+				"allowEmptyCatch": true
+			}
+		],
+		"import/no-cycle": "error",
+		"typescript/consistent-type-imports": "error",
+		"react/react-in-jsx-scope": "off",
+		"no-await-in-loop": "off",
+		"unicorn/prefer-add-event-listener": "off",
+		"unicorn/require-post-message-target-origin": "off"
+	},
+	"ignorePatterns": ["**/dist/**", "docs/research/**", ".worktrees/**", "**/node_modules/**"]
+}
