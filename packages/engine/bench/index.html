@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Engine bench</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				font:
+					14px/1.4 system-ui,
+					sans-serif;
+			}
+			body {
+				max-width: 64rem;
+				margin: 2rem auto;
+				padding: 0 1rem;
+			}
+			fieldset {
+				display: grid;
+				grid-template-columns: max-content 1fr;
+				gap: 0.5rem 1rem;
+				align-items: center;
+			}
+			table {
+				border-collapse: collapse;
+				width: 100%;
+				margin-top: 1rem;
+				font-variant-numeric: tabular-nums;
+			}
+			td,
+			th {
+				border-bottom: 1px solid #8884;
+				padding: 0.25rem 0.5rem;
+				text-align: right;
+			}
+			th:first-child,
+			td:first-child {
+				text-align: left;
+			}
+			pre {
+				white-space: pre-wrap;
+				background: #8881;
+				padding: 0.5rem;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Encryptee engine bench</h1>
+		<p>
+			Throughput across scenario × workers × batch size × backend. Watch memory in the browser's
+			task manager while it runs. Results go to <code>docs/research/2026-11-benchmarks.md</code>.
+		</p>
+		<p id="env"></p>
+		<form id="form">
+			<fieldset>
+				<label for="scenario">Scenario</label>
+				<select id="scenario">
+					<option value="encrypt-discard">Encrypt synthetic → discard (crypto only)</option>
+					<option value="encrypt-opfs">Encrypt synthetic → OPFS (crypto + disk write)</option>
+					<option value="decrypt-opfs">
+						Decrypt staged OPFS file → discard (disk read + crypto)
+					</option>
+					<option value="encrypt-picker">
+						Encrypt picked file → save picker (end to end, Chromium)
+					</option>
+					<option value="decrypt-picker">
+						Decrypt picked .age file → save picker (end to end, Chromium)
+					</option>
+				</select>
+				<label for="size">Synthetic size (GiB)</label>
+				<input id="size" value="1" inputmode="decimal" />
+				<label for="workers">Workers</label>
+				<input id="workers" value="1,2,4,8" />
+				<label for="batches">Batch chunks (64 KiB each)</label>
+				<input id="batches" value="16,64,256" />
+				<label for="backends">Backends</label>
+				<input id="backends" value="noble,webcrypto" />
+				<label for="passphrase">Passphrase (decrypt)</label>
+				<input id="passphrase" value="bench" />
+			</fieldset>
+			<p><button id="run">Run</button> <button id="stop" type="button">Stop</button></p>
+		</form>
+		<p id="status"></p>
+		<table>
+			<thead>
+				<tr>
+					<th>Scenario</th>
+					<th>Browser</th>
+					<th>Backend</th>
+					<th>Workers</th>
+					<th>Batch</th>
+					<th>GiB</th>
+					<th>Seconds</th>
+					<th>MiB/s</th>
+				</tr>
+			</thead>
+			<tbody id="results"></tbody>
+		</table>
+		<h2>Markdown</h2>
+		<pre id="markdown"></pre>
+		<script type="module" src="./bench.ts"></script>
+	</body>
+</html>
