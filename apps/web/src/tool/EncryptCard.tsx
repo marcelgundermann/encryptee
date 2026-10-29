@@ -1,13 +1,15 @@
 import {
+	chooseSaveLocation,
 	listContacts,
 	mixesPqAndClassic,
+	startJob,
 	validatePublicKeys,
+	whereToSave,
 	type Contact,
 	type Job
 } from '@encryptee/engine';
 import { useEffect, useState, type FormEvent } from 'react';
 import { errorMessage, strings } from '../strings.ts';
-import { asksWhereToSave, pickAndStart } from './job.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
 import { Warnings } from './Warnings.tsx';
 import {
@@ -61,21 +63,25 @@ export function EncryptCard(props: {
 		}
 	};
 
-	// Nothing is awaited before pickAndStart: the save picker needs this click.
+	// Nothing is awaited before chooseSaveLocation: the save picker needs this click.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
+		const choice = await chooseSaveLocation('encrypt', props.files);
 
-		const result = await pickAndStart({
-			mode: 'encrypt',
-			files: props.files,
-			credentials:
-				method === 'passphrase'
-					? { kind: 'passphrase', passphrase: passphrase! }
-					: { kind: 'public-keys', publicKeys }
-		});
-
-		if (result.job) props.onStart(result.job);
-		else if (result.reason === 'unsupported') setError(strings.unsupported);
+		if (choice.location) {
+			props.onStart(
+				startJob({
+					mode: 'encrypt',
+					files: props.files,
+					save: choice.location,
+					credentials:
+						method === 'passphrase'
+							? { kind: 'passphrase', passphrase: passphrase! }
+							: { kind: 'public-keys', publicKeys }
+				})
+			);
+		} else if (choice.reason === 'unsupported') setError(strings.unsupported);
+		else if (choice.reason === 'save-failed') setError(strings.errors['save-failed']);
 	};
 
 	return (
@@ -180,7 +186,7 @@ export function EncryptCard(props: {
 					{strings.encrypt.submit(props.files.length)}
 				</BigButton>
 				<p className="mt-3 text-center text-xs text-neutral-400">
-					{asksWhereToSave(props.files.length)
+					{whereToSave(props.files.length) === 'ask'
 						? strings.encrypt.savePicker(props.files.length)
 						: strings.encrypt.saveDownload}
 				</p>

@@ -5,6 +5,7 @@ import { acquireJobGuards } from './guards.ts';
 import type { Backend } from './payload/cipher.ts';
 import {
 	openOutput,
+	outputName,
 	saveError,
 	type FileOutput,
 	type Output,
@@ -80,12 +81,6 @@ const FILE_LOCAL_ERRORS = new Set([
 	'armored',
 	'corrupted'
 ]);
-
-export function outputName(mode: 'encrypt' | 'decrypt', name: string): string {
-	if (mode === 'encrypt') return `${name}.age`;
-
-	return /\.age$/i.test(name) && name.length > 4 ? name.slice(0, -4) : `${name}.decrypted`;
-}
 
 /** Starts an encrypt or decrypt job over `files`. One input file → one output file (D6). */
 export function startJob(options: JobOptions): Job {
