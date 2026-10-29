@@ -1,10 +1,16 @@
 import { defaultTuning, detectCapabilities } from './capabilities.ts';
-import { EngineError, type SerializedError } from './errors.ts';
+import { EngineError, serializeError, type SerializedError } from './errors.ts';
 import type { DecryptCredentials, EncryptCredentials } from './format/header.ts';
 import { acquireJobGuards } from './guards.ts';
 import type { Backend } from './payload/cipher.ts';
-import { SwDownload, downloadStagedFile } from './sinks/download.ts';
-import type { SinkDescriptor, SinkResult } from './sinks/sink.ts';
+import {
+	openOutput,
+	saveError,
+	type FileOutput,
+	type Output,
+	type SaveLocation
+} from './sinks/save-location.ts';
+import type { SinkResult } from './sinks/sink.ts';
 import type {
 	CoordinatorEvent,
 	CoordinatorRequest,
@@ -16,32 +22,17 @@ import type {
 /** A real file, or a size-only stand-in that produces zeros (benchmarks). */
 export type JobInput = File | { name: string; size: number; synthetic: true };
 
-/** Where outputs go. Pickers must be shown by the UI, inside the user gesture. */
-export type SaveTarget =
-	| { kind: 'file'; handle: FileSystemFileHandle }
-	| { kind: 'directory'; handle: FileSystemDirectoryHandle }
-	| { kind: 'sw-download' }
-	| { kind: 'opfs' }
-	| { kind: 'memory' }
-	| { kind: 'discard' };
-
 export type JobOptions = (
 	| { mode: 'encrypt'; credentials: EncryptCredentials }
 	| { mode: 'decrypt'; credentials: DecryptCredentials }
 ) & {
 	files: JobInput[];
-	save: SaveTarget;
+	save: SaveLocation;
 	/** Overrides for benchmarks; defaults come from `defaultTuning`. */
 	tuning?: { workers?: number; batchChunks?: number; window?: number; backend?: Backend };
 };
 
 export type FileStatus = 'waiting' | 'running' | 'done' | 'failed' | 'cancelled';
-
-export type FileOutput =
-	| { kind: 'saved' }
-	| { kind: 'downloaded' }
-	| { kind: 'memory'; blob: Blob }
-	| { kind: 'discarded'; bytes: number };
 
 export interface JobFile {
 	name: string;
@@ -204,22 +195,25 @@ class RunningJob implements Job {
 
 				if (outcome === 'stop' || this.cancelled) break;
 			}
-
-			const statuses = this.snapshot.files.map((file) => file.status);
-
-			const status: JobStatus = this.cancelled
-				? 'cancelled'
-				: statuses.every((s) => s === 'done')
-					? 'done'
-					: 'failed';
-
-			this.update({ status, finishedAt: Date.now() });
+		} catch (cause) {
+			// Only a bug gets here. Fail what was running instead of rejecting `done`.
+			this.failUnfinished(serializeError(cause));
 		} finally {
 			guards.release();
 			this.coordinator.terminate();
 
 			for (const worker of this.crypto) worker.terminate();
 		}
+
+		const statuses = this.snapshot.files.map((file) => file.status);
+
+		const status: JobStatus = this.cancelled
+			? 'cancelled'
+			: statuses.every((s) => s === 'done')
+				? 'done'
+				: 'failed';
+
+		this.update({ status, finishedAt: Date.now() });
 
 		return this.snapshot;
 	}
@@ -228,14 +222,20 @@ class RunningJob implements Job {
 		const input = this.options.files[index]!;
 		const file = this.snapshot.files[index]!;
 		const id = ++this.currentId;
+		this.updateFile(index, { status: 'running' });
+		const doneBefore = this.snapshot.bytesDone;
+		let output: Output;
 
-		const download =
-			this.options.save.kind === 'sw-download' ? new SwDownload(file.outputName) : null;
+		try {
+			output = await openOutput(this.options.save, file.outputName);
+		} catch (cause) {
+			return this.failFile(index, doneBefore, saveError(cause));
+		}
 
 		const task: FileTask = {
 			id,
 			source: sourceOf(input),
-			sink: this.sinkFor(file.outputName, download),
+			sink: output.sink,
 			operation:
 				this.options.mode === 'encrypt'
 					? { mode: 'encrypt', credentials: this.options.credentials }
@@ -245,8 +245,8 @@ class RunningJob implements Job {
 			backend: this.tuning.backend
 		};
 
-		this.updateFile(index, { status: 'running' });
-		const doneBefore = this.snapshot.bytesDone;
+		/** Set when the output failed while the coordinator was still writing to it. */
+		let saveFailure: SerializedError | null = null;
 
 		const result = await new Promise<
 			{ ok: true; result: SinkResult } | { ok: false; error: SerializedError }
@@ -258,17 +258,26 @@ class RunningJob implements Job {
 					case 'opened':
 						this.updateFile(index, { outputSize: data.outputSize });
 						this.update({ backend: data.backend });
-						download?.begin(data.outputSize);
+
+						try {
+							output.opened(data.outputSize);
+						} catch (cause) {
+							saveFailure = saveError(cause);
+							this.request({ type: 'cancel', id });
+						}
+
 						break;
 					case 'progress':
 						this.updateFile(index, { bytesDone: data.bytes });
 						this.update({ bytesDone: doneBefore + data.bytes });
 						break;
 					case 'done':
-						resolve({ ok: true, result: data.result });
+						resolve(
+							saveFailure ? { ok: false, error: saveFailure } : { ok: true, result: data.result }
+						);
 						break;
 					case 'failed':
-						resolve({ ok: false, error: data.error });
+						resolve({ ok: false, error: saveFailure ?? data.error });
 				}
 			};
 
@@ -277,61 +286,50 @@ class RunningJob implements Job {
 					ok: false,
 					error: { code: 'internal', message: event.message || 'worker crashed' }
 				});
-			this.request({ type: 'run', task }, task.sink.kind === 'sw-download' ? [task.sink.port] : []);
+			this.request({ type: 'run', task }, output.transfer);
 		});
 
-		download?.end();
-
 		if (!result.ok) {
-			const cancelled = result.error.code === 'cancelled';
-			this.updateFile(index, {
-				status: cancelled ? 'cancelled' : 'failed',
-				error: cancelled ? null : result.error
-			});
-			this.update({ bytesDone: doneBefore + file.size });
+			output.release();
 
-			return cancelled || !FILE_LOCAL_ERRORS.has(result.error.code) ? 'stop' : 'next';
+			return this.failFile(index, doneBefore, result.error);
 		}
 
-		const output = await this.deliver(result.result, file.outputName);
-		this.updateFile(index, { status: 'done', output, bytesDone: file.size });
+		let delivered: FileOutput;
+
+		try {
+			delivered = await output.finish(result.result);
+		} catch (cause) {
+			output.release();
+
+			return this.failFile(index, doneBefore, saveError(cause));
+		}
+
+		this.updateFile(index, { status: 'done', output: delivered, bytesDone: file.size });
 		this.update({ bytesDone: doneBefore + file.size });
 
 		return 'next';
 	}
 
-	private sinkFor(name: string, download: SwDownload | null): SinkDescriptor {
-		const save = this.options.save;
+	/** Marks the file failed, or cancelled, and says whether the rest are still worth trying. */
+	private failFile(index: number, doneBefore: number, error: SerializedError): 'next' | 'stop' {
+		const cancelled = error.code === 'cancelled';
 
-		switch (save.kind) {
-			case 'file':
-				return { kind: 'fsa-file', handle: save.handle };
-			case 'directory':
-				return { kind: 'fsa-directory', handle: save.handle, name };
-			case 'sw-download':
-				return { kind: 'sw-download', port: download!.port };
-			case 'opfs':
-				void navigator.storage.persist?.();
+		this.updateFile(index, {
+			status: cancelled ? 'cancelled' : 'failed',
+			error: cancelled ? null : error
+		});
+		this.update({ bytesDone: doneBefore + this.snapshot.files[index]!.size });
 
-				return { kind: 'opfs', name: `${crypto.randomUUID()}.part` };
-			case 'memory':
-			case 'discard':
-				return { kind: save.kind };
-		}
+		return cancelled || !FILE_LOCAL_ERRORS.has(error.code) ? 'stop' : 'next';
 	}
 
-	private async deliver(result: SinkResult, name: string): Promise<FileOutput> {
-		switch (result.kind) {
-			case 'saved':
-				return { kind: this.options.save.kind === 'sw-download' ? 'downloaded' : 'saved' };
-			case 'opfs':
-				await downloadStagedFile(result.path, name);
+	private failUnfinished(error: SerializedError): void {
+		for (let i = 0; i < this.snapshot.files.length; i++) {
+			const status = this.snapshot.files[i]!.status;
 
-				return { kind: 'downloaded' };
-			case 'memory':
-				return { kind: 'memory', blob: result.blob };
-			case 'discarded':
-				return { kind: 'discarded', bytes: result.bytes };
+			if (status === 'running') this.updateFile(i, { status: 'failed', error });
+			else if (status === 'waiting') this.updateFile(i, { status: 'cancelled' });
 		}
 	}
 

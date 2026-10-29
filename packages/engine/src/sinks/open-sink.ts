@@ -106,7 +106,7 @@ class OpfsSink implements ByteSink {
 		this.access.flush();
 		this.access.close();
 
-		return { kind: 'opfs', path: [OPFS_STAGING_DIR, this.name] };
+		return { kind: 'saved' };
 	}
 
 	async abort(): Promise<void> {

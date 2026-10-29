@@ -15,7 +15,7 @@ export type SinkDescriptor =
 	| { kind: 'fsa-directory'; handle: FileSystemDirectoryHandle; name: string }
 	/** Streamed to the service worker's download route over `port`. */
 	| { kind: 'sw-download'; port: MessagePort }
-	/** Staged in the origin private file system, downloaded afterwards. */
+	/** Staged as `name` in the origin private file system, downloaded afterwards. */
 	| { kind: 'opfs'; name: string }
 	/** Collected into a Blob (tests and small files only). */
 	| { kind: 'memory' }
@@ -27,7 +27,6 @@ export type SinkKind = SinkDescriptor['kind'];
 /** What a finished sink hands back to the main thread. */
 export type SinkResult =
 	| { kind: 'saved' }
-	| { kind: 'opfs'; path: string[] }
 	| { kind: 'memory'; blob: Blob }
 	| { kind: 'discarded'; bytes: number };
 
