@@ -5,9 +5,9 @@ import {
 	headerLength,
 	openedPayloadSize,
 	sealedPayloadSize,
-	sniffBytes
+	sniffBytes,
+	stanzaTypes
 } from '../src/format/age.ts';
-import { stanzaTypes } from '../src/format/header.ts';
 import { writeChunkNonce } from '../src/payload/cipher.ts';
 import { CHUNK } from './helpers.ts';
 

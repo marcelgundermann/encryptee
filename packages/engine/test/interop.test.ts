@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
-import { keyFileText } from '../src/keys/keys.ts';
+import { keyFileText } from '../src/keys/key-pair.ts';
 import { generateKeyPair, protectKeyFile, readKeyFile } from '../src/index.ts';
 import {
 	CHUNK,

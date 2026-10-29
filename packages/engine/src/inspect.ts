@@ -1,5 +1,10 @@
-import { MAX_HEADER_SIZE, headerLength, sniffBytes, type FileKind } from './format/age.ts';
-import { stanzaTypes } from './format/header.ts';
+import {
+	MAX_HEADER_SIZE,
+	headerLength,
+	sniffBytes,
+	stanzaTypes,
+	type FileKind
+} from './format/age.ts';
 
 export interface FileInfo {
 	kind: FileKind;

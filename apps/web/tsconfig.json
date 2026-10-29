@@ -1,0 +1,9 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"jsx": "react-jsx",
+		"types": ["vite/client", "wicg-file-system-access"]
+	},
+	"include": ["src"],
+	"exclude": ["src/sw.ts"]
+}

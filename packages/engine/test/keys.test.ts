@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
 	buildShareLink,
+	generatePassphrase,
 	deleteContact,
 	generateKeyPair,
 	keyFileText,
@@ -36,10 +37,10 @@ describe('key pairs', () => {
 
 	test('validates pasted public keys', async () => {
 		const pair = await generateKeyPair();
-		expect(validatePublicKeys([`  ${pair.publicKey}\n`])).toEqual([pair.publicKey]);
-		expect(() => validatePublicKeys(['age1qqqq'])).toThrow(
-			expect.objectContaining({ code: 'invalid-public-key' })
-		);
+		expect(await validatePublicKeys([`  ${pair.publicKey}\n`])).toEqual([pair.publicKey]);
+		await expect(validatePublicKeys(['age1qqqq'])).rejects.toMatchObject({
+			code: 'invalid-public-key'
+		});
 	});
 });
 
@@ -69,6 +70,18 @@ describe('key files', () => {
 		await expect(readKeyFile(new TextEncoder().encode('hello'))).rejects.toMatchObject({
 			code: 'invalid-key-file'
 		});
+	});
+});
+
+describe('generated passphrases', () => {
+	test('are ten hyphenated BIP39 words and differ each time', async () => {
+		const { WORDS } = await import('../src/keys/wordlist.ts');
+		expect(WORDS).toHaveLength(2048);
+		const passphrase = generatePassphrase();
+		const words = passphrase.split('-');
+		expect(words).toHaveLength(10);
+		expect(words.every((word) => WORDS.includes(word))).toBe(true);
+		expect(generatePassphrase()).not.toBe(passphrase);
 	});
 });
 

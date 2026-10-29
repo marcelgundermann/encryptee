@@ -83,16 +83,6 @@ export async function openHeader(
 	}
 }
 
-/** The recipient types named in a header, e.g. `scrypt`, `X25519`, `mlkem768x25519`. */
-export function stanzaTypes(header: Uint8Array): string[] {
-	const text = new TextDecoder().decode(header);
-	const types: string[] = [];
-	for (const line of text.split('\n')) {
-		if (line.startsWith('-> ')) types.push(line.slice(3).split(' ')[0] ?? '');
-	}
-	return types;
-}
-
 /** Throws `invalid-public-key` unless `publicKey` is a recipient typage can encrypt to. */
 export function assertPublicKey(publicKey: string): void {
 	addPublicKey(new Encrypter(), publicKey);
