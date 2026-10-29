@@ -18,9 +18,9 @@ const arrivals = new Map<string, () => void>();
 
 /** Returns true if the message was a download control message. */
 export function handleDownloadMessage(event: ExtendableMessageEvent): boolean {
-	// SAFETY: only this app's own pages message its service worker; every
-	// branch below checks `type` before reading anything else.
-	const data = event.data as DownloadControlMessage | undefined;
+	// Only this app's own pages message its service worker, and every branch
+	// below checks `type` before reading anything else.
+	const data: DownloadControlMessage | undefined = event.data;
 
 	if (data?.type === 'encryptee-keepalive') return true;
 
