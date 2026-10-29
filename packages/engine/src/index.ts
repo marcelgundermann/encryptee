@@ -1,5 +1,5 @@
 // The engine's public surface. The UI never touches workers, chunks or formats.
-export { startJob, outputName } from './job.ts';
+export { startJob } from './job.ts';
 
 export type {
 	FileStatus,
@@ -11,7 +11,9 @@ export type {
 	JobStatus
 } from './job.ts';
 
-export type { FileOutput, SaveLocation } from './sinks/save-location.ts';
+export { chooseSaveLocation, whereToSave } from './sinks/save-location.ts';
+
+export type { FileOutput, SaveChoice, SaveLocation, SavePlan } from './sinks/save-location.ts';
 
 export type { DecryptCredentials, EncryptCredentials } from './format/header.ts';
 
@@ -19,15 +21,9 @@ export { EngineError } from './errors.ts';
 
 export type { EngineErrorCode, SerializedError } from './errors.ts';
 
-export {
-	chooseSink,
-	defaultTuning,
-	detectCapabilities,
-	sizeLimit,
-	SIZE_LIMITS
-} from './capabilities.ts';
+export { defaultTuning } from './capabilities.ts';
 
-export type { BrowserFamily, Capabilities, SinkChoice, Tuning } from './capabilities.ts';
+export type { Tuning } from './capabilities.ts';
 
 export { preflight } from './preflight.ts';
 

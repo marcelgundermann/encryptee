@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'vitest';
+import type { Capabilities } from '../src/capabilities.ts';
+import { chooseSaveLocationIn, type SaveEnvironment } from '../src/sinks/save-location.ts';
 import { OPFS_STAGING_DIR } from '../src/sinks/sink.ts';
 import { TEST_LOG_N, decrypt, encrypt, equalBytes, file, randomBytes, runJob } from './helpers.ts';
 
@@ -173,5 +175,126 @@ describe.skipIf(!opfs)('staging in OPFS', () => {
 
 		expect(after).not.toContain('left-behind.part');
 		expect(after).toContain(first[0]);
+	});
+});
+
+/** A browser with the given capabilities whose pickers must not be called unless a test says so. */
+function fakeBrowser(
+	capabilities: Partial<Capabilities>,
+	overrides: Partial<Omit<SaveEnvironment, 'capabilities'>> = {}
+): SaveEnvironment {
+	return {
+		capabilities: {
+			browser: 'chromium',
+			ios: false,
+			mobile: false,
+			cores: 4,
+			savePicker: false,
+			directoryPicker: false,
+			serviceWorkerDownload: false,
+			opfs: false,
+			...capabilities
+		},
+		showSaveFilePicker: () => Promise.reject(new Error('unexpected save picker')),
+		showDirectoryPicker: () => Promise.reject(new Error('unexpected folder picker')),
+		opfsOpens: () => Promise.resolve(true),
+		...overrides
+	};
+}
+
+const pickers = {
+	savePicker: true,
+	directoryPicker: true,
+	serviceWorkerDownload: true,
+	opfs: true
+};
+
+const one = [{ name: 'a.txt' }];
+const two = [{ name: 'a.txt' }, { name: 'b.txt' }];
+
+describe('choosing a save location', () => {
+	test.skipIf(!opfs)('one file asks for a file, suggesting the output name', async () => {
+		const handle = await (await pickedDirectory()).getFileHandle('picked', { create: true });
+		const suggested: string[] = [];
+
+		const browser = fakeBrowser(pickers, {
+			showSaveFilePicker: async (name) => {
+				suggested.push(name);
+
+				return handle;
+			}
+		});
+
+		expect(await chooseSaveLocationIn(browser, 'encrypt', one)).toEqual({
+			location: { kind: 'file', handle }
+		});
+		await chooseSaveLocationIn(browser, 'decrypt', [{ name: 'a.txt.age' }]);
+		expect(suggested).toEqual(['a.txt.age', 'a.txt']);
+	});
+
+	test.skipIf(!opfs)('several files ask for a folder', async () => {
+		const handle = await pickedDirectory();
+		const browser = fakeBrowser(pickers, { showDirectoryPicker: async () => handle });
+
+		expect(await chooseSaveLocationIn(browser, 'encrypt', two)).toEqual({
+			location: { kind: 'directory', handle }
+		});
+	});
+
+	test('without pickers, a service worker download, else OPFS staging', async () => {
+		expect(
+			await chooseSaveLocationIn(
+				fakeBrowser({ serviceWorkerDownload: true, opfs: true }),
+				'encrypt',
+				one
+			)
+		).toEqual({ location: { kind: 'sw-download' } });
+		expect(await chooseSaveLocationIn(fakeBrowser({ opfs: true }), 'encrypt', two)).toEqual({
+			location: { kind: 'opfs' }
+		});
+	});
+
+	test('a browser with nothing to save to, or OPFS that refuses to open, is unsupported', async () => {
+		const refusing = fakeBrowser({ opfs: true }, { opfsOpens: () => Promise.resolve(false) });
+
+		expect(await chooseSaveLocationIn(fakeBrowser({}), 'encrypt', one)).toEqual({
+			location: null,
+			reason: 'unsupported'
+		});
+		expect(await chooseSaveLocationIn(refusing, 'encrypt', one)).toEqual({
+			location: null,
+			reason: 'unsupported'
+		});
+	});
+
+	test.each([
+		[new DOMException('closed', 'AbortError'), 'dismissed'],
+		[new DOMException('no activation', 'NotAllowedError'), 'needs-gesture'],
+		[new DOMException('no activation', 'SecurityError'), 'needs-gesture'],
+		[new TypeError('broken'), 'save-failed']
+	])('a picker failing with %s gives %s', async (error, reason) => {
+		const browser = fakeBrowser(pickers, {
+			showSaveFilePicker: async () => {
+				throw error;
+			}
+		});
+
+		expect(await chooseSaveLocationIn(browser, 'encrypt', one)).toEqual({ location: null, reason });
+	});
+
+	test('the picker opens before anything is awaited, inside the click', async () => {
+		let opened = false;
+
+		const browser = fakeBrowser(pickers, {
+			showSaveFilePicker: () => {
+				opened = true;
+
+				return Promise.reject(new DOMException('closed', 'AbortError'));
+			}
+		});
+
+		const choice = chooseSaveLocationIn(browser, 'encrypt', one);
+		expect(opened).toBe(true);
+		await choice;
 	});
 });

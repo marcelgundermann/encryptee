@@ -1,8 +1,14 @@
+import {
+	chooseSink,
+	detectCapabilities,
+	type Capabilities,
+	type SinkChoice
+} from '../capabilities.ts';
 import { serializeError, type SerializedError } from '../errors.ts';
 import { STAGED_DOWNLOAD_MS, SwDownload, downloadStagedFile } from './download.ts';
 import { OPFS_STAGING_DIR, type SinkDescriptor, type SinkResult } from './sink.ts';
 
-/** Where a job's output files end up. Pickers must be shown inside the user gesture. */
+/** Where a job's output files end up. In the app, `chooseSaveLocation` gives one. */
 export type SaveLocation =
 	/** A file the user picked; the job has exactly one input. */
 	| { kind: 'file'; handle: FileSystemFileHandle }
@@ -19,6 +25,115 @@ export type SaveLocation =
 
 /** Where one output file ended up: what its sink handed back, or the browser's downloads. */
 export type FileOutput = SinkResult | { kind: 'downloaded' };
+
+/** What the UI can say before Start: it will ask where to save, use the downloads, or can't. */
+export type SavePlan = 'ask' | 'downloads' | 'unsupported';
+
+export type SaveChoice =
+	| { location: SaveLocation }
+	| { location: null; reason: 'dismissed' | 'needs-gesture' | 'unsupported' | 'save-failed' };
+
+/** What choosing a save location depends on: this browser, or a fake one in tests. */
+export interface SaveEnvironment {
+	capabilities: Capabilities;
+	showSaveFilePicker(suggestedName: string): Promise<FileSystemFileHandle>;
+	showDirectoryPicker(): Promise<FileSystemDirectoryHandle>;
+	/** Whether OPFS opens at all; WebKit's private sessions have the API but refuse it. */
+	opfsOpens(): Promise<boolean>;
+}
+
+/** How a job over `fileCount` files would be saved in this browser. */
+export function whereToSave(fileCount: number): SavePlan {
+	return planOf(chooseSink(detectCapabilities(), fileCount));
+}
+
+/**
+ * Picks where a job's outputs go, showing a save picker where the browser has
+ * one. Call it straight from the click handler, before awaiting anything: the
+ * pickers need the click's user activation, and once it has expired the
+ * choice is `needs-gesture`, so ask for another click. Never throws.
+ */
+export function chooseSaveLocation(
+	mode: 'encrypt' | 'decrypt',
+	files: readonly { name: string }[]
+): Promise<SaveChoice> {
+	return chooseSaveLocationIn(browserEnvironment(), mode, files);
+}
+
+/** `chooseSaveLocation` in a given browser; tests pass a fake one. */
+export async function chooseSaveLocationIn(
+	environment: SaveEnvironment,
+	mode: 'encrypt' | 'decrypt',
+	files: readonly { name: string }[]
+): Promise<SaveChoice> {
+	const choice = chooseSink(environment.capabilities, files.length);
+
+	try {
+		switch (choice) {
+			case 'file-picker': {
+				const handle = await environment.showSaveFilePicker(outputName(mode, files[0]!.name));
+
+				return { location: { kind: 'file', handle } };
+			}
+
+			case 'directory-picker':
+				return { location: { kind: 'directory', handle: await environment.showDirectoryPicker() } };
+			case 'sw-download':
+				return { location: { kind: 'sw-download' } };
+			case 'opfs':
+				return (await environment.opfsOpens())
+					? { location: { kind: 'opfs' } }
+					: { location: null, reason: 'unsupported' };
+			case 'unsupported':
+				return { location: null, reason: 'unsupported' };
+		}
+	} catch (cause) {
+		return { location: null, reason: pickerFailure(cause) };
+	}
+}
+
+export function outputName(mode: 'encrypt' | 'decrypt', name: string): string {
+	if (mode === 'encrypt') return `${name}.age`;
+
+	return /\.age$/i.test(name) && name.length > 4 ? name.slice(0, -4) : `${name}.decrypted`;
+}
+
+function planOf(choice: SinkChoice): SavePlan {
+	switch (choice) {
+		case 'file-picker':
+		case 'directory-picker':
+			return 'ask';
+		case 'sw-download':
+		case 'opfs':
+			return 'downloads';
+		case 'unsupported':
+			return 'unsupported';
+	}
+}
+
+function pickerFailure(cause: unknown): 'dismissed' | 'needs-gesture' | 'save-failed' {
+	if (cause instanceof DOMException && cause.name === 'AbortError') return 'dismissed';
+
+	// The browser refused the picker: the click's activation had run out.
+	if (cause instanceof DOMException && /NotAllowed|Security/.test(cause.name)) {
+		return 'needs-gesture';
+	}
+
+	return 'save-failed';
+}
+
+function browserEnvironment(): SaveEnvironment {
+	return {
+		capabilities: detectCapabilities(),
+		showSaveFilePicker: (suggestedName) => window.showSaveFilePicker({ suggestedName }),
+		showDirectoryPicker: () => window.showDirectoryPicker({ mode: 'readwrite' }),
+		opfsOpens: () =>
+			navigator.storage.getDirectory().then(
+				() => true,
+				() => false
+			)
+	};
+}
 
 /**
  * The main-thread half of one output file; the coordinator opens its worker
