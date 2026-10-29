@@ -2,16 +2,16 @@
 export { startJob, outputName } from './job.ts';
 
 export type {
-	FileOutput,
 	FileStatus,
 	Job,
 	JobFile,
 	JobInput,
 	JobOptions,
 	JobSnapshot,
-	JobStatus,
-	SaveTarget
+	JobStatus
 } from './job.ts';
+
+export type { FileOutput, SaveLocation } from './sinks/save-location.ts';
 
 export type { DecryptCredentials, EncryptCredentials } from './format/header.ts';
 
@@ -38,8 +38,6 @@ export { inspectFile } from './inspect.ts';
 export type { FileInfo } from './inspect.ts';
 
 export type { FileKind } from './format/age.ts';
-
-export { clearStagingArea } from './sinks/download.ts';
 
 export { nativeChaChaAvailable } from './payload/cipher.ts';
 

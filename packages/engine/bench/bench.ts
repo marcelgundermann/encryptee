@@ -6,7 +6,7 @@ import {
 	type Job,
 	type JobInput,
 	type JobOptions,
-	type SaveTarget
+	type SaveLocation
 } from '../src/index.ts';
 
 /**
@@ -82,7 +82,7 @@ $('form', HTMLFormElement).addEventListener('submit', async (event) => {
 
 	// Pickers need the click's user activation, so ask once up front.
 	let picked: File | null = null;
-	let save: SaveTarget = { kind: 'discard' };
+	let save: SaveLocation = { kind: 'discard' };
 
 	if (scenario === 'encrypt-picker' || scenario === 'decrypt-picker') {
 		const [handle] = await window.showOpenFilePicker();

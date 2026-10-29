@@ -6,7 +6,7 @@ import {
 	type Job,
 	type JobOptions,
 	type JobSnapshot,
-	type SaveTarget
+	type SaveLocation
 } from '@encryptee/engine';
 import { useSyncExternalStore } from 'react';
 
@@ -32,7 +32,7 @@ export async function pickAndStart(
 	options: OmitEach<JobOptions, 'save'>
 ): Promise<{ job: Job } | { job: null; reason: 'dismissed' | 'unsupported' | 'needs-gesture' }> {
 	const choice = chooseSink(detectCapabilities(), options.files.length);
-	let save: SaveTarget;
+	let save: SaveLocation;
 
 	try {
 		switch (choice) {
