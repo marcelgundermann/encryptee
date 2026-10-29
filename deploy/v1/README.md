@@ -10,6 +10,7 @@ cd .worktrees/v1
 mise exec node@18 -- npx pnpm@8 install --frozen-lockfile
 mise exec node@18 -- npx pnpm@8 build      # adapter-vercel refuses Node > 18
 cd ../..
+cp deploy/v1/wrangler.example.jsonc deploy/v1/wrangler.jsonc   # once; git-ignored, add your account_id here
 npx wrangler deploy -c deploy/v1/wrangler.jsonc
 ```
 

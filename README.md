@@ -19,6 +19,7 @@ Requires Node 26 and pnpm 12.
 
 ```sh
 pnpm install
+cp wrangler.example.jsonc wrangler.jsonc   # once; git-ignored, add your account_id here
 pnpm dev                 # tool at http://localhost:5173
 pnpm test                # engine tests in Chromium, Firefox and WebKit
 pnpm build && pnpm e2e   # end-to-end against the production build (wrangler dev)
