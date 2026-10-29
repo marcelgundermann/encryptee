@@ -1,29 +1,34 @@
 import { checkCredentials } from '../check.ts';
 import { serializeError } from '../errors.ts';
 import { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from '../keys/keys.ts';
-import type { ToolArgs, ToolRequest, ToolResponse, ToolValue } from './tools-protocol.ts';
+import type { ToolRequest, ToolResponse } from './tools-protocol.ts';
 
 declare const self: DedicatedWorkerGlobalScope;
 
-const tools = {
-	checkCredentials,
-	generateKeyPair,
-	protectKeyFile,
-	readKeyFile,
-	validatePublicKeys
-};
-
 self.onmessage = async ({ data }: MessageEvent<ToolRequest>) => {
-	let response: ToolResponse;
-
-	try {
-		// SAFETY: `call` in tools.ts types `args` as `Parameters<Tools[tool]>`,
-		// so they fit the function picked by the same `tool`.
-		const run = tools[data.tool] as (...args: ToolArgs) => Promise<ToolValue>;
-		response = { id: data.id, ok: true, value: await run(...data.args) };
-	} catch (error) {
-		response = { id: data.id, ok: false, error: serializeError(error) };
-	}
-
-	self.postMessage(response);
+	data.port.postMessage(await respond(data));
+	data.port.close();
 };
+
+/**
+ * Runs the tool `request` names. Each case narrows `args` to that tool's
+ * parameters, and a tool without a case fails to compile.
+ */
+async function respond(request: ToolRequest): Promise<ToolResponse> {
+	try {
+		switch (request.tool) {
+			case 'checkCredentials':
+				return { ok: true, value: await checkCredentials(...request.args) };
+			case 'generateKeyPair':
+				return { ok: true, value: await generateKeyPair(...request.args) };
+			case 'protectKeyFile':
+				return { ok: true, value: await protectKeyFile(...request.args) };
+			case 'readKeyFile':
+				return { ok: true, value: await readKeyFile(...request.args) };
+			case 'validatePublicKeys':
+				return { ok: true, value: validatePublicKeys(...request.args) };
+		}
+	} catch (error) {
+		return { ok: false, error: serializeError(error) };
+	}
+}

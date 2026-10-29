@@ -1,3 +1,10 @@
+declare global {
+	interface Navigator {
+		/** User-Agent Client Hints, which the DOM typings lack. Chromium only. */
+		readonly userAgentData?: { brands: { brand: string }[]; mobile: boolean };
+	}
+}
+
 export type BrowserFamily = 'chromium' | 'firefox' | 'safari' | 'other';
 
 export interface Capabilities {
@@ -37,11 +44,7 @@ export function detectCapabilities(): Capabilities {
 	const ua = navigator.userAgent;
 	const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 
-	// SAFETY: the DOM typings lack User-Agent Client Hints; `userAgentData`
-	// stays optional here, and Firefox and Safari leave it undefined.
-	const brands = (
-		navigator as Navigator & { userAgentData?: { brands: { brand: string }[]; mobile: boolean } }
-	).userAgentData;
+	const brands = navigator.userAgentData;
 
 	let browser: BrowserFamily = 'other';
 

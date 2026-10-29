@@ -5,15 +5,7 @@
  * script policy exists, so `innerHTML`, `eval` and friends stay blocked.
  * Must be imported before anything that starts a worker.
  */
-interface TrustedTypePolicyFactoryLike {
-	createPolicy(name: string, rules: { createScriptURL(input: string): string }): void;
-}
-
-// SAFETY: the DOM typings lack Trusted Types; `trustedTypes` stays optional
-// here, and browsers without it leave it undefined.
-const factory = (globalThis as { trustedTypes?: TrustedTypePolicyFactoryLike }).trustedTypes;
-
-factory?.createPolicy('default', {
+window.trustedTypes?.createPolicy('default', {
 	createScriptURL(input) {
 		const url = new URL(input, location.href);
 

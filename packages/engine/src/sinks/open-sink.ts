@@ -2,6 +2,13 @@ import { EngineError, type SerializedError } from '../errors.ts';
 import { OPFS_STAGING_DIR, type ByteSink, type SinkDescriptor, type SinkResult } from './sink.ts';
 import { SW_MAX_MESSAGE_BYTES, type DownloadPortMessage } from './sw-protocol.ts';
 
+declare global {
+	interface FileSystemHandle {
+		/** A Chromium extension the typings lack; other browsers leave it undefined. */
+		remove?(): Promise<void>;
+	}
+}
+
 /** Opens the writer for a descriptor. Runs in the coordinator (a dedicated worker). */
 export async function openSink(descriptor: SinkDescriptor): Promise<ByteSink> {
 	switch (descriptor.kind) {
@@ -64,10 +71,7 @@ class FsaSink implements ByteSink {
 		} else if (this.wasEmpty) {
 			// showSaveFilePicker creates an empty file up front. Remove it, but
 			// never a file that had content before (abort kept that intact).
-			// SAFETY: `remove()` is a Chromium extension the typings lack; it stays
-			// optional here and is only called through `?.`.
-			const removable = this.handle as FileSystemFileHandle & { remove?: () => Promise<void> };
-			await removable.remove?.().catch(() => {});
+			await this.handle.remove?.().catch(() => {});
 		}
 	}
 }

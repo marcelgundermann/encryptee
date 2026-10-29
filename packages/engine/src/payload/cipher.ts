@@ -4,6 +4,19 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { EngineError } from '../errors.ts';
 import { TAG_SIZE } from '../format/age.ts';
 
+declare global {
+	interface SubtleCrypto {
+		/** The modern-algorithms draft's format for symmetric keys, which the typings predate. */
+		importKey(
+			format: 'raw-secret',
+			keyData: BufferSource,
+			algorithm: AlgorithmIdentifier,
+			extractable: boolean,
+			keyUsages: KeyUsage[]
+		): Promise<CryptoKey>;
+	}
+}
+
 export type Backend = 'webcrypto' | 'noble';
 
 const PAYLOAD_LABEL = new TextEncoder().encode('payload');
@@ -121,11 +134,9 @@ class WebCryptoChunkCipher implements ChunkCipher {
 
 async function importChaChaKey(key: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
 	// The modern-algorithms draft imports symmetric keys as `raw-secret`; older
-	// builds only knew `raw`.
+	// builds only knew `raw` and reject `raw-secret`, so the retry below runs.
 	try {
-		// SAFETY: the DOM typings predate `raw-secret`; a browser that doesn't
-		// know it rejects the call and the `raw` retry below runs.
-		return await crypto.subtle.importKey('raw-secret' as 'raw', key, ALGORITHM, false, [
+		return await crypto.subtle.importKey('raw-secret', key, ALGORITHM, false, [
 			'encrypt',
 			'decrypt'
 		]);

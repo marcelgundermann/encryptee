@@ -17,14 +17,17 @@ export interface Tools {
 
 export type ToolName = keyof Tools;
 
-/** Arguments of some tool, as posted to the worker. */
-export type ToolArgs = Parameters<Tools[ToolName]>;
+/** Result of tool `T`, as posted back. */
+export type ToolValue<T extends ToolName = ToolName> = Awaited<ReturnType<Tools[T]>>;
 
-/** Result of some tool, as posted back. */
-export type ToolValue = Awaited<ReturnType<Tools[ToolName]>>;
+/**
+ * One call of tool `T`, posted to the worker, which answers on `port`. Without
+ * `T` it is a union discriminated by `tool`, so checking `tool` narrows `args`.
+ */
+export type ToolRequest<T extends ToolName = ToolName> = {
+	[K in T]: { tool: K; args: Parameters<Tools[K]>; port: MessagePort };
+}[T];
 
-export type ToolRequest = { id: number; tool: ToolName; args: ToolArgs };
-
-export type ToolResponse =
-	| { id: number; ok: true; value: ToolValue }
-	| { id: number; ok: false; error: SerializedError };
+export type ToolResponse<T extends ToolName = ToolName> =
+	| { ok: true; value: ToolValue<T> }
+	| { ok: false; error: SerializedError };

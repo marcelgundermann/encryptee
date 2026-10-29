@@ -13,12 +13,15 @@ import {
  * Dev-only throughput bench (plan step 3). Not part of the app build; run with
  * `pnpm --filter @encryptee/engine bench`.
  */
-type Scenario =
-	| 'encrypt-discard'
-	| 'encrypt-opfs'
-	| 'decrypt-opfs'
-	| 'encrypt-picker'
-	| 'decrypt-picker';
+const SCENARIOS = [
+	'encrypt-discard',
+	'encrypt-opfs',
+	'decrypt-opfs',
+	'encrypt-picker',
+	'decrypt-picker'
+] as const;
+
+type Scenario = (typeof SCENARIOS)[number];
 
 interface Row {
 	scenario: Scenario;
@@ -31,9 +34,15 @@ interface Row {
 	mibps: number;
 }
 
-// SAFETY: bench/index.html holds every id looked up here, each as the
-// element type its call site names.
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+/** The element with `id` in bench/index.html, checked to be a `type`. */
+function $<T extends HTMLElement>(id: string, type: new () => T): T {
+	const element = document.getElementById(id);
+
+	if (!(element instanceof type)) throw new Error(`bench/index.html has no matching #${id}`);
+
+	return element;
+}
+
 const capabilities = detectCapabilities();
 const native = await nativeChaChaAvailable();
 const rows: Row[] = [];
@@ -43,28 +52,29 @@ let stopped = false;
 /** The OPFS file encrypted by `encrypt-opfs`, reused by `decrypt-opfs`. */
 let staged: File | null = null;
 
-$('env').textContent =
+$('env', HTMLElement).textContent =
 	`${capabilities.browser}, ${capabilities.cores} cores, mobile: ${capabilities.mobile}, ` +
 	`native ChaCha20-Poly1305: ${native}, save picker: ${capabilities.savePicker}`;
 
 const list = (id: string) =>
-	$<HTMLInputElement>(id)
+	$(id, HTMLInputElement)
 		.value.split(',')
 		.map((v) => v.trim())
 		.filter(Boolean);
 
-$('stop').addEventListener('click', () => {
+$('stop', HTMLButtonElement).addEventListener('click', () => {
 	stopped = true;
 	current?.cancel();
 });
 
-$<HTMLFormElement>('form').addEventListener('submit', async (event) => {
+$('form', HTMLFormElement).addEventListener('submit', async (event) => {
 	event.preventDefault();
 	stopped = false;
-	// SAFETY: the scenario <select> only offers `Scenario` values.
-	const scenario = $<HTMLSelectElement>('scenario').value as Scenario;
-	const size = Math.round(Number($<HTMLInputElement>('size').value) * 1024 ** 3);
-	const passphrase = $<HTMLInputElement>('passphrase').value;
+	const scenario = SCENARIOS.find((s) => s === $('scenario', HTMLSelectElement).value);
+
+	if (!scenario) return;
+	const size = Math.round(Number($('size', HTMLInputElement).value) * 1024 ** 3);
+	const passphrase = $('passphrase', HTMLInputElement).value;
 
 	const backends = list('backends').filter(
 		(b): b is Backend => b === 'noble' || (b === 'webcrypto' && native)
@@ -97,7 +107,7 @@ $<HTMLFormElement>('form').addEventListener('submit', async (event) => {
 					};
 
 				if (scenario === 'decrypt-opfs' && !staged) {
-					$('status').textContent = 'Run "Encrypt synthetic → OPFS" first.';
+					$('status', HTMLElement).textContent = 'Run "Encrypt synthetic → OPFS" first.';
 
 					return;
 				}
@@ -119,7 +129,7 @@ $<HTMLFormElement>('form').addEventListener('submit', async (event) => {
 		}
 	}
 
-	$('status').textContent = 'Done.';
+	$('status', HTMLElement).textContent = 'Done.';
 });
 
 async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
@@ -128,7 +138,7 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 	current = job;
 	job.subscribe(() => {
 		const s = job.getSnapshot();
-		$('status').textContent =
+		$('status', HTMLElement).textContent =
 			`${scenario} · ${options.tuning?.backend} · ${options.tuning?.workers} workers · ` +
 			`${options.tuning?.batchChunks} chunks: ${((100 * s.bytesDone) / s.bytesTotal).toFixed(1)}%`;
 	});
@@ -137,7 +147,8 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 
 	if (result.status !== 'done') {
 		console.error(`${scenario} ${result.status}`, result.files[0]?.error);
-		$('status').textContent = `${result.status}: ${result.files[0]?.error?.message ?? ''}`;
+		$('status', HTMLElement).textContent =
+			`${result.status}: ${result.files[0]?.error?.message ?? ''}`;
 		stopped = true;
 
 		return;
@@ -188,7 +199,7 @@ const cells = (r: Row): string[] => [
 ];
 
 function render(): void {
-	$('results').replaceChildren(
+	$('results', HTMLElement).replaceChildren(
 		...rows.map((r) => {
 			const tr = document.createElement('tr');
 
@@ -201,7 +212,7 @@ function render(): void {
 			return tr;
 		})
 	);
-	$('markdown').textContent = [
+	$('markdown', HTMLElement).textContent = [
 		'| Scenario | Browser | Backend | Workers | Batch | GiB | Seconds | MiB/s |',
 		'|---|---|---|---|---|---|---|---|',
 		...rows.map((r) => `| ${cells(r).join(' | ')} |`)

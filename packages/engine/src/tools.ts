@@ -12,37 +12,29 @@ import type {
  * all other crypto. One worker is started on first use and kept.
  */
 let worker: Worker | null = null;
-let nextId = 0;
 
-const pending = new Map<
-	number,
-	{ resolve: (value: ToolValue) => void; reject: (e: Error) => void }
->();
+function call<T extends ToolName>(tool: T, ...args: Parameters<Tools[T]>): Promise<ToolValue<T>> {
+	worker ??= new Worker(new URL('./workers/tools.worker.ts', import.meta.url), {
+		type: 'module',
+		name: 'encryptee-tools'
+	});
 
-function call<T extends ToolName>(tool: T, ...args: Parameters<Tools[T]>): ReturnType<Tools[T]> {
-	if (!worker) {
-		worker = new Worker(new URL('./workers/tools.worker.ts', import.meta.url), {
-			type: 'module',
-			name: 'encryptee-tools'
-		});
-		worker.onmessage = ({ data }: MessageEvent<ToolResponse>) => {
-			const entry = pending.get(data.id);
-			pending.delete(data.id);
+	// Each call gets its own channel, so the one response on it is `tool`'s.
+	const { port1, port2 } = new MessageChannel();
+	const request: ToolRequest<T> = { tool, args, port: port2 };
 
-			if (data.ok) entry?.resolve(data.value);
-			else entry?.reject(deserializeError(data.error));
+	const response = new Promise<ToolValue<T>>((resolve, reject) => {
+		port1.onmessage = ({ data }: MessageEvent<ToolResponse<T>>) => {
+			port1.close();
+
+			if (data.ok) resolve(data.value);
+			else reject(deserializeError(data.error));
 		};
-	}
+	});
 
-	const id = nextId++;
-	const request: ToolRequest = { id, tool, args };
+	worker.postMessage(request, [port2]);
 
-	// SAFETY: the worker answers `id` with what `tools[tool]` returned, so the
-	// value this promise resolves with is `tool`'s own result.
-	return new Promise((resolve, reject) => {
-		pending.set(id, { resolve, reject });
-		worker!.postMessage(request);
-	}) as ReturnType<Tools[T]>;
+	return response;
 }
 
 /** Generates a key pair: post-quantum hybrid by default (D20). */
