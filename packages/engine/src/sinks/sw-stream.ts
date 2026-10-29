@@ -6,12 +6,15 @@ import { SW_CREDIT_WINDOW, type DownloadPortMessage } from './sw-protocol.ts';
  */
 export function createPortStream(port: MessagePort): ReadableStream<Uint8Array> {
 	let outstanding = 0;
+
 	const grant = (controller: ReadableStreamDefaultController<Uint8Array>) => {
 		const wanted = (controller.desiredSize ?? 0) - outstanding;
+
 		if (wanted <= 0) return;
 		outstanding += wanted;
 		port.postMessage({ type: 'credit', credits: wanted } satisfies DownloadPortMessage);
 	};
+
 	return new ReadableStream<Uint8Array>(
 		{
 			start(controller) {
@@ -33,6 +36,7 @@ export function createPortStream(port: MessagePort): ReadableStream<Uint8Array> 
 							break;
 					}
 				};
+
 				port.start();
 				grant(controller);
 			},

@@ -37,6 +37,7 @@ const native = await nativeChaChaAvailable();
 const rows: Row[] = [];
 let current: Job | null = null;
 let stopped = false;
+
 /** The OPFS file encrypted by `encrypt-opfs`, reused by `decrypt-opfs`. */
 let staged: File | null = null;
 
@@ -66,11 +67,14 @@ $<HTMLFormElement>('form').addEventListener('submit', async (event) => {
 	// Pickers need the click's user activation, so ask once up front.
 	let picked: File | null = null;
 	let save: SaveTarget = { kind: 'discard' };
+
 	if (scenario === 'encrypt-picker' || scenario === 'decrypt-picker') {
 		const [handle] = await window.showOpenFilePicker();
 		picked = await handle!.getFile();
+
 		const name =
 			scenario === 'encrypt-picker' ? `${picked.name}.age` : picked.name.replace(/\.age$/, '');
+
 		save = { kind: 'file', handle: await window.showSaveFilePicker({ suggestedName: name }) };
 	}
 
@@ -78,16 +82,20 @@ $<HTMLFormElement>('form').addEventListener('submit', async (event) => {
 		for (const workers of list('workers').map(Number)) {
 			for (const batchChunks of list('batches').map(Number)) {
 				if (stopped) return;
+
 				const input: JobInput = picked ??
 					(scenario === 'decrypt-opfs' ? staged : null) ?? {
 						name: 'synthetic',
 						size,
 						synthetic: true
 					};
+
 				if (scenario === 'decrypt-opfs' && !staged) {
 					$('status').textContent = 'Run "Encrypt synthetic → OPFS" first.';
+
 					return;
 				}
+
 				const options: JobOptions = {
 					...(scenario.startsWith('decrypt')
 						? { mode: 'decrypt' as const, credentials: { kind: 'passphrase' as const, passphrase } }
@@ -99,10 +107,12 @@ $<HTMLFormElement>('form').addEventListener('submit', async (event) => {
 					save: scenario === 'encrypt-opfs' ? { kind: 'opfs' } : save,
 					tuning: { workers, batchChunks, window: 2 * workers, backend }
 				};
+
 				await runOne(scenario, options);
 			}
 		}
 	}
+
 	$('status').textContent = 'Done.';
 });
 
@@ -118,14 +128,18 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 	});
 	const result = await job.done;
 	current = null;
+
 	if (result.status !== 'done') {
 		console.error(`${scenario} ${result.status}`, result.files[0]?.error);
 		$('status').textContent = `${result.status}: ${result.files[0]?.error?.message ?? ''}`;
 		stopped = true;
+
 		return;
 	}
+
 	if (scenario === 'encrypt-opfs') staged = await latestStagedFile();
 	const seconds = (performance.now() - started) / 1000;
+
 	const row: Row = {
 		scenario,
 		browser: capabilities.browser,
@@ -136,6 +150,7 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 		seconds,
 		mibps: result.bytesTotal / 1024 ** 2 / seconds
 	};
+
 	rows.push(row);
 	render();
 }
@@ -144,11 +159,14 @@ async function latestStagedFile(): Promise<File | null> {
 	const root = await navigator.storage.getDirectory();
 	const dir = await root.getDirectoryHandle('encryptee-staging');
 	let latest: File | null = null;
+
 	for await (const handle of dir.values()) {
 		if (handle.kind !== 'file') continue;
 		const file = await (handle as FileSystemFileHandle).getFile();
+
 		if (!latest || file.lastModified > latest.lastModified) latest = file;
 	}
+
 	return latest;
 }
 
@@ -167,11 +185,13 @@ function render(): void {
 	$('results').replaceChildren(
 		...rows.map((r) => {
 			const tr = document.createElement('tr');
+
 			for (const text of cells(r)) {
 				const td = document.createElement('td');
 				td.textContent = text;
 				tr.append(td);
 			}
+
 			return tr;
 		})
 	);

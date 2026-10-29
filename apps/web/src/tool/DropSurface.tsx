@@ -8,35 +8,43 @@ import { strings } from '../strings.ts';
 export function useWindowDrop(onFiles: (files: File[]) => void, enabled: boolean): boolean {
 	const [dragging, setDragging] = useState(false);
 	const depth = useRef(0);
+
 	const receive = useEffectEvent((files: File[]) => {
 		if (enabled && files.length > 0) onFiles(files);
 	});
 
 	useEffect(() => {
 		const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false;
+
 		const onEnter = (event: DragEvent) => {
 			if (!hasFiles(event)) return;
 			depth.current++;
 			setDragging(true);
 		};
+
 		const onLeave = (event: DragEvent) => {
 			if (!hasFiles(event)) return;
 			depth.current = Math.max(0, depth.current - 1);
+
 			if (depth.current === 0) setDragging(false);
 		};
+
 		const onOver = (event: DragEvent) => {
 			if (hasFiles(event)) event.preventDefault();
 		};
+
 		const onDrop = (event: DragEvent) => {
 			event.preventDefault();
 			depth.current = 0;
 			setDragging(false);
 			receive([...(event.dataTransfer?.files ?? [])]);
 		};
+
 		addEventListener('dragenter', onEnter);
 		addEventListener('dragleave', onLeave);
 		addEventListener('dragover', onOver);
 		addEventListener('drop', onDrop);
+
 		return () => {
 			removeEventListener('dragenter', onEnter);
 			removeEventListener('dragleave', onLeave);
@@ -51,6 +59,7 @@ export function useWindowDrop(onFiles: (files: File[]) => void, enabled: boolean
 /** The empty state: the page is one big drop surface that also opens the file chooser. */
 export function DropSurface(props: { onFiles: (files: File[]) => void; dragging: boolean }) {
 	const input = useRef<HTMLInputElement>(null);
+
 	return (
 		<>
 			<button

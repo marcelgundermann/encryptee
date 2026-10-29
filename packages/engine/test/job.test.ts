@@ -26,10 +26,12 @@ describe('round trips through the worker pipeline', () => {
 		async (size) => {
 			const plain = randomBytes(size);
 			const sealed = await encrypt(plain, passphrase);
+
 			const { snapshot, output } = await decrypt(sealed, {
 				kind: 'passphrase',
 				passphrase: passphrase.passphrase
 			});
+
 			expect(snapshot.status).toBe('done');
 			expect(equalBytes(output!, plain)).toBe(true);
 		}
@@ -39,15 +41,18 @@ describe('round trips through the worker pipeline', () => {
 		const pq = await generateKeyPair('pq');
 		const classic = await generateKeyPair('x25519');
 		const plain = randomBytes(2 * CHUNK + 9);
+
 		const sealed = await encrypt(plain, {
 			kind: 'public-keys',
 			publicKeys: [pq.publicKey, classic.publicKey]
 		});
+
 		for (const pair of [pq, classic]) {
 			const { output } = await decrypt(sealed, {
 				kind: 'private-keys',
 				privateKeys: [pair.privateKey]
 			});
+
 			expect(equalBytes(output!, plain)).toBe(true);
 		}
 	});
@@ -55,11 +60,13 @@ describe('round trips through the worker pipeline', () => {
 	test('default tuning and the native backend when available', async () => {
 		const plain = randomBytes(9 * 1024 * 1024 + 5);
 		const sealed = await encrypt(plain, passphrase, {});
+
 		const { snapshot, output } = await decrypt(
 			sealed,
 			{ kind: 'passphrase', passphrase: passphrase.passphrase },
 			{}
 		);
+
 		expect(equalBytes(output!, plain)).toBe(true);
 		expect(snapshot.workers).toBeGreaterThanOrEqual(1);
 		expect(['noble', 'webcrypto']).toContain(snapshot.backend);
@@ -68,11 +75,13 @@ describe('round trips through the worker pipeline', () => {
 	test('the noble backend can be forced', async () => {
 		const plain = randomBytes(CHUNK * 3);
 		const sealed = await encrypt(plain, passphrase, { ...SMALL_BATCHES, backend: 'noble' });
+
 		const { snapshot, output } = await decrypt(
 			sealed,
 			{ kind: 'passphrase', passphrase: passphrase.passphrase },
 			{ ...SMALL_BATCHES, backend: 'noble' }
 		);
+
 		expect(snapshot.backend).toBe('noble');
 		expect(equalBytes(output!, plain)).toBe(true);
 	});
@@ -111,14 +120,17 @@ describe('failures', () => {
 
 	test('a wrong private key fails at the header', async () => {
 		const [right, wrong] = await Promise.all([generateKeyPair(), generateKeyPair()]);
+
 		const sealed = await encrypt(randomBytes(10), {
 			kind: 'public-keys',
 			publicKeys: [right.publicKey]
 		});
+
 		const { snapshot } = await decrypt(sealed, {
 			kind: 'private-keys',
 			privateKeys: [wrong.privateKey]
 		});
+
 		expect(snapshot.files[0]!.error?.code).toBe('wrong-credentials');
 		expect(snapshot.files[0]!.outputSize).toBeNull();
 	});
@@ -129,10 +141,12 @@ describe('failures', () => {
 		const logN = text.indexOf(` ${TEST_LOG_N}\n`);
 		const tampered = sealed.slice();
 		tampered[logN + 2] = '1'.charCodeAt(0); // logN 10 → 11
+
 		const { snapshot } = await decrypt(tampered, {
 			kind: 'passphrase',
 			passphrase: passphrase.passphrase
 		});
+
 		expect(snapshot.files[0]!.error?.code).toMatch(/corrupted|wrong-credentials/);
 	});
 
@@ -144,6 +158,7 @@ describe('failures', () => {
 			(b: Uint8Array) => {
 				const longer = new Uint8Array(b.length + 1);
 				longer.set(b);
+
 				return longer;
 			}
 		],
@@ -153,10 +168,12 @@ describe('failures', () => {
 		]
 	])('%s is detected and nothing is delivered', async (_, tamper) => {
 		const sealed = await encrypt(randomBytes(4 * CHUNK), passphrase);
+
 		const { snapshot, output } = await decrypt(tamper(sealed.slice()) as Uint8Array<ArrayBuffer>, {
 			kind: 'passphrase',
 			passphrase: passphrase.passphrase
 		});
+
 		expect(snapshot.status).toBe('failed');
 		expect(snapshot.files[0]!.error?.code).toBe('corrupted');
 		expect(output).toBeNull();
@@ -170,10 +187,12 @@ describe('failures', () => {
 		const b = sealed.subarray(payloadStart + CHUNK + 16, payloadStart + 2 * (CHUNK + 16));
 		swapped.set(b, payloadStart);
 		swapped.set(a, payloadStart + CHUNK + 16);
+
 		const { snapshot } = await decrypt(swapped, {
 			kind: 'passphrase',
 			passphrase: passphrase.passphrase
 		});
+
 		expect(snapshot.files[0]!.error?.code).toBe('corrupted');
 	});
 
@@ -181,6 +200,7 @@ describe('failures', () => {
 		const legacy = new TextEncoder().encode(
 			'encryptee.io' + 'x'.repeat(100)
 		) as Uint8Array<ArrayBuffer>;
+
 		expect(
 			(await decrypt(legacy, { kind: 'passphrase', passphrase: 'x' })).snapshot.files[0]!.error
 				?.code
@@ -199,6 +219,7 @@ describe('failures', () => {
 			files: [file(randomBytes(10))],
 			save: { kind: 'memory' }
 		});
+
 		expect(result.files[0]!.error?.code).toBe('invalid-public-key');
 	});
 });
@@ -206,12 +227,14 @@ describe('failures', () => {
 describe('jobs', () => {
 	test('one output per input file, named .age', async () => {
 		const files = [file(randomBytes(10), 'a.txt'), file(randomBytes(CHUNK + 1), 'b.pdf')];
+
 		const result = await runJob({
 			mode: 'encrypt',
 			credentials: passphrase,
 			files,
 			save: { kind: 'memory' }
 		});
+
 		expect(result.status).toBe('done');
 		expect(result.files.map((f) => f.outputName)).toEqual(['a.txt.age', 'b.pdf.age']);
 		expect(result.bytesDone).toBe(result.bytesTotal);
@@ -219,12 +242,14 @@ describe('jobs', () => {
 
 	test('a file that fails to decrypt does not stop the others', async () => {
 		const good = await encrypt(randomBytes(100), passphrase);
+
 		const result = await runJob({
 			mode: 'decrypt',
 			credentials: { kind: 'passphrase', passphrase: passphrase.passphrase },
 			files: [file(randomBytes(100), 'junk.age'), file(good, 'good.txt.age')],
 			save: { kind: 'memory' }
 		});
+
 		expect(result.status).toBe('failed');
 		expect(result.files.map((f) => f.status)).toEqual(['failed', 'done']);
 		expect(result.files[1]!.outputName).toBe('good.txt');
@@ -238,6 +263,7 @@ describe('jobs', () => {
 			save: { kind: 'memory' },
 			tuning: { workers: 1, batchChunks: 16, window: 2 }
 		});
+
 		await new Promise<void>((resolve) => {
 			const stop = job.subscribe(() => {
 				if (job.getSnapshot().bytesDone > 0) {
@@ -260,6 +286,7 @@ describe('jobs', () => {
 			files: [{ name: 'synthetic', size: 64 * 1024 * 1024, synthetic: true }],
 			save: { kind: 'discard' }
 		});
+
 		const seen = [job.getSnapshot()];
 		job.subscribe(() => seen.push(job.getSnapshot()));
 		const final = await job.done;
@@ -278,10 +305,12 @@ describe('inspectFile', () => {
 	test('tells passphrase files from public-key files', async () => {
 		const pair = await generateKeyPair('x25519');
 		const byPassphrase = await encrypt(randomBytes(10), passphrase);
+
 		const byKey = await encrypt(randomBytes(10), {
 			kind: 'public-keys',
 			publicKeys: [pair.publicKey]
 		});
+
 		expect(await inspectFile(new Blob([byPassphrase]))).toEqual({
 			kind: 'age',
 			unlock: 'passphrase',

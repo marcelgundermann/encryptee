@@ -10,8 +10,10 @@ export async function openSink(descriptor: SinkDescriptor): Promise<ByteSink> {
 		case 'fsa-directory': {
 			const name = await uniqueName(descriptor.handle, descriptor.name);
 			const handle = await descriptor.handle.getFileHandle(name, { create: true });
+
 			return FsaSink.open(handle, { directory: descriptor.handle, name });
 		}
+
 		case 'sw-download':
 			return new SwDownloadSink(descriptor.port);
 		case 'opfs':
@@ -38,6 +40,7 @@ class FsaSink implements ByteSink {
 	): Promise<FsaSink> {
 		const wasEmpty = (await handle.getFile()).size === 0;
 		const writable = await handle.createWritable({ keepExistingData: false });
+
 		return new FsaSink(handle, writable, created, wasEmpty);
 	}
 
@@ -47,6 +50,7 @@ class FsaSink implements ByteSink {
 
 	async close(): Promise<SinkResult> {
 		await this.writable.close();
+
 		return { kind: 'saved' };
 	}
 
@@ -54,6 +58,7 @@ class FsaSink implements ByteSink {
 		// Nothing written through a writable is visible until close(), so
 		// abort() leaves no partial plaintext or ciphertext behind.
 		await this.writable.abort(reason).catch(() => {});
+
 		if (this.created) {
 			await this.created.directory.removeEntry(this.created.name).catch(() => {});
 		} else if (this.wasEmpty) {
@@ -80,11 +85,13 @@ class OpfsSink implements ByteSink {
 		const handle = await directory.getFileHandle(name, { create: true });
 		const access = await handle.createSyncAccessHandle();
 		access.truncate(0);
+
 		return new OpfsSink(directory, name, access);
 	}
 
 	async write(chunk: Uint8Array<ArrayBuffer>): Promise<void> {
 		const written = this.access.write(chunk, { at: this.position });
+
 		if (written !== chunk.length) throw new EngineError('storage-full', 'short write to OPFS');
 		this.position += written;
 	}
@@ -92,6 +99,7 @@ class OpfsSink implements ByteSink {
 	async close(): Promise<SinkResult> {
 		this.access.flush();
 		this.access.close();
+
 		return { kind: 'opfs', path: [OPFS_STAGING_DIR, this.name] };
 	}
 
@@ -99,6 +107,7 @@ class OpfsSink implements ByteSink {
 		try {
 			this.access.close();
 		} catch {}
+
 		await this.directory.removeEntry(this.name).catch(() => {});
 	}
 }
@@ -116,10 +125,12 @@ class SwDownloadSink implements ByteSink {
 	constructor(private readonly port: MessagePort) {
 		port.onmessage = ({ data }: MessageEvent<DownloadPortMessage>) => {
 			if (data.type === 'credit') this.credits += data.credits;
+
 			if (data.type === 'cancelled') this.cancelled = true;
 			this.waiting?.();
 			this.waiting = null;
 		};
+
 		port.start();
 	}
 
@@ -128,6 +139,7 @@ class SwDownloadSink implements ByteSink {
 			while (this.credits === 0 && !this.cancelled) {
 				await new Promise<void>((resolve) => (this.waiting = resolve));
 			}
+
 			if (this.cancelled) throw new EngineError('cancelled', 'the download was cancelled');
 			this.credits--;
 			const piece = chunk.slice(offset, offset + SW_MAX_MESSAGE_BYTES).buffer;
@@ -138,6 +150,7 @@ class SwDownloadSink implements ByteSink {
 	async close(): Promise<SinkResult> {
 		this.post({ type: 'end' });
 		this.port.close();
+
 		return { kind: 'saved' };
 	}
 
@@ -189,8 +202,10 @@ async function uniqueName(directory: FileSystemDirectoryHandle, name: string): P
 	const dot = name.lastIndexOf('.', name.endsWith('.age') ? name.length - 5 : undefined);
 	const stem = dot > 0 ? name.slice(0, dot) : name;
 	const extension = dot > 0 ? name.slice(dot) : '';
+
 	for (let n = 0; ; n++) {
 		const candidate = n === 0 ? name : `${stem} (${n})${extension}`;
+
 		try {
 			await directory.getFileHandle(candidate);
 		} catch {

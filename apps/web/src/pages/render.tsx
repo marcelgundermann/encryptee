@@ -13,7 +13,9 @@ const PAGES: Record<string, ComponentType> = {
 /** Renders a content page to static HTML at build time (see vite/prerender.ts). */
 export function render(name: string): string {
 	const Page = PAGES[name];
+
 	if (!Page) throw new Error(`unknown page ${name}`);
+
 	return renderToStaticMarkup(
 		<Layout>
 			<Page />

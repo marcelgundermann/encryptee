@@ -10,6 +10,7 @@ let cipher: ChunkCipher | null = null;
 self.onmessage = ({ data }: MessageEvent<CryptoConnect>) => {
 	if (data.type !== 'connect') return;
 	const port = data.port;
+
 	const reply = (message: CryptoResponse, transfer: Transferable[] = []) =>
 		port.postMessage(message, transfer);
 
@@ -23,9 +24,11 @@ self.onmessage = ({ data }: MessageEvent<CryptoConnect>) => {
 				} catch (error) {
 					reply({ type: 'error', task: null, error: serializeError(error) });
 				}
+
 				return;
 			case 'forget':
 				cipher = null;
+
 				return;
 			case 'seal':
 			case 'open':
@@ -41,5 +44,6 @@ self.onmessage = ({ data }: MessageEvent<CryptoConnect>) => {
 				}
 		}
 	};
+
 	port.start();
 };

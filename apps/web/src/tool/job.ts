@@ -30,6 +30,7 @@ export async function pickAndStart(
 ): Promise<{ job: Job } | { job: null; reason: 'dismissed' | 'unsupported' | 'needs-gesture' }> {
 	const choice = chooseSink(detectCapabilities(), options.files.length);
 	let save: SaveTarget;
+
 	try {
 		switch (choice) {
 			case 'file-picker': {
@@ -37,6 +38,7 @@ export async function pickAndStart(
 				save = { kind: 'file', handle: await window.showSaveFilePicker({ suggestedName: name }) };
 				break;
 			}
+
 			case 'directory-picker':
 				save = {
 					kind: 'directory',
@@ -54,16 +56,20 @@ export async function pickAndStart(
 		if (error instanceof DOMException && error.name === 'AbortError') {
 			return { job: null, reason: 'dismissed' };
 		}
+
 		if (error instanceof DOMException && /NotAllowed|Security/.test(error.name)) {
 			return { job: null, reason: 'needs-gesture' };
 		}
+
 		throw error;
 	}
+
 	return { job: startJob({ ...options, save } as JobOptions) };
 }
 
 /** Whether starting a job will open a save picker (Chromium) rather than download. */
 export function asksWhereToSave(fileCount: number): boolean {
 	const choice = chooseSink(detectCapabilities(), fileCount);
+
 	return choice === 'file-picker' || choice === 'directory-picker';
 }

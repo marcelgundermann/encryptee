@@ -14,19 +14,23 @@ self.onmessage = async ({ data }: MessageEvent<CoordinatorRequest>) => {
 	switch (data.type) {
 		case 'init':
 			pool = new CryptoPool(data.pool);
+
 			return;
 		case 'cancel':
 			running.get(data.id)?.abort(new EngineError('cancelled', 'cancelled'));
+
 			return;
 		case 'run': {
 			const { task } = data;
 			const controller = new AbortController();
 			running.set(task.id, controller);
 			let opened = false;
+
 			const track = (event: CoordinatorEvent) => {
 				if (event.type === 'opened') opened = true;
 				emit(event);
 			};
+
 			try {
 				if (!pool) throw new EngineError('internal', 'coordinator not initialized');
 				const result = await runFileTask(task, pool, track, controller.signal);

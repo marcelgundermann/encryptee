@@ -44,12 +44,16 @@ export class EngineError extends Error {
 
 export function serializeError(error: unknown): SerializedError {
 	if (error instanceof EngineError) return error.toJSON();
+
 	if (error instanceof DOMException) {
 		if (error.name === 'AbortError') return { code: 'cancelled', message: error.message };
+
 		if (error.name === 'QuotaExceededError')
 			return { code: 'storage-full', message: error.message };
 	}
+
 	const message = error instanceof Error ? error.message : String(error);
+
 	return { code: 'internal', message };
 }
 

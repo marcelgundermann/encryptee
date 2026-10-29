@@ -20,12 +20,14 @@ function watchCsp(page: Page): string[] {
 			violations.push(message.text());
 		}
 	});
+
 	return violations;
 }
 
 async function waitForServiceWorker(page: Page): Promise<void> {
 	await page.waitForFunction(async () => {
 		await navigator.serviceWorker.ready;
+
 		return navigator.serviceWorker.controller !== null;
 	});
 }
@@ -60,16 +62,19 @@ async function roundTrip(page: Page, plain: Buffer): Promise<Buffer> {
 	const decryptedDownload = await decrypted;
 	expect(decryptedDownload.suggestedFilename()).toBe('photo.jpg');
 	await expect(page.getByRole('heading', { name: '1 file decrypted.' })).toBeVisible();
+
 	return readFile(await decryptedDownload.path());
 }
 
 test('content pages are static HTML without scripts', async ({ page }) => {
 	const violations = watchCsp(page);
+
 	for (const path of ['/how-it-works/', '/security/', '/faq/']) {
 		await page.goto(path);
 		await expect(page.locator('h1')).toBeVisible();
 		await expect(page.locator('script')).toHaveCount(0);
 	}
+
 	expect(violations).toEqual([]);
 });
 

@@ -32,6 +32,7 @@ export interface SealedHeader {
 export async function sealHeader(credentials: EncryptCredentials): Promise<SealedHeader> {
 	const capture = new FileKeyCapture();
 	const encrypter = new Encrypter();
+
 	if (credentials.kind === 'passphrase') {
 		encrypter.addRecipient(
 			new ScryptRecipient(credentials.passphrase, credentials.scryptLogN ?? DEFAULT_SCRYPT_LOG_N)
@@ -40,15 +41,19 @@ export async function sealHeader(credentials: EncryptCredentials): Promise<Seale
 		if (credentials.publicKeys.length === 0) {
 			throw new EngineError('invalid-public-key', 'at least one public key is required');
 		}
+
 		for (const publicKey of credentials.publicKeys) addPublicKey(encrypter, publicKey);
 	}
+
 	encrypter.addRecipient(capture);
 
 	const file = await encrypter.encrypt(new Uint8Array(0));
 	const header = file.slice(0, file.length - PAYLOAD_NONCE_SIZE - TAG_SIZE);
+
 	if (capture.fileKey === null || headerLength(header) !== header.length) {
 		throw new EngineError('internal', 'typage produced an unexpected file layout');
 	}
+
 	return { header, fileKey: capture.fileKey };
 }
 
@@ -61,6 +66,7 @@ export async function openHeader(
 	credentials: DecryptCredentials
 ): Promise<Uint8Array> {
 	const decrypter = new Decrypter();
+
 	if (credentials.kind === 'passphrase') {
 		decrypter.addPassphrase(credentials.passphrase);
 	} else {
@@ -72,13 +78,16 @@ export async function openHeader(
 			}
 		}
 	}
+
 	try {
 		return await decrypter.decryptHeader(header);
 	} catch (cause) {
 		const message = cause instanceof Error ? cause.message : String(cause);
+
 		if (message.includes('no identity matched')) {
 			throw new EngineError('wrong-credentials', message, { cause });
 		}
+
 		throw new EngineError('corrupted', `invalid header: ${message}`, { cause });
 	}
 }
@@ -101,6 +110,7 @@ class FileKeyCapture implements Recipient {
 
 	wrapFileKey(fileKey: Uint8Array): Stanza[] {
 		this.fileKey = fileKey.slice();
+
 		return [];
 	}
 }
@@ -122,14 +132,17 @@ class ScryptRecipient implements Recipient {
 		const labelAndSalt = new Uint8Array(SCRYPT_LABEL.length + salt.length);
 		labelAndSalt.set(SCRYPT_LABEL);
 		labelAndSalt.set(salt, SCRYPT_LABEL.length);
+
 		const key = await scryptAsync(this.passphrase, labelAndSalt, {
 			N: 2 ** this.logN,
 			r: 8,
 			p: 1,
 			dkLen: 32
 		});
+
 		const body = chacha20poly1305(key, new Uint8Array(12)).encrypt(fileKey);
 		key.fill(0);
+
 		return [new Stanza(['scrypt', base64NoPad(salt), String(this.logN)], body)];
 	}
 }

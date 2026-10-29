@@ -15,6 +15,7 @@ import type { CryptoPool } from './pool.ts';
 import type { CoordinatorEvent, FileTask, Source } from './protocol.ts';
 
 const PROGRESS_INTERVAL_MS = 100;
+
 /** First read when looking for the header; almost every header fits. */
 const HEADER_PROBE_SIZE = 64 * 1024;
 
@@ -40,6 +41,7 @@ export async function runFileTask(
 	const read = reader(task.source);
 	const size = task.source.kind === 'blob' ? task.source.blob.size : task.source.size;
 	let sink: ByteSink | null = null;
+
 	try {
 		const prepared = await prepare(task, read, size);
 		signal.throwIfAborted();
@@ -48,9 +50,11 @@ export async function runFileTask(
 
 		sink = await openSink(task.sink);
 		emit({ type: 'opened', id: task.id, outputSize: prepared.outputSize, backend });
+
 		if (prepared.prefix) await sink.write(prepared.prefix);
 		await pumpBatches(task, prepared.layout, read, pool, sink, emit, signal);
 		signal.throwIfAborted();
+
 		return await sink.close();
 	} catch (error) {
 		const reason = signal.aborted ? new EngineError('cancelled', 'cancelled') : error;
@@ -67,6 +71,7 @@ async function prepare(
 	size: number
 ): Promise<Prepared> {
 	const { operation, batchChunks } = task;
+
 	if (operation.mode === 'encrypt') {
 		const { header, fileKey } = await sealHeader(operation.credentials);
 		const nonce = crypto.getRandomValues(new Uint8Array(PAYLOAD_NONCE_SIZE));
@@ -75,6 +80,7 @@ async function prepare(
 		prefix.set(nonce, header.length);
 		const payloadKey = derivePayloadKey(fileKey, nonce);
 		fileKey.fill(0);
+
 		return {
 			layout: sealLayout(size, batchChunks),
 			payloadKey,
@@ -85,27 +91,36 @@ async function prepare(
 
 	let head = new Uint8Array(await read(0, Math.min(size, HEADER_PROBE_SIZE)));
 	const kind = sniffBytes(head);
+
 	if (kind === 'legacy') throw new EngineError('legacy-file', 'this is an Encryptee v1 file');
+
 	if (kind === 'age-armored')
 		throw new EngineError('armored', 'armored age files are not supported');
+
 	if (kind !== 'age') throw new EngineError('not-encrypted', 'not an age file');
 	let length = headerLength(head);
+
 	if (length === null && size > head.length) {
 		head = new Uint8Array(await read(0, Math.min(size, MAX_HEADER_SIZE)));
 		length = headerLength(head);
 	}
+
 	if (length === null) throw new EngineError('corrupted', 'the header is incomplete');
 	const nonceEnd = length + PAYLOAD_NONCE_SIZE;
+
 	if (size < nonceEnd) throw new EngineError('corrupted', 'the file is truncated');
 
 	const fileKey = await openHeader(head.subarray(0, length), operation.credentials);
+
 	const nonce =
 		head.length >= nonceEnd
 			? head.slice(length, nonceEnd)
 			: new Uint8Array(await read(length, nonceEnd));
+
 	const payloadKey = derivePayloadKey(fileKey, nonce);
 	fileKey.fill(0);
 	const layout = openLayout(nonceEnd, size, batchChunks);
+
 	return { layout, payloadKey, prefix: null, outputSize: layout.outputSize };
 }
 
@@ -140,6 +155,7 @@ async function pumpBatches(
 		const range = batchRange(layout, next, task.batchChunks);
 		bytesDone += range.end - range.start;
 		const now = performance.now();
+
 		if (now - lastProgress >= PROGRESS_INTERVAL_MS || next === layout.batches - 1) {
 			lastProgress = now;
 			emit({ type: 'progress', id: task.id, bytes: bytesDone });
@@ -149,11 +165,13 @@ async function pumpBatches(
 
 function reader(source: Source): (start: number, end: number) => Promise<ArrayBuffer> {
 	if (source.kind === 'blob') return (start, end) => source.blob.slice(start, end).arrayBuffer();
+
 	return async (start, end) => new ArrayBuffer(end - start);
 }
 
 function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 	if (signal.aborted) return Promise.reject(signal.reason);
+
 	return new Promise<T>((resolve, reject) => {
 		const onAbort = () => reject(signal.reason);
 		signal.addEventListener('abort', onAbort, { once: true });

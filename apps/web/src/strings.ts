@@ -148,21 +148,26 @@ export function formatBytes(bytes: number): string {
 	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 	let value = bytes;
 	let unit = 0;
+
 	while (value >= 1000 && unit < units.length - 1) {
 		value /= 1000;
 		unit++;
 	}
+
 	return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
 export function formatDuration(seconds: number): string {
 	if (seconds < 60) return `${Math.max(1, Math.round(seconds))} s`;
+
 	if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+
 	return `${(seconds / 3600).toFixed(1)} h`;
 }
 
 /** The message for an engine error, whatever shape it arrives in. */
 export function errorMessage(error: unknown): string {
 	const code = (error as { code?: EngineErrorCode } | null)?.code;
+
 	return code && code in strings.errors ? strings.errors[code] : strings.errors.internal;
 }

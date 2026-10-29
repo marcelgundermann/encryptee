@@ -18,12 +18,15 @@ function call<T extends ToolName>(tool: T, ...args: Parameters<Tools[T]>): Retur
 		worker.onmessage = ({ data }: MessageEvent<ToolResponse>) => {
 			const entry = pending.get(data.id);
 			pending.delete(data.id);
+
 			if (data.ok) entry?.resolve(data.value);
 			else entry?.reject(deserializeError(data.error));
 		};
 	}
+
 	const id = nextId++;
 	const request: ToolRequest = { id, tool, args };
+
 	return new Promise((resolve, reject) => {
 		pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
 		worker!.postMessage(request);

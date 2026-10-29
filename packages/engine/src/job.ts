@@ -92,6 +92,7 @@ const FILE_LOCAL_ERRORS = new Set([
 
 export function outputName(mode: 'encrypt' | 'decrypt', name: string): string {
 	if (mode === 'encrypt') return `${name}.age`;
+
 	return /\.age$/i.test(name) && name.length > 4 ? name.slice(0, -4) : `${name}.decrypted`;
 }
 
@@ -100,7 +101,9 @@ export function startJob(options: JobOptions): Job {
 	if (options.save.kind === 'file' && options.files.length !== 1) {
 		throw new EngineError('internal', 'a single save file needs exactly one input file');
 	}
+
 	const tuning = { ...defaultTuning(detectCapabilities()), ...options.tuning };
+
 	return new RunningJob(options, tuning);
 }
 
@@ -152,11 +155,13 @@ class RunningJob implements Job {
 		});
 		this.crypto = [];
 		const ports: MessagePort[] = [];
+
 		for (let i = 0; i < tuning.workers; i++) {
 			const worker = new Worker(new URL('./workers/crypto.worker.ts', import.meta.url), {
 				type: 'module',
 				name: 'encryptee-crypto'
 			});
+
 			const channel = new MessageChannel();
 			worker.postMessage({ type: 'connect', port: channel.port1 } satisfies CryptoConnect, [
 				channel.port1
@@ -164,6 +169,7 @@ class RunningJob implements Job {
 			ports.push(channel.port2);
 			this.crypto.push(worker);
 		}
+
 		this.request({ type: 'init', pool: ports }, ports);
 		this.done = this.run();
 	}
@@ -172,6 +178,7 @@ class RunningJob implements Job {
 
 	subscribe = (listener: () => void): (() => void) => {
 		this.listeners.add(listener);
+
 		return () => this.listeners.delete(listener);
 	};
 
@@ -183,28 +190,37 @@ class RunningJob implements Job {
 
 	private async run(): Promise<JobSnapshot> {
 		const guards = await acquireJobGuards();
+
 		try {
 			for (let index = 0; index < this.options.files.length; index++) {
 				if (this.cancelled) {
 					this.updateFile(index, { status: 'cancelled' });
 					continue;
 				}
+
 				const outcome = await this.runFile(index);
+
 				if (outcome === 'stop') this.cancelRemaining(index + 1);
+
 				if (outcome === 'stop' || this.cancelled) break;
 			}
+
 			const statuses = this.snapshot.files.map((file) => file.status);
+
 			const status: JobStatus = this.cancelled
 				? 'cancelled'
 				: statuses.every((s) => s === 'done')
 					? 'done'
 					: 'failed';
+
 			this.update({ status, finishedAt: Date.now() });
 		} finally {
 			guards.release();
 			this.coordinator.terminate();
+
 			for (const worker of this.crypto) worker.terminate();
 		}
+
 		return this.snapshot;
 	}
 
@@ -212,8 +228,10 @@ class RunningJob implements Job {
 		const input = this.options.files[index]!;
 		const file = this.snapshot.files[index]!;
 		const id = ++this.currentId;
+
 		const download =
 			this.options.save.kind === 'sw-download' ? new SwDownload(file.outputName) : null;
+
 		const task: FileTask = {
 			id,
 			source: sourceOf(input),
@@ -226,6 +244,7 @@ class RunningJob implements Job {
 			window: this.tuning.window,
 			backend: this.tuning.backend
 		};
+
 		this.updateFile(index, { status: 'running' });
 		const doneBefore = this.snapshot.bytesDone;
 
@@ -234,6 +253,7 @@ class RunningJob implements Job {
 		>((resolve) => {
 			this.coordinator.onmessage = ({ data }: MessageEvent<CoordinatorEvent>) => {
 				if (data.id !== id) return;
+
 				switch (data.type) {
 					case 'opened':
 						this.updateFile(index, { outputSize: data.outputSize });
@@ -251,6 +271,7 @@ class RunningJob implements Job {
 						resolve({ ok: false, error: data.error });
 				}
 			};
+
 			this.coordinator.onerror = (event) =>
 				resolve({
 					ok: false,
@@ -258,6 +279,7 @@ class RunningJob implements Job {
 				});
 			this.request({ type: 'run', task }, task.sink.kind === 'sw-download' ? [task.sink.port] : []);
 		});
+
 		download?.end();
 
 		if (!result.ok) {
@@ -267,16 +289,20 @@ class RunningJob implements Job {
 				error: cancelled ? null : result.error
 			});
 			this.update({ bytesDone: doneBefore + file.size });
+
 			return cancelled || !FILE_LOCAL_ERRORS.has(result.error.code) ? 'stop' : 'next';
 		}
+
 		const output = await this.deliver(result.result, file.outputName);
 		this.updateFile(index, { status: 'done', output, bytesDone: file.size });
 		this.update({ bytesDone: doneBefore + file.size });
+
 		return 'next';
 	}
 
 	private sinkFor(name: string, download: SwDownload | null): SinkDescriptor {
 		const save = this.options.save;
+
 		switch (save.kind) {
 			case 'file':
 				return { kind: 'fsa-file', handle: save.handle };
@@ -286,6 +312,7 @@ class RunningJob implements Job {
 				return { kind: 'sw-download', port: download!.port };
 			case 'opfs':
 				void navigator.storage.persist?.();
+
 				return { kind: 'opfs', name: `${crypto.randomUUID()}.part` };
 			case 'memory':
 			case 'discard':
@@ -299,6 +326,7 @@ class RunningJob implements Job {
 				return { kind: this.options.save.kind === 'sw-download' ? 'downloaded' : 'saved' };
 			case 'opfs':
 				await downloadStagedFile(result.path, name);
+
 				return { kind: 'downloaded' };
 			case 'memory':
 				return { kind: 'memory', blob: result.blob };
@@ -324,6 +352,7 @@ class RunningJob implements Job {
 
 	private update(patch: Partial<JobSnapshot>): void {
 		this.snapshot = { ...this.snapshot, ...patch, updatedAt: Date.now() };
+
 		for (const listener of this.listeners) listener();
 	}
 }

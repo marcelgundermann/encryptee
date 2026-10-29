@@ -36,10 +36,13 @@ export const SIZE_LIMITS: Record<BrowserFamily, number | null> = {
 export function detectCapabilities(): Capabilities {
 	const ua = navigator.userAgent;
 	const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
 	const brands = (
 		navigator as Navigator & { userAgentData?: { brands: { brand: string }[]; mobile: boolean } }
 	).userAgentData;
+
 	let browser: BrowserFamily = 'other';
+
 	if (ios || (/Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua))) browser = 'safari';
 	else if (/Firefox\//.test(ua)) browser = 'firefox';
 	else if (brands?.brands.some((b) => b.brand === 'Chromium') || /Chrome\//.test(ua))
@@ -62,15 +65,20 @@ export function detectCapabilities(): Capabilities {
 /** Picks the save path: native pickers on Chromium, else a streamed download, else OPFS staging. */
 export function chooseSink(capabilities: Capabilities, fileCount: number): SinkChoice {
 	if (fileCount === 1 && capabilities.savePicker) return 'file-picker';
+
 	if (fileCount > 1 && capabilities.directoryPicker) return 'directory-picker';
+
 	if (capabilities.serviceWorkerDownload) return 'sw-download';
+
 	if (capabilities.opfs) return 'opfs';
+
 	return 'unsupported';
 }
 
 /** Size limit for a save path in this browser; pickers write straight to disk and have none. */
 export function sizeLimit(capabilities: Capabilities, sink: SinkChoice): number | null {
 	if (sink === 'file-picker' || sink === 'directory-picker') return null;
+
 	return SIZE_LIMITS[capabilities.browser];
 }
 
@@ -81,5 +89,6 @@ export function defaultTuning(capabilities: Capabilities): {
 	window: number;
 } {
 	const workers = Math.min(8, Math.max(1, capabilities.cores - 1));
+
 	return { workers, batchChunks: capabilities.mobile ? 16 : 64, window: 2 * workers };
 }

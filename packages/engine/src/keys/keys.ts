@@ -13,6 +13,7 @@ import type { KeyPair, KeyType } from './key-pair.ts';
 export async function generateKeyPair(type: KeyType = 'pq'): Promise<KeyPair> {
 	const privateKey =
 		type === 'pq' ? await generateHybridIdentity() : await generateX25519Identity();
+
 	return { type, privateKey, publicKey: await identityToRecipient(privateKey) };
 }
 
@@ -21,6 +22,7 @@ export function validatePublicKeys(publicKeys: string[]): string[] {
 	return publicKeys.map((key) => {
 		const trimmed = key.trim();
 		assertPublicKey(trimmed);
+
 		return trimmed;
 	});
 }
@@ -37,6 +39,7 @@ export async function protectKeyFile(
 	const encrypter = new Encrypter();
 	encrypter.setScryptWorkFactor(scryptLogN);
 	encrypter.setPassphrase(passphrase);
+
 	return encrypter.encrypt(text);
 }
 
@@ -53,29 +56,36 @@ export async function readKeyFile(
 	passphrase?: string
 ): Promise<KeyFileContents> {
 	let text: string;
+
 	if (sniffBytes(bytes) === 'age') {
 		if (passphrase === undefined) return { protected: true };
 		const decrypter = new Decrypter();
 		decrypter.addPassphrase(passphrase);
+
 		try {
 			text = await decrypter.decrypt(bytes, 'text');
 		} catch (cause) {
 			const message = cause instanceof Error ? cause.message : '';
+
 			if (message.includes('no identity matched')) {
 				throw new EngineError('wrong-credentials', 'wrong passphrase for this key file', { cause });
 			}
+
 			throw new EngineError('invalid-key-file', 'this key file is damaged', { cause });
 		}
 	} else {
 		text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
 	}
+
 	const privateKeys = text
 		.split(/\r?\n/)
 		.map((line) => line.trim())
 		.filter((line) => /^AGE-SECRET-KEY-(PQ-)?1[0-9A-Z]+$/.test(line));
+
 	if (privateKeys.length === 0) {
 		throw new EngineError('invalid-key-file', 'no private key found in this file');
 	}
+
 	const publicKeys = await Promise.all(
 		privateKeys.map((key) =>
 			identityToRecipient(key).catch((cause: unknown) => {
@@ -85,5 +95,6 @@ export async function readKeyFile(
 			})
 		)
 	);
+
 	return { protected: false, privateKeys, publicKeys };
 }

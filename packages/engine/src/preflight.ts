@@ -3,6 +3,7 @@ import { sealedPayloadSize } from './format/age.ts';
 
 /** Upper bound for an age header with a handful of PQ recipients. */
 const HEADER_ALLOWANCE = 16 * 1024;
+
 /** iPhone jobs above this get the keep-in-foreground warning (D22). */
 const IOS_LARGE_JOB = 1024 ** 3;
 
@@ -43,16 +44,20 @@ export async function preflight(input: {
 }): Promise<Preflight> {
 	const { mode, sizes, sink, capabilities } = input;
 	const inputBytes = sizes.reduce((a, b) => a + b, 0);
+
 	const outputBytes =
 		mode === 'encrypt'
 			? sizes.reduce((sum, size) => sum + HEADER_ALLOWANCE + sealedPayloadSize(size), 0)
 			: inputBytes;
+
 	const warnings: PreflightWarning[] = [];
 
 	if (capabilities.ios && inputBytes >= IOS_LARGE_JOB) warnings.push({ code: 'ios-large-job' });
 	const limit = sizeLimit(capabilities, sink);
+
 	if (limit !== null && Math.max(0, ...sizes) > limit)
 		warnings.push({ code: 'over-browser-limit', limit });
+
 	if (sink === 'opfs') warnings.push({ code: 'needs-double-space' });
 
 	// Only OPFS staging lands in origin storage; estimate() is a hint at best.
@@ -60,7 +65,9 @@ export async function preflight(input: {
 		const { quota = 0, usage = 0 } = await navigator.storage
 			.estimate()
 			.catch(() => ({}) as StorageEstimate);
+
 		const available = quota - usage;
+
 		if (quota > 0 && available < outputBytes)
 			warnings.push({ code: 'low-storage', needed: outputBytes, available });
 	}

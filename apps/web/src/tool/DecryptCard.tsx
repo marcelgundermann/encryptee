@@ -50,6 +50,7 @@ export function DecryptCard(props: {
 
 	const loadKeyFile = async (name: string, bytes: Uint8Array, pass?: string) => {
 		setError(null);
+
 		try {
 			const contents = await readKeyFile(bytes, pass);
 			setKeyFile({ name, bytes, privateKeys: contents.protected ? null : contents.privateKeys });
@@ -60,6 +61,7 @@ export function DecryptCard(props: {
 
 	const start = async (creds: DecryptCredentials) => {
 		const result = await pickAndStart({ mode: 'decrypt', files: props.files, credentials: creds });
+
 		if (result.job) props.onStart(result.job);
 		else if (result.reason === 'needs-gesture') setPhase('needs-click');
 		else if (result.reason === 'unsupported') setError(strings.unsupported);
@@ -71,16 +73,20 @@ export function DecryptCard(props: {
 	// activation, the picker is refused and we ask for one more click.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
+
 		if (!credentials) return;
 		setPhase('checking');
 		setError(null);
+
 		try {
 			await checkCredentials(props.files[0]!, credentials);
 		} catch (cause) {
 			setError(errorMessage(cause));
 			setPhase('idle');
+
 			return;
 		}
+
 		await start(credentials);
 	};
 
@@ -138,6 +144,7 @@ export function DecryptCard(props: {
 							onChange={async (event) => {
 								const file = event.currentTarget.files?.[0];
 								event.currentTarget.value = '';
+
 								if (file) await loadKeyFile(file.name, new Uint8Array(await file.arrayBuffer()));
 							}}
 						/>

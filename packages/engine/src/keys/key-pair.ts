@@ -9,13 +9,16 @@ export interface KeyPair {
 
 export function publicKeyType(publicKey: string): KeyType | 'other' {
 	if (publicKey.startsWith('age1pq1')) return 'pq';
+
 	if (publicKey.startsWith('age1tag') || !publicKey.startsWith('age1')) return 'other';
+
 	return 'x25519';
 }
 
 /** age's guidance: mixing post-quantum and classic recipients loses PQ protection (D20). */
 export function mixesPqAndClassic(publicKeys: string[]): boolean {
 	const types = new Set(publicKeys.map(publicKeyType));
+
 	return types.has('pq') && types.has('x25519');
 }
 

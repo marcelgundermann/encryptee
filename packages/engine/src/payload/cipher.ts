@@ -21,6 +21,7 @@ export function writeChunkNonce(nonce: Uint8Array, index: number, last: boolean)
 	view.setUint32(3, Math.floor(index / 2 ** 32));
 	view.setUint32(7, index >>> 0);
 	view.setUint8(11, last ? 1 : 0);
+
 	return nonce;
 }
 
@@ -37,9 +38,11 @@ export async function createChunkCipher(key: Uint8Array, prefer?: Backend): Prom
 	if (prefer !== 'noble' && (await nativeChaChaAvailable())) {
 		return WebCryptoChunkCipher.create(key);
 	}
+
 	if (prefer === 'webcrypto') {
 		throw new EngineError('unsupported', 'native ChaCha20-Poly1305 is not available');
 	}
+
 	return new NobleChunkCipher(key);
 }
 
@@ -81,11 +84,13 @@ class WebCryptoChunkCipher implements ChunkCipher {
 			this.key,
 			plain as Uint8Array<ArrayBuffer>
 		);
+
 		out.set(new Uint8Array(sealed));
 	}
 
 	async open(sealed: Uint8Array, nonce: Uint8Array, out: Uint8Array): Promise<void> {
 		let plain: ArrayBuffer;
+
 		try {
 			plain = await crypto.subtle.decrypt(
 				{ name: ALGORITHM, iv: nonce as Uint8Array<ArrayBuffer> },
@@ -95,12 +100,14 @@ class WebCryptoChunkCipher implements ChunkCipher {
 		} catch (cause) {
 			throw new EngineError('corrupted', 'chunk authentication failed', { cause });
 		}
+
 		out.set(new Uint8Array(plain));
 	}
 }
 
 async function importChaChaKey(rawKey: Uint8Array): Promise<CryptoKey> {
 	const key = rawKey as Uint8Array<ArrayBuffer>;
+
 	// The modern-algorithms draft imports symmetric keys as `raw-secret`; older
 	// builds only knew `raw`.
 	try {
@@ -122,11 +129,13 @@ let nativeProbe: Promise<boolean> | undefined;
  */
 export function nativeChaChaAvailable(): Promise<boolean> {
 	nativeProbe ??= probeNative();
+
 	return nativeProbe;
 }
 
 async function probeNative(): Promise<boolean> {
 	if (typeof crypto === 'undefined' || !crypto.subtle) return false;
+
 	try {
 		const key = new Uint8Array(32).map((_, i) => i);
 		const nonce = writeChunkNonce(new Uint8Array(12), 7, true);
@@ -136,6 +145,7 @@ async function probeNative(): Promise<boolean> {
 		await native.seal(plain, nonce, fromNative);
 		const fromNoble = new Uint8Array(plain.length + TAG_SIZE);
 		new NobleChunkCipher(key).seal(plain, nonce, fromNoble);
+
 		return fromNative.every((byte, i) => byte === fromNoble[i]);
 	} catch {
 		return false;

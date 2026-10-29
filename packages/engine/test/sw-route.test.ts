@@ -9,6 +9,7 @@ function producer(port: MessagePort) {
 	port.onmessage = ({ data }: MessageEvent<DownloadPortMessage>) => {
 		if (data.type === 'credit') credits += data.credits;
 	};
+
 	return {
 		get credits() {
 			return credits;
@@ -48,6 +49,7 @@ test('streams chunks in order and grants credits as the reader drains', async ()
 
 	p.post({ type: 'end' });
 	let total = first.value!.length;
+
 	for (let r = await reader.read(); !r.done; r = await reader.read()) total += r.value.length;
 	expect(total).toBe(p.sent.reduce((a, b) => a + b, 0));
 });

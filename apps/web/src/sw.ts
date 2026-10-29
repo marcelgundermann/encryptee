@@ -13,6 +13,7 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', (event) => {
 	if (handleDownloadMessage(event)) return;
+
 	// Sent by the page only when the user accepts an update and no job runs.
 	if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting();
 });
@@ -22,4 +23,5 @@ self.addEventListener('message', (event) => {
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
 cleanupOutdatedCaches();
+
 precacheAndRoute(self.__WB_MANIFEST, { cleanURLs: true, directoryIndex: 'index.html' });

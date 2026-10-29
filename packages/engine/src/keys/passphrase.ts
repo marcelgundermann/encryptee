@@ -7,5 +7,6 @@ import { WORDS } from './wordlist.ts';
 export function generatePassphrase(words = 10): string {
 	// 65536 is a multiple of 2048, so masking 11 bits is unbiased.
 	const random = crypto.getRandomValues(new Uint16Array(words));
+
 	return Array.from(random, (n) => WORDS[n & 2047]).join('-');
 }

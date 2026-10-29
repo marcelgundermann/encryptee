@@ -25,6 +25,7 @@ export interface BatchRange extends BatchPosition {
 /** Layout for sealing `plaintextSize` bytes in batches of `batchChunks` chunks. */
 export function sealLayout(plaintextSize: number, batchChunks: number): PayloadLayout {
 	const batchInputSize = batchChunks * CHUNK_SIZE;
+
 	return {
 		inputOffset: 0,
 		inputSize: plaintextSize,
@@ -42,6 +43,7 @@ export function openLayout(
 ): PayloadLayout {
 	const sealedSize = fileSize - payloadOffset;
 	const batchInputSize = batchChunks * SEALED_CHUNK_SIZE;
+
 	return {
 		inputOffset: payloadOffset,
 		inputSize: sealedSize,
@@ -53,6 +55,7 @@ export function openLayout(
 
 export function batchRange(layout: PayloadLayout, index: number, batchChunks: number): BatchRange {
 	const start = layout.inputOffset + index * layout.batchInputSize;
+
 	return {
 		start,
 		end: Math.min(start + layout.batchInputSize, layout.inputOffset + layout.inputSize),

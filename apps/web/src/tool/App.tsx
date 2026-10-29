@@ -30,6 +30,7 @@ export function App() {
 		setView('tool');
 		void classify(files).then(setSelection);
 	};
+
 	const onLaunch = useEffectEvent(choose);
 	const dragging = useWindowDrop(choose, !running);
 
@@ -53,6 +54,7 @@ export function App() {
 	};
 
 	let content;
+
 	if (view === 'keys') content = <KeysScreen />;
 	else if (job) content = <JobScreen job={job} onReset={reset} />;
 	else if (selection.kind === 'encrypt')
@@ -93,6 +95,7 @@ export function App() {
 					className="font-semibold tracking-tight"
 					onClick={() => {
 						setView('tool');
+
 						if (!running && !job) reset();
 					}}
 				>
