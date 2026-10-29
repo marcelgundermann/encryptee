@@ -1,4 +1,4 @@
-import { validatePublicKeys } from './keys.ts';
+import { validatePublicKeys } from '../tools.ts';
 
 /** A saved public key with a name. Contacts never hold private keys (D9, D10). */
 export interface Contact {
@@ -45,7 +45,7 @@ export async function listContacts(): Promise<Contact[]> {
 }
 
 export async function saveContact(name: string, publicKey: string): Promise<Contact> {
-	const [key] = validatePublicKeys([publicKey]);
+	const [key] = await validatePublicKeys([publicKey]);
 	const contact: Contact = {
 		id: crypto.randomUUID(),
 		name: name.trim(),

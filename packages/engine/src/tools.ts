@@ -39,3 +39,7 @@ export const protectKeyFile: Tools['protectKeyFile'] = (...args) => call('protec
 
 /** Reads a plain or protected key file. */
 export const readKeyFile: Tools['readKeyFile'] = (...args) => call('readKeyFile', ...args);
+
+/** Trims pasted public keys and checks each one; rejects with `invalid-public-key`. */
+export const validatePublicKeys: Tools['validatePublicKeys'] = (...args) =>
+	call('validatePublicKeys', ...args);

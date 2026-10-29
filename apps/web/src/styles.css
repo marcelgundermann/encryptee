@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+
+/* Placeholder look until a design prototype is chosen (plan step 5). */
+@layer base {
+	html {
+		color-scheme: light dark;
+	}
+	body {
+		@apply bg-white text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100;
+	}
+}

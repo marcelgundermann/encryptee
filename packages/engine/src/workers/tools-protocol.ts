@@ -1,10 +1,16 @@
 import type { SerializedError } from '../errors.ts';
-import type { generateKeyPair, protectKeyFile, readKeyFile } from '../keys/keys.ts';
+import type {
+	generateKeyPair,
+	protectKeyFile,
+	readKeyFile,
+	validatePublicKeys
+} from '../keys/keys.ts';
 
 export interface Tools {
 	generateKeyPair: typeof generateKeyPair;
 	protectKeyFile: typeof protectKeyFile;
 	readKeyFile: typeof readKeyFile;
+	validatePublicKeys: (...args: Parameters<typeof validatePublicKeys>) => Promise<string[]>;
 }
 
 export type ToolName = keyof Tools;

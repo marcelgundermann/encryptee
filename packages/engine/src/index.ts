@@ -32,9 +32,11 @@ export { clearStagingArea } from './sinks/download.ts';
 export { nativeChaChaAvailable } from './payload/cipher.ts';
 export type { Backend } from './payload/cipher.ts';
 
-export { generateKeyPair, protectKeyFile, readKeyFile } from './tools.ts';
-export { keyFileText, mixesPqAndClassic, publicKeyType, validatePublicKeys } from './keys/keys.ts';
-export type { KeyFileContents, KeyPair, KeyType } from './keys/keys.ts';
+export { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from './tools.ts';
+export { keyFileText, mixesPqAndClassic, publicKeyType } from './keys/key-pair.ts';
+export type { KeyPair, KeyType } from './keys/key-pair.ts';
+export type { KeyFileContents } from './keys/keys.ts';
+export { generatePassphrase } from './keys/passphrase.ts';
 export { buildShareLink, parseShareLink } from './keys/share-link.ts';
 export { deleteContact, listContacts, renameContact, saveContact } from './keys/contacts.ts';
 export type { Contact } from './keys/contacts.ts';

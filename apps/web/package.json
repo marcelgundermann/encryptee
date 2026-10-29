@@ -1,0 +1,41 @@
+{
+	"name": "@encryptee/web",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sw.json && tsc -p tsconfig.node.json",
+		"test": "vitest run --passWithNoTests",
+		"e2e": "playwright test",
+		"serve": "wrangler dev -c ../../wrangler.jsonc --port 8799"
+	},
+	"dependencies": {
+		"@encryptee/engine": "workspace:*",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"workbox-precaching": "catalog:",
+		"workbox-window": "catalog:"
+	},
+	"devDependencies": {
+		"@babel/core": "catalog:",
+		"@playwright/test": "catalog:",
+		"@rolldown/plugin-babel": "catalog:",
+		"@tailwindcss/vite": "catalog:",
+		"@types/babel__core": "catalog:",
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@types/wicg-file-system-access": "catalog:",
+		"@vitejs/plugin-react": "catalog:",
+		"babel-plugin-react-compiler": "catalog:",
+		"eslint-plugin-react-hooks": "catalog:",
+		"tailwindcss": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vite-plugin-pwa": "catalog:",
+		"vitest": "catalog:",
+		"wrangler": "catalog:"
+	}
+}

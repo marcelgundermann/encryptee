@@ -30,7 +30,14 @@
 		"react/react-in-jsx-scope": "off",
 		"no-await-in-loop": "off",
 		"unicorn/prefer-add-event-listener": "off",
-		"unicorn/require-post-message-target-origin": "off"
+		"unicorn/require-post-message-target-origin": "off",
+		"no-underscore-dangle": "off",
+		"import/no-unassigned-import": [
+			"warn",
+			{
+				"allow": ["**/trusted-types.ts", "**/*.css"]
+			}
+		]
 	},
 	"ignorePatterns": ["**/dist/**", "docs/research/**", ".worktrees/**", "**/node_modules/**"]
 }

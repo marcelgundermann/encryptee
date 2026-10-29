@@ -53,10 +53,9 @@ export function detectCapabilities(): Capabilities {
 		savePicker: typeof window !== 'undefined' && 'showSaveFilePicker' in window,
 		directoryPicker: typeof window !== 'undefined' && 'showDirectoryPicker' in window,
 		serviceWorkerDownload: !!navigator.serviceWorker?.controller,
-		opfs:
-			typeof navigator.storage?.getDirectory === 'function' &&
-			typeof FileSystemFileHandle !== 'undefined' &&
-			'createSyncAccessHandle' in FileSystemFileHandle.prototype
+		// SyncAccessHandle is only exposed in dedicated workers, so it can't be
+		// probed here; every browser with getDirectory has it there.
+		opfs: typeof navigator.storage?.getDirectory === 'function'
 	};
 }
 

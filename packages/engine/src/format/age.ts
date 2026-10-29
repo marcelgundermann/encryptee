@@ -64,6 +64,16 @@ export function headerLength(bytes: Uint8Array): number | null {
 	return end === -1 ? null : end + 1;
 }
 
+/** The recipient types named in a header, e.g. `scrypt`, `X25519`, `mlkem768x25519`. */
+export function stanzaTypes(header: Uint8Array): string[] {
+	const text = new TextDecoder().decode(header);
+	const types: string[] = [];
+	for (const line of text.split('\n')) {
+		if (line.startsWith('-> ')) types.push(line.slice(3).split(' ')[0] ?? '');
+	}
+	return types;
+}
+
 function startsWith(bytes: Uint8Array, prefix: Uint8Array): boolean {
 	if (bytes.length < prefix.length) return false;
 	for (let i = 0; i < prefix.length; i++) if (bytes[i] !== prefix[i]) return false;
