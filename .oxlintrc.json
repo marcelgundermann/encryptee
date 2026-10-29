@@ -38,7 +38,12 @@
 				"allow": ["**/trusted-types.ts", "**/*.css"]
 			}
 		],
-		"react/no-array-index-key": "off"
+		"react/no-array-index-key": "off",
+		"oxc/no-accumulating-spread": "error"
 	},
-	"ignorePatterns": ["**/dist/**", ".worktrees/**", "**/node_modules/**"]
+	"ignorePatterns": [
+		"**/dist/**",
+		".worktrees/**",
+		"**/node_modules/**"
+	]
 }
