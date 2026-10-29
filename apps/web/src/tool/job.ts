@@ -18,6 +18,9 @@ export function useJobSnapshot(job: Job | null): JobSnapshot | null {
 	return useSyncExternalStore(job?.subscribe ?? noSubscribe, job?.getSnapshot ?? noSnapshot);
 }
 
+/** `Omit` per union member, so encrypt and decrypt options stay apart. */
+type OmitEach<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
 /**
  * Asks where to save and starts the job. Must be called directly from a click
  * handler: the pickers need the user gesture, so nothing is awaited before them.
@@ -26,7 +29,7 @@ export function useJobSnapshot(job: Job | null): JobSnapshot | null {
  * (e.g. after a slow passphrase check); ask for another click then.
  */
 export async function pickAndStart(
-	options: Omit<JobOptions, 'save'>
+	options: OmitEach<JobOptions, 'save'>
 ): Promise<{ job: Job } | { job: null; reason: 'dismissed' | 'unsupported' | 'needs-gesture' }> {
 	const choice = chooseSink(detectCapabilities(), options.files.length);
 	let save: SaveTarget;
@@ -64,7 +67,7 @@ export async function pickAndStart(
 		throw error;
 	}
 
-	return { job: startJob({ ...options, save } as JobOptions) };
+	return { job: startJob({ ...options, save }) };
 }
 
 /** Whether starting a job will open a save picker (Chromium) rather than download. */

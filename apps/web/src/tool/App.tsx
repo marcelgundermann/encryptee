@@ -41,9 +41,11 @@ export function App() {
 
 	useEffect(() => {
 		// PWA file handler for .age files (D15, Chromium).
+		// SAFETY: the DOM typings lack the Launch Handler API; `launchQueue`
+		// stays optional here, and browsers without it leave it undefined.
 		const queue = (window as { launchQueue?: LaunchQueue }).launchQueue;
 		queue?.setConsumer(async (params) => {
-			const handles = params.files as FileSystemFileHandle[];
+			const handles = params.files.filter((handle) => handle instanceof FileSystemFileHandle);
 			onLaunch(await Promise.all(handles.map((handle) => handle.getFile())));
 		});
 	}, []);

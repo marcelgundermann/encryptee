@@ -14,9 +14,9 @@ export interface BatchPosition {
 /** Seals a run of plaintext chunks. Only a final batch may end in a short (or empty) chunk. */
 export async function sealBatch(
 	cipher: ChunkCipher,
-	plain: Uint8Array,
+	plain: Uint8Array<ArrayBuffer>,
 	{ firstChunk, final }: BatchPosition
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
 	const chunks = final
 		? Math.max(1, Math.ceil(plain.length / CHUNK_SIZE))
 		: plain.length / CHUNK_SIZE;
@@ -53,9 +53,9 @@ export async function sealBatch(
  */
 export async function openBatch(
 	cipher: ChunkCipher,
-	sealed: Uint8Array,
+	sealed: Uint8Array<ArrayBuffer>,
 	{ firstChunk, final }: BatchPosition
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
 	const chunks = Math.ceil(sealed.length / SEALED_CHUNK_SIZE);
 	const rest = sealed.length % SEALED_CHUNK_SIZE;
 

@@ -1,3 +1,5 @@
+import type { SerializedError } from '../errors.ts';
+
 /** OPFS directory for staged outputs (the fallback save path). */
 export const OPFS_STAGING_DIR = 'encryptee-staging';
 
@@ -34,5 +36,5 @@ export interface ByteSink {
 	write(chunk: Uint8Array<ArrayBuffer>): Promise<void>;
 	close(): Promise<SinkResult>;
 	/** Discards everything written so far. Never throws. */
-	abort(reason: unknown): Promise<void>;
+	abort(reason: SerializedError): Promise<void>;
 }

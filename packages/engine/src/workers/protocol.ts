@@ -43,7 +43,7 @@ export type CryptoConnect = { type: 'connect'; port: MessagePort };
 
 /** Coordinator → crypto worker. */
 export type CryptoRequest =
-	| { type: 'key'; key: Uint8Array; backend?: Backend }
+	| { type: 'key'; key: Uint8Array<ArrayBuffer>; backend?: Backend }
 	| {
 			type: 'seal' | 'open';
 			task: number;

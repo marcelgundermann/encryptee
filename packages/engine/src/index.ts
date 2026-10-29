@@ -27,7 +27,7 @@ export {
 	SIZE_LIMITS
 } from './capabilities.ts';
 
-export type { BrowserFamily, Capabilities, SinkChoice } from './capabilities.ts';
+export type { BrowserFamily, Capabilities, SinkChoice, Tuning } from './capabilities.ts';
 
 export { preflight } from './preflight.ts';
 

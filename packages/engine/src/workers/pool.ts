@@ -36,7 +36,7 @@ export class CryptoPool {
 	}
 
 	/** Hands every worker the payload key; resolves with the backend they chose. */
-	async setKey(key: Uint8Array, backend?: Backend): Promise<Backend> {
+	async setKey(key: Uint8Array<ArrayBuffer>, backend?: Backend): Promise<Backend> {
 		const replies = this.members.map(
 			(member) =>
 				new Promise<Backend>((resolve, reject) => {

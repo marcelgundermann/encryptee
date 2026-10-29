@@ -17,8 +17,14 @@ export interface Tools {
 
 export type ToolName = keyof Tools;
 
-export type ToolRequest = { id: number; tool: ToolName; args: unknown[] };
+/** Arguments of some tool, as posted to the worker. */
+export type ToolArgs = Parameters<Tools[ToolName]>;
+
+/** Result of some tool, as posted back. */
+export type ToolValue = Awaited<ReturnType<Tools[ToolName]>>;
+
+export type ToolRequest = { id: number; tool: ToolName; args: ToolArgs };
 
 export type ToolResponse =
-	| { id: number; ok: true; value: unknown }
+	| { id: number; ok: true; value: ToolValue }
 	| { id: number; ok: false; error: SerializedError };

@@ -13,9 +13,12 @@ export type Safety = 'ok' | 'unsafe' | 'unknown';
 export async function checkSafety(): Promise<Safety> {
 	try {
 		const response = await fetch('/security.json', { cache: 'no-store' });
-		const { minSafeBuild } = (await response.json()) as { minSafeBuild: number };
+		const { minSafeBuild }: { minSafeBuild?: unknown } = await response.json();
 
-		return __BUILD_NUMBER__ >= minSafeBuild ? 'ok' : 'unsafe';
+		// Anything but a number is treated as a build we can't vouch for.
+		return Number.isFinite(minSafeBuild) && __BUILD_NUMBER__ >= Number(minSafeBuild)
+			? 'ok'
+			: 'unsafe';
 	} catch {
 		return 'unknown';
 	}

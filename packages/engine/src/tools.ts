@@ -1,5 +1,11 @@
 import { deserializeError } from './errors.ts';
-import type { ToolName, ToolRequest, ToolResponse, Tools } from './workers/tools-protocol.ts';
+import type {
+	ToolName,
+	ToolRequest,
+	ToolResponse,
+	Tools,
+	ToolValue
+} from './workers/tools-protocol.ts';
 
 /**
  * Key operations (key generation, scrypt for key files) run in a worker like
@@ -7,7 +13,11 @@ import type { ToolName, ToolRequest, ToolResponse, Tools } from './workers/tools
  */
 let worker: Worker | null = null;
 let nextId = 0;
-const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+
+const pending = new Map<
+	number,
+	{ resolve: (value: ToolValue) => void; reject: (e: Error) => void }
+>();
 
 function call<T extends ToolName>(tool: T, ...args: Parameters<Tools[T]>): ReturnType<Tools[T]> {
 	if (!worker) {
@@ -27,8 +37,10 @@ function call<T extends ToolName>(tool: T, ...args: Parameters<Tools[T]>): Retur
 	const id = nextId++;
 	const request: ToolRequest = { id, tool, args };
 
+	// SAFETY: the worker answers `id` with what `tools[tool]` returned, so the
+	// value this promise resolves with is `tool`'s own result.
 	return new Promise((resolve, reject) => {
-		pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
+		pending.set(id, { resolve, reject });
 		worker!.postMessage(request);
 	}) as ReturnType<Tools[T]>;
 }

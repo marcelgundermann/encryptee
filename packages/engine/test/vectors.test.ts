@@ -62,9 +62,7 @@ async function parse(bytes: Uint8Array): Promise<Vector> {
 	return vector;
 }
 
-const cases = Object.entries(vectors as Record<string, Uint8Array>).toSorted(([a], [b]) =>
-	a.localeCompare(b)
-);
+const cases = Object.entries(vectors).toSorted(([a], [b]) => a.localeCompare(b));
 
 const HEADER_FAILURE = ['corrupted', 'wrong-credentials', 'not-encrypted', 'invalid-key-file'];
 
@@ -73,11 +71,13 @@ const HEADER_FAILURE = ['corrupted', 'wrong-credentials', 'not-encrypted', 'inva
  * whether the output may have been opened. Impossible payload sizes fail
  * before opening, other payload failures after.
  */
-function expectation(vector: Vector): {
+interface Expectation {
 	codes: Array<string | null>;
 	sha256: string | null;
 	opened: boolean[];
-} {
+}
+
+function expectation(vector: Vector): Expectation {
 	// ASCII armor is out of scope for v2: refuse it, as `armored` when the
 	// armor line is intact and as `not-encrypted` when it is mangled.
 	if (vector.armored) return { codes: ['armored', 'not-encrypted'], sha256: null, opened: [false] };

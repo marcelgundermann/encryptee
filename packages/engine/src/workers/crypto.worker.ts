@@ -36,9 +36,7 @@ self.onmessage = ({ data }: MessageEvent<CryptoConnect>) => {
 					if (!cipher) throw new EngineError('internal', 'no payload key');
 					const run = request.type === 'seal' ? sealBatch : openBatch;
 					const out = await run(cipher, new Uint8Array(request.data), request);
-					reply({ type: 'result', task: request.task, data: out.buffer as ArrayBuffer }, [
-						out.buffer as ArrayBuffer
-					]);
+					reply({ type: 'result', task: request.task, data: out.buffer }, [out.buffer]);
 				} catch (error) {
 					reply({ type: 'error', task: request.task, error: serializeError(error) });
 				}

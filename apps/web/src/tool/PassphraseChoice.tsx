@@ -3,11 +3,17 @@ import { useState, type ReactNode } from 'react';
 import { strings } from '../strings.ts';
 import { Hint, LineField, TextButton } from './ui.tsx';
 
+export interface PassphraseChoice {
+	/** Null until usable. */
+	passphrase: string | null;
+	field: ReactNode;
+}
+
 /**
  * A generated passphrase by default (shown in full, so it can be written
- * down), or the user's own, typed twice. `passphrase` is null until usable.
+ * down), or the user's own, typed twice.
  */
-export function usePassphraseChoice(id: string): { passphrase: string | null; field: ReactNode } {
+export function usePassphraseChoice(id: string): PassphraseChoice {
 	const [generated, setGenerated] = useState(generatePassphrase);
 	const [ownMode, setOwnMode] = useState(false);
 	const [own, setOwn] = useState('');

@@ -42,17 +42,17 @@ export class EngineError extends Error {
 	}
 }
 
-export function serializeError(error: unknown): SerializedError {
-	if (error instanceof EngineError) return error.toJSON();
+export function serializeError(cause: unknown): SerializedError {
+	if (cause instanceof EngineError) return cause.toJSON();
 
-	if (error instanceof DOMException) {
-		if (error.name === 'AbortError') return { code: 'cancelled', message: error.message };
+	if (cause instanceof DOMException) {
+		if (cause.name === 'AbortError') return { code: 'cancelled', message: cause.message };
 
-		if (error.name === 'QuotaExceededError')
-			return { code: 'storage-full', message: error.message };
+		if (cause.name === 'QuotaExceededError')
+			return { code: 'storage-full', message: cause.message };
 	}
 
-	const message = error instanceof Error ? error.message : String(error);
+	const message = cause instanceof Error ? cause.message : String(cause);
 
 	return { code: 'internal', message };
 }

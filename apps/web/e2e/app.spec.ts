@@ -7,9 +7,8 @@ import { expect, test, type Page } from '@playwright/test';
  * the paths Firefox and Safari use: the service-worker download and OPFS.
  */
 const hidePickers = () => {
-	const pickers = window as { showSaveFilePicker?: unknown; showDirectoryPicker?: unknown };
-	delete pickers.showSaveFilePicker;
-	delete pickers.showDirectoryPicker;
+	Reflect.deleteProperty(window, 'showSaveFilePicker');
+	Reflect.deleteProperty(window, 'showDirectoryPicker');
 };
 
 /** Records CSP and Trusted Types violations for the whole test. */

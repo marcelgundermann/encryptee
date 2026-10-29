@@ -39,11 +39,16 @@ async function typageReference(plain: Uint8Array) {
 
 	return {
 		key: derivePayloadKey(fileKey, nonce),
-		payload: file.subarray(length + PAYLOAD_NONCE_SIZE)
+		payload: file.slice(length + PAYLOAD_NONCE_SIZE)
 	};
 }
 
-async function sealAll(backend: Backend, key: Uint8Array, plain: Uint8Array, batchChunks: number) {
+async function sealAll(
+	backend: Backend,
+	key: Uint8Array<ArrayBuffer>,
+	plain: Uint8Array<ArrayBuffer>,
+	batchChunks: number
+) {
 	const cipher = await createChunkCipher(key, backend);
 	const layout = sealLayout(plain.length, batchChunks);
 	const parts: Uint8Array[] = [];
@@ -56,7 +61,12 @@ async function sealAll(backend: Backend, key: Uint8Array, plain: Uint8Array, bat
 	return concat(parts);
 }
 
-async function openAll(backend: Backend, key: Uint8Array, sealed: Uint8Array, batchChunks: number) {
+async function openAll(
+	backend: Backend,
+	key: Uint8Array<ArrayBuffer>,
+	sealed: Uint8Array<ArrayBuffer>,
+	batchChunks: number
+) {
 	const cipher = await createChunkCipher(key, backend);
 	const layout = openLayout(0, sealed.length, batchChunks);
 	const parts: Uint8Array[] = [];

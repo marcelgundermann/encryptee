@@ -9,12 +9,15 @@ export type Backend = 'webcrypto' | 'noble';
 const PAYLOAD_LABEL = new TextEncoder().encode('payload');
 
 /** `HKDF-SHA-256(fileKey, salt = payload nonce, "payload")`, per the age spec. */
-export function derivePayloadKey(fileKey: Uint8Array, payloadNonce: Uint8Array): Uint8Array {
+export function derivePayloadKey(
+	fileKey: Uint8Array,
+	payloadNonce: Uint8Array
+): Uint8Array<ArrayBuffer> {
 	return hkdf(sha256, fileKey, payloadNonce, PAYLOAD_LABEL, 32);
 }
 
 /** Writes the 12-byte STREAM nonce for chunk `index`: `BE88(index) ‖ lastFlag`. */
-export function writeChunkNonce(nonce: Uint8Array, index: number, last: boolean): Uint8Array {
+export function writeChunkNonce<T extends Uint8Array>(nonce: T, index: number, last: boolean): T {
 	const view = new DataView(nonce.buffer, nonce.byteOffset, 12);
 	view.setUint8(0, 0);
 	view.setUint16(1, 0);
@@ -29,12 +32,23 @@ export function writeChunkNonce(nonce: Uint8Array, index: number, last: boolean)
 export interface ChunkCipher {
 	readonly backend: Backend;
 	/** Seals `plain` into `out`, which must be exactly `plain.length + 16` bytes. */
-	seal(plain: Uint8Array, nonce: Uint8Array, out: Uint8Array): void | Promise<void>;
+	seal(
+		plain: Uint8Array<ArrayBuffer>,
+		nonce: Uint8Array<ArrayBuffer>,
+		out: Uint8Array
+	): void | Promise<void>;
 	/** Opens `sealed` into `out` (exactly `sealed.length - 16` bytes); throws `corrupted` on a bad tag. */
-	open(sealed: Uint8Array, nonce: Uint8Array, out: Uint8Array): void | Promise<void>;
+	open(
+		sealed: Uint8Array<ArrayBuffer>,
+		nonce: Uint8Array<ArrayBuffer>,
+		out: Uint8Array
+	): void | Promise<void>;
 }
 
-export async function createChunkCipher(key: Uint8Array, prefer?: Backend): Promise<ChunkCipher> {
+export async function createChunkCipher(
+	key: Uint8Array<ArrayBuffer>,
+	prefer?: Backend
+): Promise<ChunkCipher> {
 	if (prefer !== 'noble' && (await nativeChaChaAvailable())) {
 		return WebCryptoChunkCipher.create(key);
 	}
@@ -74,29 +88,29 @@ class WebCryptoChunkCipher implements ChunkCipher {
 
 	private constructor(private readonly key: CryptoKey) {}
 
-	static async create(rawKey: Uint8Array): Promise<WebCryptoChunkCipher> {
+	static async create(rawKey: Uint8Array<ArrayBuffer>): Promise<WebCryptoChunkCipher> {
 		return new WebCryptoChunkCipher(await importChaChaKey(rawKey));
 	}
 
-	async seal(plain: Uint8Array, nonce: Uint8Array, out: Uint8Array): Promise<void> {
-		const sealed = await crypto.subtle.encrypt(
-			{ name: ALGORITHM, iv: nonce as Uint8Array<ArrayBuffer> },
-			this.key,
-			plain as Uint8Array<ArrayBuffer>
-		);
+	async seal(
+		plain: Uint8Array<ArrayBuffer>,
+		nonce: Uint8Array<ArrayBuffer>,
+		out: Uint8Array
+	): Promise<void> {
+		const sealed = await crypto.subtle.encrypt({ name: ALGORITHM, iv: nonce }, this.key, plain);
 
 		out.set(new Uint8Array(sealed));
 	}
 
-	async open(sealed: Uint8Array, nonce: Uint8Array, out: Uint8Array): Promise<void> {
+	async open(
+		sealed: Uint8Array<ArrayBuffer>,
+		nonce: Uint8Array<ArrayBuffer>,
+		out: Uint8Array
+	): Promise<void> {
 		let plain: ArrayBuffer;
 
 		try {
-			plain = await crypto.subtle.decrypt(
-				{ name: ALGORITHM, iv: nonce as Uint8Array<ArrayBuffer> },
-				this.key,
-				sealed as Uint8Array<ArrayBuffer>
-			);
+			plain = await crypto.subtle.decrypt({ name: ALGORITHM, iv: nonce }, this.key, sealed);
 		} catch (cause) {
 			throw new EngineError('corrupted', 'chunk authentication failed', { cause });
 		}
@@ -105,12 +119,12 @@ class WebCryptoChunkCipher implements ChunkCipher {
 	}
 }
 
-async function importChaChaKey(rawKey: Uint8Array): Promise<CryptoKey> {
-	const key = rawKey as Uint8Array<ArrayBuffer>;
-
+async function importChaChaKey(key: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
 	// The modern-algorithms draft imports symmetric keys as `raw-secret`; older
 	// builds only knew `raw`.
 	try {
+		// SAFETY: the DOM typings predate `raw-secret`; a browser that doesn't
+		// know it rejects the call and the `raw` retry below runs.
 		return await crypto.subtle.importKey('raw-secret' as 'raw', key, ALGORITHM, false, [
 			'encrypt',
 			'decrypt'

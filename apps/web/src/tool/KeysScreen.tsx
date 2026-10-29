@@ -68,10 +68,8 @@ function YourKey() {
 		const text = keyFileText(pair);
 
 		if (protect) {
-			saveSmallFile(
-				(await protectKeyFile(text, passphrase!)) as Uint8Array<ArrayBuffer>,
-				'key.age'
-			);
+			// A Blob takes only ArrayBuffer-backed views; copy into one.
+			saveSmallFile(new Uint8Array(await protectKeyFile(text, passphrase!)), 'key.age');
 		} else {
 			saveSmallFile(text, 'key.txt');
 		}
