@@ -66,6 +66,8 @@ export interface JobSnapshot {
 	bytesTotal: number;
 	bytesDone: number;
 	startedAt: number;
+	/** When this snapshot was produced; with `startedAt` it gives the throughput. */
+	updatedAt: number;
 	finishedAt: number | null;
 	workers: number;
 	backend: Backend | null;
@@ -136,6 +138,7 @@ class RunningJob implements Job {
 			bytesTotal: options.files.reduce((sum, file) => sum + file.size, 0),
 			bytesDone: 0,
 			startedAt: Date.now(),
+			updatedAt: Date.now(),
 			finishedAt: null,
 			workers: tuning.workers,
 			backend: null
@@ -320,7 +323,7 @@ class RunningJob implements Job {
 	}
 
 	private update(patch: Partial<JobSnapshot>): void {
-		this.snapshot = { ...this.snapshot, ...patch };
+		this.snapshot = { ...this.snapshot, ...patch, updatedAt: Date.now() };
 		for (const listener of this.listeners) listener();
 	}
 }

@@ -1,32 +1,36 @@
 import type { ReactNode } from 'react';
 
 const NAV = [
-	{ href: '/', label: 'Encrypt & decrypt' },
 	{ href: '/how-it-works/', label: 'How it works' },
 	{ href: '/security/', label: 'Security' },
 	{ href: '/faq/', label: 'FAQ' }
 ];
 
-/** Shell for the prerendered content pages. Static markup only: no state, no effects. */
+/**
+ * Shell for the prerendered content pages, in the same "Drop" look as the
+ * tool. Static markup only: no state, no effects.
+ */
 export function Layout({ children }: { children: ReactNode }) {
 	return (
-		<div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-4">
-			<header className="flex flex-wrap items-center gap-x-6 gap-y-2 py-6">
-				<a href="/" className="text-lg font-semibold">
-					Encryptee
+		<div className="flex min-h-dvh flex-col">
+			<header className="flex items-center justify-between gap-4 px-6 py-5 text-sm">
+				<a href="/" className="font-semibold tracking-tight">
+					encryptee
 				</a>
-				<nav className="flex flex-wrap gap-4 text-sm text-neutral-600 dark:text-neutral-400">
-					{NAV.slice(1).map((item) => (
-						<a key={item.href} href={item.href} className="hover:underline">
+				<nav className="flex gap-5 text-neutral-500">
+					{NAV.map((item) => (
+						<a key={item.href} href={item.href} className="hover:text-black dark:hover:text-white">
 							{item.label}
 						</a>
 					))}
 				</nav>
 			</header>
-			<main className="prose-like flex-1 pb-16">{children}</main>
-			<footer className="border-t border-neutral-200 py-6 text-sm text-neutral-500 dark:border-neutral-800">
+			<main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-12 pb-24 text-lg [&_a]:underline [&_a]:underline-offset-2">
+				{children}
+			</main>
+			<footer className="mx-auto w-full max-w-2xl px-6 py-8 text-sm text-neutral-500">
 				Files encrypted with the old Encryptee (<code>.cre</code>) open at{' '}
-				<a className="underline" href="https://v1.encryptee.io">
+				<a className="underline underline-offset-2" href="https://v1.encryptee.io">
 					v1.encryptee.io
 				</a>
 				.
@@ -36,12 +40,16 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export function H1({ children }: { children: ReactNode }) {
-	return <h1 className="mb-6 text-3xl font-semibold tracking-tight">{children}</h1>;
+	return (
+		<h1 className="mb-10 text-5xl leading-[0.95] font-semibold tracking-tighter sm:text-7xl">
+			{children}
+		</h1>
+	);
 }
 
 export function H2({ children, id }: { children: ReactNode; id?: string }) {
 	return (
-		<h2 id={id} className="mt-10 mb-3 text-xl font-semibold">
+		<h2 id={id} className="mt-14 mb-3 text-2xl font-semibold tracking-tight">
 			{children}
 		</h2>
 	);
@@ -53,7 +61,7 @@ export function P({ children }: { children: ReactNode }) {
 
 export function Code({ children }: { children: ReactNode }) {
 	return (
-		<pre className="my-3 overflow-x-auto rounded-md bg-neutral-100 p-3 text-sm dark:bg-neutral-900">
+		<pre className="my-4 overflow-x-auto rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900">
 			<code>{children}</code>
 		</pre>
 	);

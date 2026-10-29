@@ -1,10 +1,17 @@
+import { checkCredentials } from '../check.ts';
 import { serializeError } from '../errors.ts';
 import { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from '../keys/keys.ts';
 import type { ToolRequest, ToolResponse } from './tools-protocol.ts';
 
 declare const self: DedicatedWorkerGlobalScope;
 
-const tools = { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys };
+const tools = {
+	checkCredentials,
+	generateKeyPair,
+	protectKeyFile,
+	readKeyFile,
+	validatePublicKeys
+};
 
 self.onmessage = async ({ data }: MessageEvent<ToolRequest>) => {
 	let response: ToolResponse;

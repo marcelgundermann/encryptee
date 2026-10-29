@@ -21,11 +21,13 @@ export function useJobSnapshot(job: Job | null): JobSnapshot | null {
 /**
  * Asks where to save and starts the job. Must be called directly from a click
  * handler: the pickers need the user gesture, so nothing is awaited before them.
- * Returns null if the user dismissed the picker.
+ * Returns no job if the user dismissed the picker, or `needs-gesture` if the
+ * browser refused the picker because the click's activation had expired
+ * (e.g. after a slow passphrase check); ask for another click then.
  */
 export async function pickAndStart(
 	options: Omit<JobOptions, 'save'>
-): Promise<{ job: Job } | { job: null; reason: 'dismissed' | 'unsupported' }> {
+): Promise<{ job: Job } | { job: null; reason: 'dismissed' | 'unsupported' | 'needs-gesture' }> {
 	const choice = chooseSink(detectCapabilities(), options.files.length);
 	let save: SaveTarget;
 	try {
@@ -52,7 +54,16 @@ export async function pickAndStart(
 		if (error instanceof DOMException && error.name === 'AbortError') {
 			return { job: null, reason: 'dismissed' };
 		}
+		if (error instanceof DOMException && /NotAllowed|Security/.test(error.name)) {
+			return { job: null, reason: 'needs-gesture' };
+		}
 		throw error;
 	}
 	return { job: startJob({ ...options, save } as JobOptions) };
+}
+
+/** Whether starting a job will open a save picker (Chromium) rather than download. */
+export function asksWhereToSave(fileCount: number): boolean {
+	const choice = chooseSink(detectCapabilities(), fileCount);
+	return choice === 'file-picker' || choice === 'directory-picker';
 }

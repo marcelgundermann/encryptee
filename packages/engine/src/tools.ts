@@ -43,3 +43,7 @@ export const readKeyFile: Tools['readKeyFile'] = (...args) => call('readKeyFile'
 /** Trims pasted public keys and checks each one; rejects with `invalid-public-key`. */
 export const validatePublicKeys: Tools['validatePublicKeys'] = (...args) =>
 	call('validatePublicKeys', ...args);
+
+/** Checks a passphrase or private keys against a file's header (scrypt runs in the worker). */
+export const checkCredentials: Tools['checkCredentials'] = (...args) =>
+	call('checkCredentials', ...args);
