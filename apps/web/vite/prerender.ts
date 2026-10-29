@@ -12,11 +12,14 @@ export function prerenderPages(renderModule: string): Plugin {
 		name: 'encryptee:prerender',
 		async transformIndexHtml(html) {
 			const match = html.match(MARKER);
+
 			if (!match) return html;
+
 			const { module } = await runnerImport<{ render(page: string): string }>(renderModule, {
 				configFile: false,
 				logLevel: 'error'
 			});
+
 			return html.replace(MARKER, module.render(match[1]!));
 		}
 	};

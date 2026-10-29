@@ -20,6 +20,7 @@ export function Warnings({ mode, files }: { mode: 'encrypt' | 'decrypt'; files: 
 			capabilities
 		}).then((result) => setWarnings(result.warnings));
 	}, [mode, files]);
+
 	return warnings.map((warning) => (
 		<Hint key={warning.code} tone="warning">
 			{strings.warnings[warning.code]}

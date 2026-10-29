@@ -14,7 +14,9 @@ const factory = (globalThis as { trustedTypes?: TrustedTypePolicyFactoryLike }).
 factory?.createPolicy('default', {
 	createScriptURL(input) {
 		const url = new URL(input, location.href);
+
 		if (url.origin !== location.origin) throw new TypeError(`blocked script URL: ${input}`);
+
 		return url.href;
 	}
 });

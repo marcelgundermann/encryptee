@@ -47,6 +47,7 @@ export function EncryptCard(props: {
 		...contacts.filter((c) => chosen.has(c.id)).map((c) => c.publicKey),
 		...pasted
 	];
+
 	const ready = method === 'passphrase' ? passphrase !== null : publicKeys.length > 0;
 
 	const addPasted = async () => {
@@ -63,6 +64,7 @@ export function EncryptCard(props: {
 	// Nothing is awaited before pickAndStart: the save picker needs this click.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
+
 		const result = await pickAndStart({
 			mode: 'encrypt',
 			files: props.files,
@@ -71,6 +73,7 @@ export function EncryptCard(props: {
 					? { kind: 'passphrase', passphrase: passphrase! }
 					: { kind: 'public-keys', publicKeys }
 		});
+
 		if (result.job) props.onStart(result.job);
 		else if (result.reason === 'unsupported') setError(strings.unsupported);
 	};
@@ -101,6 +104,7 @@ export function EncryptCard(props: {
 						<ul className="mt-6 flex flex-wrap gap-2">
 							{contacts.map((contact) => {
 								const on = chosen.has(contact.id);
+
 								return (
 									<li key={contact.id}>
 										<button
@@ -109,8 +113,10 @@ export function EncryptCard(props: {
 											onClick={() =>
 												setChosen((current) => {
 													const next = new Set(current);
+
 													if (on) next.delete(contact.id);
 													else next.add(contact.id);
+
 													return next;
 												})
 											}

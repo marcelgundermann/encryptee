@@ -7,10 +7,12 @@ const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
 export async function acquireJobGuards(): Promise<{ release(): void }> {
 	let lock: WakeLockSentinel | null = null;
 	let released = false;
+
 	const requestLock = async () => {
 		if (released || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
 		lock = await navigator.wakeLock.request('screen').catch(() => null);
 	};
+
 	const onVisibility = () => void requestLock();
 
 	if (typeof document !== 'undefined') {
@@ -18,10 +20,12 @@ export async function acquireJobGuards(): Promise<{ release(): void }> {
 		document.addEventListener('visibilitychange', onVisibility);
 		addEventListener('beforeunload', onBeforeUnload);
 	}
+
 	return {
 		release() {
 			released = true;
 			void lock?.release().catch(() => {});
+
 			if (typeof document === 'undefined') return;
 			document.removeEventListener('visibilitychange', onVisibility);
 			removeEventListener('beforeunload', onBeforeUnload);

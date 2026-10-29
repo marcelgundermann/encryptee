@@ -66,6 +66,7 @@ function YourKey() {
 
 	const save = async (pair: KeyPair) => {
 		const text = keyFileText(pair);
+
 		if (protect) {
 			saveSmallFile(
 				(await protectKeyFile(text, passphrase!)) as Uint8Array<ArrayBuffer>,
@@ -74,17 +75,22 @@ function YourKey() {
 		} else {
 			saveSmallFile(text, 'key.txt');
 		}
+
 		setStage({ kind: 'show', publicKey: pair.publicKey, pair });
 	};
 
 	const open = async (name: string, bytes: Uint8Array, pass?: string) => {
 		setError(null);
+
 		try {
 			const contents = await readKeyFile(bytes, pass);
+
 			if (contents.protected) {
 				setOpening({ name, bytes });
+
 				return;
 			}
+
 			setOpening(null);
 			setStage({ kind: 'show', publicKey: contents.publicKeys[0]!, pair: null });
 		} catch (cause) {
@@ -125,6 +131,7 @@ function YourKey() {
 						onChange={async (event) => {
 							const file = event.currentTarget.files?.[0];
 							event.currentTarget.value = '';
+
 							if (file) await open(file.name, new Uint8Array(await file.arrayBuffer()));
 						}}
 					/>
@@ -198,11 +205,13 @@ function YourKey() {
 
 function CopyButton({ label, value }: { label: string; value: string }) {
 	const [copied, setCopied] = useState(false);
+
 	const copy = async () => {
 		await navigator.clipboard.writeText(value);
 		setCopied(true);
 		setTimeout(() => setCopied(false), 2000);
 	};
+
 	return (
 		<OutlineButton onClick={() => void copy()}>
 			{copied ? strings.keys.copied : label}
@@ -221,6 +230,7 @@ function People() {
 
 	const add = async (event: FormEvent) => {
 		event.preventDefault();
+
 		try {
 			await saveContact(name, key);
 			setName('');

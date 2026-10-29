@@ -22,6 +22,7 @@ const SIZES = [
 	3 * CHUNK + 1,
 	9 * CHUNK + 7
 ];
+
 const BATCH_CHUNKS = [1, 2, 4];
 
 /** Encrypts with typage and recovers the file key, so our engine can re-seal with the same key and nonce. */
@@ -35,6 +36,7 @@ async function typageReference(plain: Uint8Array) {
 	decrypter.addIdentity(identity);
 	const fileKey = await decrypter.decryptHeader(file.subarray(0, length));
 	const nonce = file.slice(length, length + PAYLOAD_NONCE_SIZE);
+
 	return {
 		key: derivePayloadKey(fileKey, nonce),
 		payload: file.subarray(length + PAYLOAD_NONCE_SIZE)
@@ -45,10 +47,12 @@ async function sealAll(backend: Backend, key: Uint8Array, plain: Uint8Array, bat
 	const cipher = await createChunkCipher(key, backend);
 	const layout = sealLayout(plain.length, batchChunks);
 	const parts: Uint8Array[] = [];
+
 	for (let i = 0; i < layout.batches; i++) {
 		const range = batchRange(layout, i, batchChunks);
 		parts.push(await sealBatch(cipher, plain.subarray(range.start, range.end), range));
 	}
+
 	return concat(parts);
 }
 
@@ -56,20 +60,24 @@ async function openAll(backend: Backend, key: Uint8Array, sealed: Uint8Array, ba
 	const cipher = await createChunkCipher(key, backend);
 	const layout = openLayout(0, sealed.length, batchChunks);
 	const parts: Uint8Array[] = [];
+
 	for (let i = 0; i < layout.batches; i++) {
 		const range = batchRange(layout, i, batchChunks);
 		parts.push(await openBatch(cipher, sealed.subarray(range.start, range.end), range));
 	}
+
 	return concat(parts);
 }
 
 function concat(parts: Uint8Array[]): Uint8Array {
 	const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
 	let offset = 0;
+
 	for (const part of parts) {
 		out.set(part, offset);
 		offset += part.length;
 	}
+
 	return out;
 }
 
@@ -85,6 +93,7 @@ describe.each(backends)('%s backend', (backend) => {
 	test.each(SIZES)('payload is byte-identical to typage for %i bytes', async (size) => {
 		const plain = randomBytes(size);
 		const { key, payload } = await typageReference(plain);
+
 		for (const batchChunks of BATCH_CHUNKS) {
 			const ours = await sealAll(backend, key, plain, batchChunks);
 			expect(equalBytes(ours, payload), `batchChunks=${batchChunks}`).toBe(true);

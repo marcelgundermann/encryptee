@@ -20,11 +20,14 @@ export async function sealBatch(
 	const chunks = final
 		? Math.max(1, Math.ceil(plain.length / CHUNK_SIZE))
 		: plain.length / CHUNK_SIZE;
+
 	if (!Number.isInteger(chunks) || chunks === 0) {
 		throw new EngineError('internal', `non-final batch of ${plain.length} bytes`);
 	}
+
 	const out = new Uint8Array(plain.length + chunks * TAG_SIZE);
 	const pending: Array<void | Promise<void>> = [];
+
 	for (let i = 0; i < chunks; i++) {
 		const start = i * CHUNK_SIZE;
 		const end = Math.min(start + CHUNK_SIZE, plain.length);
@@ -38,7 +41,9 @@ export async function sealBatch(
 			)
 		);
 	}
+
 	await Promise.all(pending);
+
 	return out;
 }
 
@@ -53,14 +58,19 @@ export async function openBatch(
 ): Promise<Uint8Array> {
 	const chunks = Math.ceil(sealed.length / SEALED_CHUNK_SIZE);
 	const rest = sealed.length % SEALED_CHUNK_SIZE;
+
 	if (chunks === 0 || (!final && rest !== 0) || (rest !== 0 && rest < TAG_SIZE)) {
 		throw new EngineError('corrupted', 'payload is truncated');
 	}
+
 	const out = new Uint8Array(sealed.length - chunks * TAG_SIZE);
+
 	if (final && rest === TAG_SIZE && firstChunk + chunks - 1 > 0) {
 		throw new EngineError('corrupted', 'final chunk is empty');
 	}
+
 	const pending: Array<void | Promise<void>> = [];
+
 	for (let i = 0; i < chunks; i++) {
 		const start = i * SEALED_CHUNK_SIZE;
 		const end = Math.min(start + SEALED_CHUNK_SIZE, sealed.length);
@@ -74,6 +84,8 @@ export async function openBatch(
 			)
 		);
 	}
+
 	await Promise.all(pending);
+
 	return out;
 }

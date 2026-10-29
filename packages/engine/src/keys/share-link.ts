@@ -10,5 +10,6 @@ export function buildShareLink(publicKey: string, origin = location.origin): str
 export function parseShareLink(input: string): string | null {
 	const hash = input.includes('#') ? input.slice(input.indexOf('#') + 1) : input;
 	const value = new URLSearchParams(hash).get('to')?.trim();
+
 	return value && /^age1[0-9a-z]+$/.test(value) ? value : null;
 }

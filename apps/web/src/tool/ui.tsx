@@ -130,6 +130,7 @@ export function Hint({ children, tone }: { children: ReactNode; tone?: 'error' |
 			: tone === 'warning'
 				? 'text-amber-700 dark:text-amber-400'
 				: 'text-neutral-500';
+
 	return (
 		<p role={tone ? 'alert' : undefined} className={`mt-2 text-sm ${color}`}>
 			{children}

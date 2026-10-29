@@ -25,7 +25,9 @@ export class SwDownload {
 
 	begin(size: number): void {
 		const worker = navigator.serviceWorker?.controller;
+
 		if (!worker) throw new EngineError('unsupported', 'no service worker controls this page');
+
 		const message: DownloadControlMessage = {
 			type: 'encryptee-download',
 			id: this.id,
@@ -33,6 +35,7 @@ export class SwDownload {
 			size,
 			port: this.own
 		};
+
 		worker.postMessage(message, [this.own]);
 		this.keepalive = setInterval(
 			() => navigator.serviceWorker.controller?.postMessage({ type: 'encryptee-keepalive' }),
@@ -47,6 +50,7 @@ export class SwDownload {
 	end(): void {
 		clearInterval(this.keepalive);
 		const iframe = this.iframe;
+
 		// Removing the iframe too early can cancel the download in some browsers.
 		if (iframe) setTimeout(() => iframe.remove(), 60_000);
 	}
@@ -56,6 +60,7 @@ export class SwDownload {
 export async function downloadStagedFile(path: string[], name: string): Promise<void> {
 	const root = await navigator.storage.getDirectory();
 	let directory = root;
+
 	for (const segment of path.slice(0, -1)) directory = await directory.getDirectoryHandle(segment);
 	const handle = await directory.getFileHandle(path.at(-1)!);
 	const file = await handle.getFile();

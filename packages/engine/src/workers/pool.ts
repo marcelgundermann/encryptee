@@ -24,6 +24,7 @@ export class CryptoPool {
 	constructor(ports: MessagePort[]) {
 		if (ports.length === 0) throw new EngineError('internal', 'empty crypto pool');
 		this.members = ports.map((port) => ({ port, busy: 0 }));
+
 		for (const member of this.members) {
 			member.port.onmessage = ({ data }: MessageEvent<CryptoResponse>) => this.receive(data);
 			member.port.start();
@@ -43,7 +44,9 @@ export class CryptoPool {
 					this.post(member, { type: 'key', key, backend });
 				})
 		);
+
 		const backends = await Promise.all(replies);
+
 		return backends[0]!;
 	}
 
@@ -56,6 +59,7 @@ export class CryptoPool {
 		const member = this.members.reduce((a, b) => (b.busy < a.busy ? b : a));
 		const task = this.nextTask++;
 		member.busy++;
+
 		return new Promise((resolve, reject) => {
 			this.pending.set(task, { member, resolve, reject });
 			this.post(member, { type: mode, task, ...position, data }, [data]);
@@ -70,16 +74,22 @@ export class CryptoPool {
 	private receive(message: CryptoResponse): void {
 		if (message.type === 'ready') {
 			this.ready.shift()?.resolve(message.backend);
+
 			return;
 		}
+
 		if (message.type === 'error' && message.task === null) {
 			this.ready.shift()?.reject(deserializeError(message.error));
+
 			return;
 		}
+
 		const pending = this.pending.get(message.task!);
+
 		if (!pending) return;
 		this.pending.delete(message.task!);
 		pending.member.busy--;
+
 		if (message.type === 'result') pending.resolve(new Uint8Array(message.data));
 		else pending.reject(deserializeError(message.error));
 	}

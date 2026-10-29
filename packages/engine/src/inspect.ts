@@ -26,12 +26,15 @@ export async function readHeader(
 ): Promise<{ kind: FileKind; header: Uint8Array | null }> {
 	let head = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());
 	const kind = sniffBytes(head);
+
 	if (kind !== 'age') return { kind, header: null };
 	let length = headerLength(head);
+
 	if (length === null && file.size > head.length) {
 		head = new Uint8Array(await file.slice(0, MAX_HEADER_SIZE).arrayBuffer());
 		length = headerLength(head);
 	}
+
 	return { kind, header: length === null ? null : head.subarray(0, length) };
 }
 
@@ -41,9 +44,12 @@ export async function readHeader(
  */
 export async function inspectFile(file: Blob): Promise<FileInfo> {
 	const { kind, header } = await readHeader(file);
+
 	if (!header) return { kind, unlock: null, recipientTypes: [] };
 	const recipientTypes = stanzaTypes(header);
+
 	const unlock =
 		recipientTypes.length === 1 && recipientTypes[0] === 'scrypt' ? 'passphrase' : 'private-key';
+
 	return { kind, unlock, recipientTypes };
 }

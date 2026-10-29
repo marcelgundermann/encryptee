@@ -29,9 +29,11 @@ export const SMALL_BATCHES = { workers: 2, batchChunks: 2, window: 3 };
 
 export function randomBytes(size: number): Uint8Array<ArrayBuffer> {
 	const bytes = new Uint8Array(size);
+
 	for (let offset = 0; offset < size; offset += 65536) {
 		crypto.getRandomValues(bytes.subarray(offset, Math.min(size, offset + 65536)));
 	}
+
 	return bytes;
 }
 
@@ -45,7 +47,9 @@ export async function blobBytes(blob: Blob): Promise<Uint8Array<ArrayBuffer>> {
 
 export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 	if (a.length !== b.length) return false;
+
 	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+
 	return true;
 }
 
@@ -65,10 +69,13 @@ export async function encrypt(
 		save: { kind: 'memory' },
 		tuning
 	});
+
 	const [output] = result.files;
+
 	if (result.status !== 'done' || output?.output?.kind !== 'memory') {
 		throw new Error(`encrypt failed: ${JSON.stringify(output?.error)}`);
 	}
+
 	return blobBytes(output.output.blob);
 }
 
@@ -84,15 +91,19 @@ export async function decrypt(
 		save: { kind: 'memory' },
 		tuning
 	});
+
 	const output = snapshot.files[0]?.output;
+
 	return { snapshot, output: output?.kind === 'memory' ? await blobBytes(output.blob) : null };
 }
 
 export function toBase64(bytes: Uint8Array): string {
 	let binary = '';
+
 	for (let i = 0; i < bytes.length; i += 0x8000) {
 		binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
 	}
+
 	return btoa(binary);
 }
 
@@ -102,5 +113,6 @@ export function fromBase64(text: string): Uint8Array<ArrayBuffer> {
 
 export async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
 	const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+
 	return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
 }

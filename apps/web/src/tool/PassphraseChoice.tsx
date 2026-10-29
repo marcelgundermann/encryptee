@@ -21,6 +21,7 @@ export function usePassphraseChoice(id: string): { passphrase: string | null; fi
 	};
 
 	const passphrase = ownMode ? (own !== '' && own === repeat ? own : null) : generated;
+
 	const field = ownMode ? (
 		<>
 			<LineField
@@ -76,5 +77,6 @@ export function usePassphraseChoice(id: string): { passphrase: string | null; fi
 			</TextButton>
 		</>
 	);
+
 	return { passphrase, field };
 }

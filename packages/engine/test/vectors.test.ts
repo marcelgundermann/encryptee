@@ -18,7 +18,9 @@ interface Vector {
 
 async function parse(bytes: Uint8Array): Promise<Vector> {
 	let split = 0;
+
 	while (!(bytes[split] === 10 && bytes[split + 1] === 10)) split++;
+
 	const vector: Vector = {
 		expect: '',
 		identities: [],
@@ -26,25 +28,37 @@ async function parse(bytes: Uint8Array): Promise<Vector> {
 		armored: false,
 		body: new Uint8Array()
 	};
+
 	let compressed = false;
+
 	for (const line of new TextDecoder().decode(bytes.subarray(0, split)).split('\n')) {
 		const [field, value = ''] = [
 			line.slice(0, line.indexOf(': ')),
 			line.slice(line.indexOf(': ') + 2)
 		];
+
 		if (field === 'expect') vector.expect = value;
+
 		if (field === 'payload') vector.payload = value;
+
 		if (field === 'identity') vector.identities.push(value);
+
 		if (field === 'passphrase') vector.passphrases.push(value);
+
 		if (field === 'armored') vector.armored = value === 'yes';
+
 		if (field === 'compressed') compressed = true;
 	}
+
 	let body: Uint8Array<ArrayBuffer> = bytes.slice(split + 2);
+
 	if (compressed) {
 		const stream = new Blob([body]).stream().pipeThrough(new DecompressionStream('deflate'));
 		body = new Uint8Array(await new Response(stream).arrayBuffer());
 	}
+
 	vector.body = body;
+
 	return vector;
 }
 
@@ -67,6 +81,7 @@ function expectation(vector: Vector): {
 	// ASCII armor is out of scope for v2: refuse it, as `armored` when the
 	// armor line is intact and as `not-encrypted` when it is mangled.
 	if (vector.armored) return { codes: ['armored', 'not-encrypted'], sha256: null, opened: [false] };
+
 	switch (vector.expect) {
 		case 'success':
 			return { codes: [null], sha256: vector.payload ?? null, opened: [true] };
@@ -84,15 +99,18 @@ function expectation(vector: Vector): {
 
 test.each(cases)('%s', async (_, bytes) => {
 	const vector = await parse(bytes);
+
 	const credentials: DecryptCredentials =
 		vector.identities.length > 0
 			? { kind: 'private-keys', privateKeys: vector.identities }
 			: { kind: 'passphrase', passphrase: vector.passphrases[0] ?? '' };
+
 	const { snapshot, output } = await decrypt(vector.body, credentials, {
 		workers: 1,
 		batchChunks: 2,
 		window: 2
 	});
+
 	const file = snapshot.files[0]!;
 	const expected = expectation(vector);
 	expect(expected.codes).toContain(file.error?.code ?? null);

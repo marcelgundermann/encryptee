@@ -31,6 +31,7 @@ function run(
 					stderr: stderr.toString()
 				})
 		);
+
 		child.stdin?.end(options.input);
 	});
 }
@@ -40,6 +41,7 @@ const ageAvailable: BrowserCommand<[]> = async () => (await run('age', ['--versi
 const ageKeygen: BrowserCommand<[pq: boolean]> = async (_, pq) => {
 	const { stdout } = await run('age-keygen', pq ? ['-pq'] : []);
 	const text = stdout.toString();
+
 	return {
 		privateKey: text.match(/^AGE-SECRET-KEY-[^\n]+/m)![0],
 		publicKey: text.match(/# public key: (\S+)/)![1]!
@@ -51,6 +53,7 @@ const ageEncrypt: BrowserCommand<
 > = async (_, { input, recipients = [], passphrase }) => {
 	const args =
 		passphrase !== undefined ? ['-e', '-j', 'batchpass'] : recipients.flatMap((r) => ['-r', r]);
+
 	const result = await run('age', args, {
 		input: Buffer.from(input, 'base64'),
 		env:
@@ -58,7 +61,9 @@ const ageEncrypt: BrowserCommand<
 				? { AGE_PASSPHRASE: passphrase, AGE_PASSPHRASE_WORK_FACTOR: '10' }
 				: {}
 	});
+
 	if (result.code !== 0) throw new Error(result.stderr);
+
 	return result.stdout.toString('base64');
 };
 
@@ -66,19 +71,25 @@ const ageDecrypt: BrowserCommand<
 	[options: { input: string; identity?: string; passphrase?: string }]
 > = async (_, { input, identity, passphrase }) => {
 	const dir = await mkdtemp(join(tmpdir(), 'encryptee-age-'));
+
 	try {
 		const args = ['-d'];
+
 		if (identity !== undefined) {
 			await writeFile(join(dir, 'key.txt'), identity);
 			args.push('-i', join(dir, 'key.txt'));
 		}
+
 		if (passphrase !== undefined) args.push('-j', 'batchpass');
 		await writeFile(join(dir, 'in.age'), Buffer.from(input, 'base64'));
 		args.push('-o', join(dir, 'out'), join(dir, 'in.age'));
+
 		const result = await run('age', args, {
 			env: passphrase !== undefined ? { AGE_PASSPHRASE: passphrase } : {}
 		});
+
 		if (result.code !== 0) return { ok: false as const, error: result.stderr };
+
 		return { ok: true as const, output: (await readFile(join(dir, 'out'))).toString('base64') };
 	} finally {
 		await rm(dir, { recursive: true, force: true });

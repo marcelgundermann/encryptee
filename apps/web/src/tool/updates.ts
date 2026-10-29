@@ -14,6 +14,7 @@ export async function checkSafety(): Promise<Safety> {
 	try {
 		const response = await fetch('/security.json', { cache: 'no-store' });
 		const { minSafeBuild } = (await response.json()) as { minSafeBuild: number };
+
 		return __BUILD_NUMBER__ >= minSafeBuild ? 'ok' : 'unsafe';
 	} catch {
 		return 'unknown';
@@ -28,16 +29,19 @@ export const buildDate = new Date(__BUILD_NUMBER__ * 1000).toLocaleDateString();
  */
 export function useUpdates(jobRunning: boolean) {
 	const [safety, setSafety] = useState<Safety>('unknown');
+
 	const {
 		needRefresh: [needRefresh],
 		updateServiceWorker
 	} = useRegisterSW({
 		onRegisteredSW(_url, registration) {
 			if (!registration) return;
+
 			const check = () => {
 				if (navigator.onLine && !registration.installing) void registration.update();
 				void checkSafety().then(setSafety);
 			};
+
 			setInterval(check, UPDATE_CHECK_MS);
 			document.addEventListener('visibilitychange', () => {
 				if (document.visibilityState === 'visible') check();

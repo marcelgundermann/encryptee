@@ -6,6 +6,7 @@ import { BigButton, Card, Headline, Hint, TextButton } from './ui.tsx';
 /** A running job as one giant number; afterwards, what happened to each file. */
 export function JobScreen({ job, onReset }: { job: Job; onReset: () => void }) {
 	const snapshot = useJobSnapshot(job)!;
+
 	return snapshot.status === 'running' ? (
 		<Running snapshot={snapshot} onCancel={job.cancel} />
 	) : (
@@ -65,6 +66,7 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 	const downloaded = done.some((file) => file.output?.kind === 'downloaded');
 
 	let headline: string;
+
 	if (snapshot.status === 'cancelled') headline = strings.failed.cancelled;
 	else if (done.length === total)
 		headline = encrypt ? strings.done.encrypted(total) : strings.done.decrypted(total);
