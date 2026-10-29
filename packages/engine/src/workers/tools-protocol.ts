@@ -1,3 +1,4 @@
+import type { checkCredentials } from '../check.ts';
 import type { SerializedError } from '../errors.ts';
 import type {
 	generateKeyPair,
@@ -7,6 +8,7 @@ import type {
 } from '../keys/keys.ts';
 
 export interface Tools {
+	checkCredentials: typeof checkCredentials;
 	generateKeyPair: typeof generateKeyPair;
 	protectKeyFile: typeof protectKeyFile;
 	readKeyFile: typeof readKeyFile;

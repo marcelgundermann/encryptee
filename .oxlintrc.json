@@ -37,7 +37,8 @@
 			{
 				"allow": ["**/trusted-types.ts", "**/*.css"]
 			}
-		]
+		],
+		"react/no-array-index-key": "off"
 	},
 	"ignorePatterns": ["**/dist/**", "docs/research/**", ".worktrees/**", "**/node_modules/**"]
 }

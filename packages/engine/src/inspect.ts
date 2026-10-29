@@ -18,20 +18,31 @@ export interface FileInfo {
 }
 
 /**
- * Looks at a file's first bytes to decide between encrypt and decrypt. This
- * sniffs the header, never the extension, and does no cryptography.
+ * Reads the age header at the start of `file`: `null` if it isn't an age file
+ * or the header doesn't end within the size age allows.
  */
-export async function inspectFile(file: Blob): Promise<FileInfo> {
+export async function readHeader(
+	file: Blob
+): Promise<{ kind: FileKind; header: Uint8Array | null }> {
 	let head = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());
 	const kind = sniffBytes(head);
-	if (kind !== 'age') return { kind, unlock: null, recipientTypes: [] };
+	if (kind !== 'age') return { kind, header: null };
 	let length = headerLength(head);
 	if (length === null && file.size > head.length) {
 		head = new Uint8Array(await file.slice(0, MAX_HEADER_SIZE).arrayBuffer());
 		length = headerLength(head);
 	}
-	if (length === null) return { kind, unlock: null, recipientTypes: [] };
-	const recipientTypes = stanzaTypes(head.subarray(0, length));
+	return { kind, header: length === null ? null : head.subarray(0, length) };
+}
+
+/**
+ * Looks at a file's first bytes to decide between encrypt and decrypt. This
+ * sniffs the header, never the extension, and does no cryptography.
+ */
+export async function inspectFile(file: Blob): Promise<FileInfo> {
+	const { kind, header } = await readHeader(file);
+	if (!header) return { kind, unlock: null, recipientTypes: [] };
+	const recipientTypes = stanzaTypes(header);
 	const unlock =
 		recipientTypes.length === 1 && recipientTypes[0] === 'scrypt' ? 'passphrase' : 'private-key';
 	return { kind, unlock, recipientTypes };

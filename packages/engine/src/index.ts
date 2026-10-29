@@ -32,7 +32,13 @@ export { clearStagingArea } from './sinks/download.ts';
 export { nativeChaChaAvailable } from './payload/cipher.ts';
 export type { Backend } from './payload/cipher.ts';
 
-export { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from './tools.ts';
+export {
+	checkCredentials,
+	generateKeyPair,
+	protectKeyFile,
+	readKeyFile,
+	validatePublicKeys
+} from './tools.ts';
 export { keyFileText, mixesPqAndClassic, publicKeyType } from './keys/key-pair.ts';
 export type { KeyPair, KeyType } from './keys/key-pair.ts';
 export type { KeyFileContents } from './keys/keys.ts';

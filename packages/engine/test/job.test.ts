@@ -294,3 +294,19 @@ describe('inspectFile', () => {
 		expect((await inspectFile(new Blob(['hello']))).kind).toBe('plain');
 	});
 });
+
+describe('checkCredentials', () => {
+	test('accepts the right passphrase and rejects a wrong one without decrypting', async () => {
+		const { checkCredentials } = await import('../src/index.ts');
+		const sealed = new Blob([await encrypt(randomBytes(CHUNK), passphrase)]);
+		await expect(
+			checkCredentials(sealed, { kind: 'passphrase', passphrase: passphrase.passphrase })
+		).resolves.toBeUndefined();
+		await expect(
+			checkCredentials(sealed, { kind: 'passphrase', passphrase: 'wrong' })
+		).rejects.toMatchObject({ code: 'wrong-credentials' });
+		await expect(
+			checkCredentials(new Blob(['plain text']), { kind: 'passphrase', passphrase: 'x' })
+		).rejects.toMatchObject({ code: 'not-encrypted' });
+	});
+});
