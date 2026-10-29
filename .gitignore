@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .wrangler/
+# Real Wrangler configs carry the account_id; only *.example.jsonc is committed.
+wrangler.jsonc
 .worktrees/
 coverage/
 test-results/

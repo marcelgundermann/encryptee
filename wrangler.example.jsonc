@@ -1,0 +1,14 @@
+// Encryptee v2: static assets only, no Worker script, so public/_headers applies.
+// Workers Builds deploys this from main; branches get Worker Previews.
+// Copy to wrangler.jsonc (git-ignored) and put your account_id there, never here.
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "encryptee",
+	// "account_id": "<your Cloudflare account ID>",
+	"compatibility_date": "2026-10-01",
+	"assets": {
+		"directory": "./apps/web/dist",
+		"not_found_handling": "404-page",
+		"html_handling": "auto-trailing-slash"
+	}
+}
