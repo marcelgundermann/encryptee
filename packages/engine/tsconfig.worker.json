@@ -1,0 +1,8 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["es2024", "esnext.array", "webworker", "webworker.iterable", "webworker.asynciterable"],
+		"types": ["vite/client"]
+	},
+	"include": ["src/workers/*.worker.ts", "src/sinks/sw-route.ts"]
+}
