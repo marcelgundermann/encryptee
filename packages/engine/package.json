@@ -7,9 +7,8 @@
 		"./sw": "./src/sinks/sw-route.ts"
 	},
 	"scripts": {
-		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
-		"test": "vitest run",
-		"bench": "vite --config bench/vite.config.ts"
+		"test": "vp test run",
+		"bench": "vp dev --config bench/vite.config.ts"
 	},
 	"dependencies": {
 		"@noble/ciphers": "catalog:",
@@ -24,6 +23,7 @@
 		"playwright": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
+		"vite-plus": "catalog:",
 		"vitest": "catalog:"
 	}
 }

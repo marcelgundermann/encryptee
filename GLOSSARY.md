@@ -65,5 +65,5 @@ A public key saved on this device under a name, for reuse as a recipient. Contac
 _Avoid_: Friend, address book entry, saved key
 
 **Share link**:
-A link that carries a public key, so others can encrypt files for its owner without copying the key by hand.
+A link that carries a public key, so others can encrypt files for its owner without copying the key by hand. The key travels inside the link itself; Encryptee's server never sees or stores it.
 _Avoid_: Invite, public profile

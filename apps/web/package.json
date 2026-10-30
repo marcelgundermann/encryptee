@@ -3,11 +3,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
-		"preview": "vite preview",
-		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sw.json && tsc -p tsconfig.node.json",
-		"test": "vitest run",
+		"dev": "vp dev",
+		"preview": "vp preview",
 		"e2e": "playwright test",
 		"serve": "wrangler dev -c ../../wrangler.jsonc --port 8799"
 	},
@@ -34,7 +31,7 @@
 		"typescript": "catalog:",
 		"vite": "catalog:",
 		"vite-plugin-pwa": "catalog:",
-		"vitest": "catalog:",
+		"vite-plus": "catalog:",
 		"wrangler": "catalog:"
 	}
 }

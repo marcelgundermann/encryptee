@@ -9,16 +9,17 @@ Name things by `GLOSSARY.md`, in code, UI copy and commits. Read the ADRs in `do
 
 ## Commands
 
-Run everything through pnpm from the root, and a package's own scripts with `pnpm --filter @encryptee/<package> <script>`.
+The toolchain is Vite+ (`vp`): Vite, Vitest, Oxlint and Oxfmt behind one CLI. Run everything through the root's scripts. Run one package's tasks (in its `vite.config.ts`) and scripts with `pnpm vp run @encryptee/<package>#<name>`, or with plain `vp` if Vite+ is installed globally. `pnpm --filter` finds only scripts, not tasks.
 
 ```bash
 pnpm fmt                  # format (Oxfmt)
 pnpm check                # format check, lint, typecheck, Knip (knip.jsonc) and every package's tests
 pnpm dev                  # the tool at http://localhost:5173
 pnpm build && pnpm e2e    # Playwright against the production build, served by wrangler dev with the real _headers
-pnpm --filter @encryptee/engine bench   # throughput bench at http://localhost:5174
+pnpm vp run @encryptee/engine#bench   # throughput bench at http://localhost:5174
 ```
 
+- Vite+ caches tasks: lint, format check, typecheck, Knip, and the app's unit tests and build. A task replays its last result when nothing it read has changed. `--no-cache` (`pnpm vp run --no-cache <name>`) runs it anyway. The engine's tests and e2e are `package.json` scripts, so they always run, because they depend on the `age` CLI, browsers and wrangler, which the cache can't see. A new check that depends on anything outside the repo is a script too.
 - `BROWSERS=chromium,webkit` narrows the engine's tests and the e2e tests to those browsers; all three run by default.
 - `AGE_BIN` names the folder of an `age` ≥ 1.3 release (`age`, `age-keygen`, `age-plugin-batchpass`) for the engine's CLI interop tests. Without it they look on `PATH`, and skip when `age` isn't there.
 - Firefox can't launch in the agent sandbox: run with `BROWSERS=chromium,webkit` there, and ask the user to run Firefox.
@@ -29,8 +30,10 @@ Run `pnpm fmt`, then `pnpm check`, before declaring any task done.
 
 - Versions are exact, in the `catalog:` of `pnpm-workspace.yaml`, and packages name them as `catalog:`. pnpm installs nothing published less than a day ago (`minimumReleaseAge`), so take the release before one from today.
 - Wrangler configs are committed only as `*.example.jsonc`. The real `wrangler.jsonc`, with the `account_id`, is git-ignored: `cp wrangler.example.jsonc wrangler.jsonc` once, for `pnpm e2e`.
-- A package joins `pnpm typecheck` and `pnpm test` by having those scripts, and Knip by a workspace in `knip.jsonc`. Every exception in `knip.jsonc` says why.
-- CI (`.github/workflows/ci.yml`) runs what `pnpm check` runs, split in two: the engine's tests in their own job, with the three browsers and `age`, and everything else in the check job. A new step in `pnpm check` goes in CI too.
+- `vite-plus` in the catalog pins the Vite, Vitest, Oxlint and Oxfmt it bundles. The catalog's `vite` is its alias (`@voidzero-dev/vite-plus-core`), not upstream Vite, so bump the two together.
+- Oxlint and Oxfmt are configured in the root `vite.config.ts` for the whole workspace. Packages can't nest their own config.
+- A package joins `pnpm typecheck` and `pnpm test` by having that task or script, and Knip by a workspace in `knip.jsonc`. Every exception in `knip.jsonc` says why. `tsc` typechecks, not Vite+'s type-aware lint, because tsgolint applies only each package's `tsconfig.json`.
+- CI (`.github/workflows/ci.yml`) runs what `pnpm check` runs, split in two: the engine's tests in their own job, with the three browsers and `age`, and everything else in the check job. A new step in `pnpm check` goes in CI too. Pull requests reuse cached task results; pushes to main run with `--no-cache`.
 
 ## Tests
 

@@ -1,6 +1,6 @@
 import { dirname, resolve } from 'node:path';
 import { resolveConfig } from 'vite';
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { experimental_readRawConfig } from 'wrangler';
 
 const WEB = resolve(import.meta.dirname, '..');

@@ -3,31 +3,26 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "pnpm --filter @encryptee/web dev",
-		"build": "pnpm --filter @encryptee/web build",
-		"preview": "pnpm --filter @encryptee/web preview",
-		"lint": "oxlint --deny-warnings",
-		"fmt": "oxfmt",
-		"fmt:check": "oxfmt --check",
-		"typecheck": "pnpm -r typecheck",
-		"test": "pnpm -r test",
-		"knip": "knip",
-		"check": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm knip && pnpm test",
-		"e2e": "pnpm --filter @encryptee/web e2e",
+		"dev": "vp run @encryptee/web#dev",
+		"build": "vp run @encryptee/web#build",
+		"preview": "vp run @encryptee/web#preview",
+		"fmt": "vp fmt",
+		"typecheck": "vp run -r typecheck",
+		"test": "vp run -r test",
+		"check": "vp run fmt:check && vp run lint && vp run -r typecheck && vp run knip && vp run -r test",
+		"e2e": "vp run @encryptee/web#e2e",
 		"deploy:v1": "wrangler deploy -c deploy/v1/wrangler.jsonc"
 	},
 	"devDependencies": {
-		"@oxlint/plugins": "catalog:",
 		"knip": "catalog:",
-		"oxfmt": "catalog:",
-		"oxlint": "catalog:",
 		"typescript": "catalog:",
+		"vite-plus": "catalog:",
 		"wrangler": "catalog:"
 	},
 	"devEngines": {
 		"runtime": {
 			"name": "node",
-			"version": ">=24",
+			"version": "^24.11.0 || >=26.0.0",
 			"onFail": "error"
 		}
 	},
