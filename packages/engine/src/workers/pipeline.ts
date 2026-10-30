@@ -51,7 +51,7 @@ export async function runFileTask(
 		sink = await openSink(task.sink);
 		emit({ type: 'opened', id: task.id, outputSize: prepared.outputSize, backend });
 
-		if (prepared.prefix) await sink.write(prepared.prefix);
+		if (prepared.prefix) await untilAborted(sink.write(prepared.prefix), signal);
 		await pumpBatches(task, prepared.layout, read, pool, sink, emit, signal);
 		signal.throwIfAborted();
 

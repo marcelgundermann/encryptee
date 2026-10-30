@@ -1,12 +1,13 @@
 import {
 	checkCredentials,
+	chooseSaveLocation,
 	readKeyFile,
+	startJob,
 	type DecryptCredentials,
 	type Job
 } from '@encryptee/engine';
 import { useRef, useState, type FormEvent } from 'react';
 import { errorMessage, strings } from '../strings.ts';
-import { pickAndStart } from './job.ts';
 import { Warnings } from './Warnings.tsx';
 import {
 	BigButton,
@@ -60,12 +61,20 @@ export function DecryptCard(props: {
 	};
 
 	const start = async (creds: DecryptCredentials) => {
-		const result = await pickAndStart({ mode: 'decrypt', files: props.files, credentials: creds });
+		const choice = await chooseSaveLocation('decrypt', props.files);
 
-		if (result.job) props.onStart(result.job);
-		else if (result.reason === 'needs-gesture') setPhase('needs-click');
-		else if (result.reason === 'unsupported') setError(strings.unsupported);
-		else setPhase('idle');
+		if (choice.location) {
+			props.onStart(
+				startJob({ mode: 'decrypt', files: props.files, credentials: creds, save: choice.location })
+			);
+		} else if (choice.reason === 'needs-gesture') {
+			setPhase('needs-click');
+		} else {
+			if (choice.reason === 'unsupported') setError(strings.unsupported);
+
+			if (choice.reason === 'save-failed') setError(strings.errors['save-failed']);
+			setPhase('idle');
+		}
 	};
 
 	// Check the header first (scrypt, in a worker) so a wrong passphrase fails

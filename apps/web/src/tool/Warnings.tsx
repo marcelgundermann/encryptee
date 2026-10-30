@@ -1,9 +1,4 @@
-import {
-	chooseSink,
-	detectCapabilities,
-	preflight,
-	type PreflightWarning
-} from '@encryptee/engine';
+import { preflight, type PreflightWarning } from '@encryptee/engine';
 import { useEffect, useState } from 'react';
 import { strings } from '../strings.ts';
 import { Hint } from './ui.tsx';
@@ -12,13 +7,9 @@ import { Hint } from './ui.tsx';
 export function Warnings({ mode, files }: { mode: 'encrypt' | 'decrypt'; files: File[] }) {
 	const [warnings, setWarnings] = useState<PreflightWarning[]>([]);
 	useEffect(() => {
-		const capabilities = detectCapabilities();
-		void preflight({
-			mode,
-			sizes: files.map((file) => file.size),
-			sink: chooseSink(capabilities, files.length),
-			capabilities
-		}).then((result) => setWarnings(result.warnings));
+		void preflight({ mode, sizes: files.map((file) => file.size) }).then((result) =>
+			setWarnings(result.warnings)
+		);
 	}, [mode, files]);
 
 	return warnings.map((warning) => (
