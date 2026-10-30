@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { strings } from '../strings.ts';
 import { classify } from './selection.ts';
 

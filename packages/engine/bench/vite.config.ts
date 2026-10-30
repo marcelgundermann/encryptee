@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 
 // Dev-only bench page; never part of the app build.
 export default defineConfig({
