@@ -30,7 +30,6 @@
 		"@types/wicg-file-system-access": "catalog:",
 		"@vitejs/plugin-react": "catalog:",
 		"babel-plugin-react-compiler": "catalog:",
-		"eslint-plugin-react-hooks": "catalog:",
 		"tailwindcss": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
