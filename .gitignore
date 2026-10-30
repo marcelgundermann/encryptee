@@ -7,7 +7,7 @@ wrangler.jsonc
 coverage/
 test-results/
 playwright-report/
-.vitest-attachments/
+.vitest/
 __screenshots__/
 *.local
 .DS_Store
