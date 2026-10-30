@@ -5,7 +5,7 @@ Encryptee encrypts and decrypts files in the browser, on the user's device, as a
 - `deploy/v1/`: the Worker serving the frozen v1 (the `v1` branch).
 - `tools/oxlint/anti-slop/`: a vendored Oxlint plugin; change it only through the `install-anti-slop` skill.
 
-Name things by `GLOSSARY.md`, in code, UI copy and commits. Read the ADRs in `docs/adr/` that touch the area you're working in.
+Name things by `GLOSSARY.md`, in code, UI copy and commits. Read the ADRs in `docs/adr/` that touch the area you're working in. An ADR that changes an earlier one names it, and the earlier one gets `Amended by ADR NNNN` at its top.
 
 ## Commands
 
