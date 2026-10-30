@@ -21,9 +21,9 @@ Requires Node 26 and pnpm 12.
 pnpm install
 cp wrangler.example.jsonc wrangler.jsonc   # once; git-ignored, add your account_id here
 pnpm dev                 # tool at http://localhost:5173
-pnpm test                # engine tests in Chromium, Firefox and WebKit
+pnpm test                # engine tests in Chromium, Firefox and WebKit; the app's in Node
+pnpm check               # format check, lint, typecheck, Knip and tests
 pnpm build && pnpm e2e   # end-to-end against the production build (wrangler dev)
-pnpm lint && pnpm fmt:check && pnpm typecheck
 pnpm --filter @encryptee/engine bench   # throughput bench at http://localhost:5174
 ```
 
