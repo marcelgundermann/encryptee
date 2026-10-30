@@ -59,11 +59,3 @@ _Avoid_: Keystore, wallet, backup
 **Recipient**:
 A public key chosen to open one particular encrypted file. A file can have several recipients.
 _Avoid_: Receiver, addressee
-
-**Contact**:
-A public key saved on this device under a name, for reuse as a recipient. Contacts never hold private keys.
-_Avoid_: Friend, address book entry, saved key
-
-**Share link**:
-A link that carries a public key, so others can encrypt files for its owner without copying the key by hand. The key travels inside the link itself; Encryptee's server never sees or stores it.
-_Avoid_: Invite, public profile

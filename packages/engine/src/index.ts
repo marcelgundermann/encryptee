@@ -54,9 +54,3 @@ export type { KeyPair, KeyType } from './keys/key-pair.ts';
 export type { KeyFileContents } from './keys/keys.ts';
 
 export { generatePassphrase } from './keys/passphrase.ts';
-
-export { buildShareLink, parseShareLink } from './keys/share-link.ts';
-
-export { deleteContact, listContacts, renameContact, saveContact } from './keys/contacts.ts';
-
-export type { Contact } from './keys/contacts.ts';

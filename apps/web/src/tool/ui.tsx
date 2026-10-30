@@ -69,7 +69,7 @@ export function TextButton({ className = '', ...props }: ComponentProps<'button'
 	);
 }
 
-/** Two-way pill switch, e.g. Passphrase | People, built on native radios. */
+/** Two-way pill switch, e.g. Passphrase | Public keys, built on native radios. */
 export function Segmented<T extends string>(props: {
 	label: string;
 	options: ReadonlyArray<{ value: T; label: string }>;

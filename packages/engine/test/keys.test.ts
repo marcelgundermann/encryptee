@@ -1,18 +1,12 @@
 import { describe, expect, test } from 'vite-plus/test';
 import {
-	buildShareLink,
 	generatePassphrase,
-	deleteContact,
 	generateKeyPair,
 	keyFileText,
-	listContacts,
 	mixesPqAndClassic,
-	parseShareLink,
 	protectKeyFile,
 	publicKeyType,
 	readKeyFile,
-	renameContact,
-	saveContact,
 	validatePublicKeys
 } from '../src/index.ts';
 import { TEST_LOG_N } from './helpers.ts';
@@ -82,37 +76,5 @@ describe('generated passphrases', () => {
 		expect(words).toHaveLength(10);
 		expect(words.every((word) => WORDS.includes(word))).toBe(true);
 		expect(generatePassphrase()).not.toBe(passphrase);
-	});
-});
-
-describe('share links', () => {
-	test('carry the public key in the fragment only', async () => {
-		const { publicKey } = await generateKeyPair();
-		const link = buildShareLink(publicKey, 'https://encryptee.io');
-		expect(link).toBe(`https://encryptee.io/#to=${publicKey}`);
-		expect(new URL(link).search).toBe('');
-		expect(parseShareLink(link)).toBe(publicKey);
-		expect(parseShareLink(`#to=${publicKey}`)).toBe(publicKey);
-		expect(parseShareLink('#to=<script>')).toBeNull();
-		expect(parseShareLink('https://encryptee.io/')).toBeNull();
-	});
-});
-
-describe('contacts', () => {
-	test('store public keys by name', async () => {
-		const { publicKey } = await generateKeyPair('x25519');
-		const contact = await saveContact(' Alice ', publicKey);
-		expect(contact).toMatchObject({ name: 'Alice', publicKey });
-		await renameContact(contact.id, 'Alice B.');
-		expect((await listContacts()).find((c) => c.id === contact.id)?.name).toBe('Alice B.');
-		await expect(saveContact('Dup', publicKey)).rejects.toBeDefined();
-		await deleteContact(contact.id);
-		expect((await listContacts()).some((c) => c.id === contact.id)).toBe(false);
-	});
-
-	test('reject invalid public keys', async () => {
-		await expect(saveContact('Bob', 'age1nope')).rejects.toMatchObject({
-			code: 'invalid-public-key'
-		});
 	});
 });

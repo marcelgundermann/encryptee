@@ -1,18 +1,12 @@
 import {
-	buildShareLink,
-	deleteContact,
 	generateKeyPair,
 	keyFileText,
-	listContacts,
 	protectKeyFile,
-	publicKeyType,
 	readKeyFile,
-	saveContact,
-	type Contact,
 	type KeyPair,
 	type KeyType
 } from '@encryptee/engine';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState } from 'react';
 import { errorMessage, strings } from '../strings.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
 import {
@@ -46,15 +40,6 @@ type Stage =
 	| { kind: 'show'; publicKey: string; pair: KeyPair | null };
 
 export function KeysScreen() {
-	return (
-		<div className="flex w-full max-w-lg flex-col gap-20">
-			<YourKey />
-			<People />
-		</div>
-	);
-}
-
-function YourKey() {
 	const [stage, setStage] = useState<Stage>({ kind: 'start' });
 	const [type, setType] = useState<KeyType>('pq');
 	const [protect, setProtect] = useState(true);
@@ -183,8 +168,7 @@ function YourKey() {
 				<>
 					<Headline>{strings.keys.title}</Headline>
 					<MonoBox label={strings.keys.publicKey}>{stage.publicKey}</MonoBox>
-					<div className="mt-4 grid grid-cols-2 gap-3">
-						<CopyButton label={strings.keys.copyLink} value={buildShareLink(stage.publicKey)} />
+					<div className="mt-4 grid">
 						<CopyButton label={strings.keys.copyKey} value={stage.publicKey} />
 					</div>
 					<Hint>{strings.keys.privateNote}</Hint>
@@ -214,80 +198,5 @@ function CopyButton({ label, value }: { label: string; value: string }) {
 		<OutlineButton onClick={() => void copy()}>
 			{copied ? strings.keys.copied : label}
 		</OutlineButton>
-	);
-}
-
-function People() {
-	const [contacts, setContacts] = useState<Contact[]>([]);
-	const [name, setName] = useState('');
-	const [key, setKey] = useState('');
-	const [error, setError] = useState<string | null>(null);
-	const refresh = () => void listContacts().then(setContacts);
-
-	useEffect(refresh, []);
-
-	const add = async (event: FormEvent) => {
-		event.preventDefault();
-
-		try {
-			await saveContact(name, key);
-			setName('');
-			setKey('');
-			setError(null);
-			refresh();
-		} catch (cause) {
-			setError(errorMessage(cause));
-		}
-	};
-
-	return (
-		<Card>
-			<Kicker>{strings.keys.people}</Kicker>
-			{contacts.length === 0 ? (
-				<p className="text-neutral-500">{strings.keys.noPeople}</p>
-			) : (
-				<ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
-					{contacts.map((contact) => (
-						<li key={contact.id} className="flex items-baseline justify-between gap-4 py-3">
-							<span className="text-lg">{contact.name}</span>
-							<span className="flex items-baseline gap-4 text-sm text-neutral-400">
-								<span>
-									{publicKeyType(contact.publicKey) === 'pq'
-										? strings.keys.quantumSafe
-										: strings.keys.classicTag}
-								</span>
-								<TextButton onClick={() => void deleteContact(contact.id).then(refresh)}>
-									{strings.keys.remove}
-								</TextButton>
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
-			<form onSubmit={add}>
-				<LineField
-					id="people-name"
-					label={strings.keys.name}
-					input={{ value: name, autoComplete: 'off', onChange: (e) => setName(e.target.value) }}
-				/>
-				<LineField
-					id="people-key"
-					label={strings.keys.key}
-					input={{
-						value: key,
-						spellCheck: false,
-						autoComplete: 'off',
-						className: 'font-mono text-base',
-						onChange: (e) => setKey(e.target.value)
-					}}
-					action={
-						<TextButton type="submit" disabled={!name.trim() || !key.trim()}>
-							{strings.keys.add}
-						</TextButton>
-					}
-				/>
-				{error && <Hint tone="error">{error}</Hint>}
-			</form>
-		</Card>
 	);
 }

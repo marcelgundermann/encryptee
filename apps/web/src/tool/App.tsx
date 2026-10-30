@@ -1,4 +1,4 @@
-import { parseShareLink, type Job } from '@encryptee/engine';
+import type { Job } from '@encryptee/engine';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { strings } from '../strings.ts';
 import { DecryptCard } from './DecryptCard.tsx';
@@ -19,8 +19,6 @@ export function App() {
 	const [view, setView] = useState<'tool' | 'keys'>('tool');
 	const [selection, setSelection] = useState<Selection>({ kind: 'none' });
 	const [job, setJob] = useState<Job | null>(null);
-	// Share links: encryptee.io/#to=age1… preselect that public key (D10).
-	const [presetKey] = useState(() => parseShareLink(location.hash));
 	const snapshot = useJobSnapshot(job);
 	const running = snapshot?.status === 'running';
 	const { safety, updateReady, applyUpdate } = useUpdates(running);
@@ -33,11 +31,6 @@ export function App() {
 
 	const onLaunch = useEffectEvent(choose);
 	const dragging = useWindowDrop(choose, !running);
-
-	useEffect(() => {
-		// The key now lives in state; drop it from the address bar.
-		if (presetKey) history.replaceState(null, '', location.pathname);
-	}, [presetKey]);
 
 	useEffect(() => {
 		// PWA file handler for .age files (D15, Chromium).
@@ -60,7 +53,6 @@ export function App() {
 		content = (
 			<EncryptCard
 				files={selection.files}
-				presetKey={presetKey}
 				disabled={safety === 'unsafe'}
 				onStart={setJob}
 				onBack={reset}
