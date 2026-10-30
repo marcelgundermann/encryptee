@@ -31,6 +31,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm fmt:check
       - run: pnpm typecheck
+      # The web app's unit tests run in Node; the engine's need browsers, in their own job.
+      - run: pnpm --filter @encryptee/web test
 
   engine:
     name: Engine tests (Chromium, Firefox, WebKit)
