@@ -5,7 +5,7 @@ declare global {
 	}
 }
 
-export type BrowserFamily = 'chromium' | 'firefox' | 'safari' | 'other';
+type BrowserFamily = 'chromium' | 'firefox' | 'safari' | 'other';
 
 export interface Capabilities {
 	browser: BrowserFamily;
@@ -32,7 +32,7 @@ export type SinkChoice =
  * Largest input the non-Chromium save paths are trusted with until
  * measurements raise it. `null` means no limit.
  */
-export const SIZE_LIMITS: Record<BrowserFamily, number | null> = {
+const SIZE_LIMITS: Record<BrowserFamily, number | null> = {
 	chromium: null,
 	firefox: 4 * 1024 ** 3,
 	safari: 4 * 1024 ** 3,

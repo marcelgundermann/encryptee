@@ -18,7 +18,7 @@ declare module 'vitest/browser' {
 	}
 }
 
-export const KiB = 1024;
+const KiB = 1024;
 export const CHUNK = 64 * KiB;
 
 /** Fast scrypt for tests; production uses logN 18. */
@@ -41,7 +41,7 @@ export function file(bytes: Uint8Array<ArrayBuffer>, name = 'test.bin'): File {
 	return new File([bytes], name);
 }
 
-export async function blobBytes(blob: Blob): Promise<Uint8Array<ArrayBuffer>> {
+async function blobBytes(blob: Blob): Promise<Uint8Array<ArrayBuffer>> {
 	return new Uint8Array(await blob.arrayBuffer());
 }
 

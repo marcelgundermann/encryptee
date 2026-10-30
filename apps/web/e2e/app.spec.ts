@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
+import { PAGES } from '../pages.ts';
 
 /**
  * Native pickers can't be automated, so these tests hide them and exercise
@@ -65,10 +66,11 @@ async function roundTrip(page: Page, plain: Buffer): Promise<Buffer> {
 	return readFile(await decryptedDownload.path());
 }
 
-test('content pages render without CSP violations', async ({ page }) => {
+test('content pages and the 404 page render without CSP violations', async ({ page }) => {
 	const violations = watchCsp(page);
 
-	for (const path of ['/how-it-works/', '/security/', '/faq/']) {
+	// A path that doesn't exist gets 404.html, through `not_found_handling`.
+	for (const path of [...PAGES.map((name) => `/${name}/`), '/no-such-page/']) {
 		await page.goto(path);
 		await expect(page.locator('h1')).toBeVisible();
 	}
