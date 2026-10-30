@@ -5,7 +5,7 @@ declare global {
 	}
 }
 
-export type BrowserFamily = 'chromium' | 'firefox' | 'safari' | 'other';
+type BrowserFamily = 'chromium' | 'firefox' | 'safari' | 'other';
 
 export interface Capabilities {
 	browser: BrowserFamily;
@@ -33,7 +33,7 @@ export type SinkChoice =
  * benchmarks raise it (D23). `null` means no limit. Values come from
  * docs/research/2026-11-benchmarks.md once measured.
  */
-export const SIZE_LIMITS: Record<BrowserFamily, number | null> = {
+const SIZE_LIMITS: Record<BrowserFamily, number | null> = {
 	chromium: null,
 	firefox: 4 * 1024 ** 3,
 	safari: 4 * 1024 ** 3,
