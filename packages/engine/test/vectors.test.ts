@@ -1,5 +1,5 @@
 import * as vectors from 'cctv-age';
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import type { DecryptCredentials } from '../src/format/header.ts';
 import { decrypt, sha256Hex } from './helpers.ts';
 

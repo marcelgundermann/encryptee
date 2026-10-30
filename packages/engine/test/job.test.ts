@@ -1,5 +1,5 @@
 import { Decrypter, Encrypter } from 'age-encryption';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vite-plus/test';
 import { generateKeyPair, inspectFile, startJob } from '../src/index.ts';
 import { generateKeyPair as generateKeyPairInline } from '../src/keys/keys.ts';
 import {

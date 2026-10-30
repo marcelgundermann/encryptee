@@ -1,5 +1,5 @@
 import { Decrypter, Encrypter, generateX25519Identity, identityToRecipient } from 'age-encryption';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vite-plus/test';
 import { PAYLOAD_NONCE_SIZE, headerLength } from '../src/format/age.ts';
 import { openBatch, sealBatch } from '../src/payload/batch.ts';
 import {

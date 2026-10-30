@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { SW_CREDIT_WINDOW, SW_MAX_MESSAGE_BYTES } from '../src/sinks/sw-protocol.ts';
 import { SwDownloadSink, createPortStream } from '../src/sinks/sw-stream.ts';
 import { sha256Hex } from './helpers.ts';
