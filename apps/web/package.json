@@ -1,0 +1,37 @@
+{
+	"name": "@encryptee/web",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vp dev",
+		"preview": "vp preview",
+		"e2e": "playwright test",
+		"serve": "wrangler dev -c ../../wrangler.jsonc --port 8799"
+	},
+	"dependencies": {
+		"@encryptee/engine": "workspace:*",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"workbox-precaching": "catalog:",
+		"workbox-window": "catalog:"
+	},
+	"devDependencies": {
+		"@babel/core": "catalog:",
+		"@playwright/test": "catalog:",
+		"@rolldown/plugin-babel": "catalog:",
+		"@tailwindcss/vite": "catalog:",
+		"@types/babel__core": "catalog:",
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@types/wicg-file-system-access": "catalog:",
+		"@vitejs/plugin-react": "catalog:",
+		"babel-plugin-react-compiler": "catalog:",
+		"tailwindcss": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vite-plugin-pwa": "catalog:",
+		"vite-plus": "catalog:",
+		"wrangler": "catalog:"
+	}
+}

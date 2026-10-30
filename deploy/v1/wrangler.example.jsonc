@@ -1,0 +1,17 @@
+// Encryptee v1 archive: static assets only, served at v1.encryptee.io.
+// The v1 source is frozen on the `v1` branch (tag v1.0.0). Build it locally first,
+// see deploy/v1/README.md, then run `npx wrangler deploy -c deploy/v1/wrangler.jsonc`.
+// Copy to deploy/v1/wrangler.jsonc (git-ignored) and put your account_id there, never here.
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "encryptee-v1",
+	// "account_id": "<your Cloudflare account ID>",
+	"compatibility_date": "2026-10-01",
+	"assets": {
+		"directory": "../../.worktrees/v1/.vercel/output/static",
+		"not_found_handling": "single-page-application"
+	},
+	"routes": [{ "pattern": "v1.encryptee.io", "custom_domain": true }],
+	"workers_dev": false,
+	"preview_urls": false
+}

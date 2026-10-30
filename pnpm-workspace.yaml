@@ -1,0 +1,57 @@
+packages:
+  - apps/*
+  - packages/*
+
+catalog:
+  '@babel/core': 7.29.7
+  '@noble/ciphers': 2.4.0
+  '@noble/hashes': 2.4.0
+  '@playwright/test': 1.64.1
+  '@rolldown/plugin-babel': 0.2.4
+  '@tailwindcss/vite': 4.3.3
+  '@types/babel__core': 7.20.5
+  '@types/node': 26.6.5
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0
+  '@types/wicg-file-system-access': 2023.10.7
+  '@vitejs/plugin-react': 6.1.2
+  '@vitest/browser-playwright': 5.0.5
+  age-encryption: 0.3.1
+  babel-plugin-react-compiler: 1.0.0
+  cctv-age: 0.2.0
+  knip: 6.43.0
+  playwright: 1.64.1
+  react: 19.3.1
+  react-dom: 19.3.1
+  tailwindcss: 4.3.3
+  typescript: 7.0.2
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vite-plugin-pwa: 2.0.0
+  vite-plus: 1.4.0
+  vitest: 5.0.5
+  workbox-precaching: 7.4.1
+  workbox-window: 7.4.1
+  wrangler: 4.154.0
+
+# Supply-chain guard: never install a version published less than a day ago.
+minimumReleaseAge: 1440
+
+# Postinstall scripts allowed to run (both are wrangler's native binaries).
+allowBuilds:
+  esbuild: true
+  workerd: true
+
+# Vite+ ships Vite as @voidzero-dev/vite-plus-core (the `vite` catalog alias);
+# every package and plugin resolves vite and vitest to the catalog's.
+overrides:
+  vite@*: 'catalog:'
+  vitest@*: 'catalog:'
+
+# Plugins' `vite ^8` peer ranges don't match the alias's own version number.
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: '*'
+    vitest: '*'

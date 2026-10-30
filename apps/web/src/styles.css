@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+
+/* The "Drop" design: monochrome, system type, black on white (white on black in dark mode). */
+@layer base {
+	html {
+		color-scheme: light dark;
+	}
+	body {
+		@apply bg-white text-black antialiased dark:bg-neutral-950 dark:text-white;
+	}
+}

@@ -1,12 +1,13 @@
+node_modules/
+dist/
+.wrangler/
+# Real Wrangler configs carry the account_id; only *.example.jsonc is committed.
+wrangler.jsonc
+.worktrees/
+coverage/
+test-results/
+playwright-report/
+.vitest/
+__screenshots__/
+*.local
 .DS_Store
-node_modules
-/build
-/.svelte-kit
-/package
-.env
-.env.*
-!.env.example
-.vercel
-.output
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*

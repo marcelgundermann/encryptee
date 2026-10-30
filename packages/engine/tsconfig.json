@@ -1,0 +1,15 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"types": ["vite/client", "@vitest/browser-playwright", "wicg-file-system-access"]
+	},
+	"include": ["src", "test", "bench"],
+	"exclude": [
+		"src/workers/*.worker.ts",
+		"src/workers/pipeline.ts",
+		"src/workers/pool.ts",
+		"src/sinks/open-sink.ts",
+		"src/sinks/sw-route.ts",
+		"test/*.worker.ts"
+	]
+}
