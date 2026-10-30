@@ -10,5 +10,5 @@ The Vite + React app: the tool (`index.html`, `src/tool/`), the content pages (`
 
 ## Tests
 
-- `pnpm --filter @encryptee/web test`: Vitest in Node, with the app's Vite config. A test next to its module in `src/` is typed as app code and reads other files with `?raw`; `test/` holds the build's and the deployment's tests, typed for Node.
+- `pnpm vp run @encryptee/web#test`: Vitest in Node, with the app's Vite config. A test next to its module in `src/` is typed as app code and reads other files with `?raw`; `test/` holds the build's and the deployment's tests, typed for Node.
 - `pnpm build && pnpm e2e`: Playwright against the production build under `wrangler dev`, so the real `_headers` apply. Run it after changing the app, its headers or the service worker.

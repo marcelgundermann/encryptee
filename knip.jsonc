@@ -8,6 +8,10 @@
 			// Every page's HTML links it as a stylesheet, which Knip doesn't follow, unlike its scripts.
 			"entry": ["src/styles.css"]
 		},
-		"packages/engine": {}
+		"packages/engine": {
+			// The bench script runs `vp dev --config bench/vite.config.ts`, whose page loads
+			// bench.ts; Knip reads neither from a `vp` command line.
+			"entry": ["bench/vite.config.ts", "bench/bench.ts"]
+		}
 	}
 }

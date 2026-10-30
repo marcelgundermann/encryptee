@@ -2,9 +2,9 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { playwright } from '@vitest/browser-playwright';
-import { defineConfig } from 'vitest/config';
-import type { BrowserCommand } from 'vitest/node';
+import { playwright } from 'vite-plus/test/browser-playwright';
+import { defineConfig } from 'vite-plus';
+import type { BrowserCommand } from 'vite-plus/test/node';
 
 /**
  * CLI interop runs the real `age` (≥ 1.3) from Node through browser commands.

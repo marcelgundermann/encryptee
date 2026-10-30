@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vite-plus/test';
 import type { Capabilities } from '../src/capabilities.ts';
 import { chooseSaveLocationIn, type SaveEnvironment } from '../src/sinks/save-location.ts';
 import { OPFS_STAGING_DIR } from '../src/sinks/sink.ts';

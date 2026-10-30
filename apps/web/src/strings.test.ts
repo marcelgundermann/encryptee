@@ -1,5 +1,5 @@
 import { EngineError, type EngineErrorCode } from '@encryptee/engine';
-import { expect, test } from 'vitest';
+import { expect, test } from 'vite-plus/test';
 import { errorMessage, strings } from './strings.ts';
 
 test.each<EngineErrorCode>(['wrong-credentials', 'corrupted', 'storage-full'])(

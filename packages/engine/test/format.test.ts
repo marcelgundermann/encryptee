@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vite-plus/test';
 import {
 	SEALED_CHUNK_SIZE,
 	TAG_SIZE,

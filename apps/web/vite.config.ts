@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, lazyPlugins } from 'vite-plus';
 import { VitePWA } from 'vite-plugin-pwa';
 import { PAGES } from './pages.ts';
 
@@ -20,10 +20,19 @@ function buildNumber(): number {
 }
 
 export default defineConfig({
+	// Cached by Vite+ (`vp run`). e2e stays a package.json script, never cached:
+	// it depends on wrangler and the browsers, which the cache can't fingerprint.
+	run: {
+		tasks: {
+			build: 'vp build',
+			test: 'vp test run',
+			typecheck: 'tsc -p tsconfig.json && tsc -p tsconfig.sw.json && tsc -p tsconfig.node.json'
+		}
+	},
 	define: {
 		__BUILD_NUMBER__: JSON.stringify(buildNumber())
 	},
-	plugins: [
+	plugins: lazyPlugins(() => [
 		react(),
 		babel({ presets: [reactCompilerPreset()] }),
 		tailwindcss(),
@@ -53,7 +62,7 @@ export default defineConfig({
 				maximumFileSizeToCacheInBytes: 4 * 1024 * 1024
 			}
 		})
-	],
+	]),
 	worker: { format: 'es' },
 	build: {
 		target: 'baseline-widely-available',

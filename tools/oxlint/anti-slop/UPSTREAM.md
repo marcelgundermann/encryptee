@@ -6,17 +6,19 @@ Copied from `skills/install-anti-slop/assets/anti-slop/` (git tree `54b50f11bed7
 
 ## Installed entry points
 
-- `index.ts`, registered in `.oxlintrc.json` as the `anti-slop` JS plugin with all 18 generic rules at `error`, plus the native companion `oxc/no-accumulating-spread`.
+- `index.ts`, registered in the root `vite.config.ts` (`lint.jsPlugins`, Vite+) as the `anti-slop` JS plugin with all 18 generic rules at `error`, plus the native companion `oxc/no-accumulating-spread`.
 - `effect/index.ts`, copied but **not registered**: no package manifest depends on `effect` directly.
 - `vendor/eslint-stylistic/`: vendored `padding-line-between-statements` with its own `LICENSE` and `UPSTREAM.md`.
 
 ## Dependencies
 
-`@oxlint/plugins` is pinned in the pnpm catalog to `1.90.0` to match `oxlint`. Upstream develops against `1.78.0`; the plugin loads and reports under `1.90.0`.
+The plugin API comes from `vite-plus` (pinned in the pnpm catalog, `1.4.0` as of 2026-10-30), which bundles `oxlint` and `@oxlint/plugins` at the same exact version (`1.89.0`) and re-exports the latter as `vite-plus/lint/plugins`. There is no direct `@oxlint/plugins` or `oxlint` dependency any more. Upstream develops against `1.78.0`; the plugin loads and reports under `1.89.0` (checked on 2026-10-30 with planted `no-unknown-parameters`, `no-unknown-returns`, `no-reflect-get` and `require-readable-spacing` violations).
 
 ## Local deviations
 
-None. All files match upstream.
+- **Plugin API import specifier (2026-10-30, Vite+ migration):** every import of `@oxlint/plugins` in the 35 vendored `.ts` files, `vendor/eslint-stylistic/` included, reads `vite-plus/lint/plugins` instead. `vp migrate` (Vite+ 1.4.0) made the rewrite. Nothing else changed: the diff is 50 import lines, each with the same imported names and quote style as upstream. Upstream still imports `@oxlint/plugins`, so the next update must reapply this rewrite to incoming files rather than take their imports as an upstream change.
+
+Every other byte matches the base revision above.
 
 ## Known gaps
 
