@@ -1,4 +1,4 @@
-import { sizeLimit, type Capabilities, type SinkChoice } from './capabilities.ts';
+import { chooseSink, detectCapabilities, sizeLimit, type Capabilities } from './capabilities.ts';
 import { sealedPayloadSize } from './format/age.ts';
 
 /** Upper bound for an age header with a handful of PQ recipients. */
@@ -36,13 +36,14 @@ export interface Preflight {
 	warnings: PreflightWarning[];
 }
 
+/** Everything worth saying about a job over files of `sizes` before it starts. */
 export async function preflight(input: {
 	mode: 'encrypt' | 'decrypt';
 	sizes: number[];
-	sink: SinkChoice;
-	capabilities: Capabilities;
 }): Promise<Preflight> {
-	const { mode, sizes, sink, capabilities } = input;
+	const { mode, sizes } = input;
+	const capabilities = detectCapabilities();
+	const sink = chooseSink(capabilities, sizes.length);
 	const inputBytes = sizes.reduce((a, b) => a + b, 0);
 
 	const outputBytes =

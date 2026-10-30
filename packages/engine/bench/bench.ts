@@ -1,13 +1,15 @@
+import { detectCapabilities } from '../src/capabilities.ts';
 import {
-	detectCapabilities,
 	nativeChaChaAvailable,
 	startJob,
 	type Backend,
 	type Job,
 	type JobInput,
 	type JobOptions,
-	type SaveTarget
+	type SaveLocation
 } from '../src/index.ts';
+import { outputName } from '../src/sinks/save-location.ts';
+import { OPFS_STAGING_DIR } from '../src/sinks/sink.ts';
 
 /**
  * Dev-only throughput bench (plan step 3). Not part of the app build; run with
@@ -82,15 +84,13 @@ $('form', HTMLFormElement).addEventListener('submit', async (event) => {
 
 	// Pickers need the click's user activation, so ask once up front.
 	let picked: File | null = null;
-	let save: SaveTarget = { kind: 'discard' };
+	let save: SaveLocation = { kind: 'discard' };
 
 	if (scenario === 'encrypt-picker' || scenario === 'decrypt-picker') {
 		const [handle] = await window.showOpenFilePicker();
 		picked = await handle!.getFile();
 
-		const name =
-			scenario === 'encrypt-picker' ? `${picked.name}.age` : picked.name.replace(/\.age$/, '');
-
+		const name = outputName(scenario === 'encrypt-picker' ? 'encrypt' : 'decrypt', picked.name);
 		save = { kind: 'file', handle: await window.showSaveFilePicker({ suggestedName: name }) };
 	}
 
@@ -174,7 +174,7 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 
 async function latestStagedFile(): Promise<File | null> {
 	const root = await navigator.storage.getDirectory();
-	const dir = await root.getDirectoryHandle('encryptee-staging');
+	const dir = await root.getDirectoryHandle(OPFS_STAGING_DIR);
 	let latest: File | null = null;
 
 	for await (const handle of dir.values()) {

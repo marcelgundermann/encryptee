@@ -1,17 +1,19 @@
 // The engine's public surface. The UI never touches workers, chunks or formats.
-export { startJob, outputName } from './job.ts';
+export { startJob } from './job.ts';
 
 export type {
-	FileOutput,
 	FileStatus,
 	Job,
 	JobFile,
 	JobInput,
 	JobOptions,
 	JobSnapshot,
-	JobStatus,
-	SaveTarget
+	JobStatus
 } from './job.ts';
+
+export { chooseSaveLocation, whereToSave } from './sinks/save-location.ts';
+
+export type { FileOutput, SaveChoice, SaveLocation, SavePlan } from './sinks/save-location.ts';
 
 export type { DecryptCredentials, EncryptCredentials } from './format/header.ts';
 
@@ -19,15 +21,9 @@ export { EngineError } from './errors.ts';
 
 export type { EngineErrorCode, SerializedError } from './errors.ts';
 
-export {
-	chooseSink,
-	defaultTuning,
-	detectCapabilities,
-	sizeLimit,
-	SIZE_LIMITS
-} from './capabilities.ts';
+export { defaultTuning } from './capabilities.ts';
 
-export type { BrowserFamily, Capabilities, SinkChoice, Tuning } from './capabilities.ts';
+export type { Tuning } from './capabilities.ts';
 
 export { preflight } from './preflight.ts';
 
@@ -38,8 +34,6 @@ export { inspectFile } from './inspect.ts';
 export type { FileInfo } from './inspect.ts';
 
 export type { FileKind } from './format/age.ts';
-
-export { clearStagingArea } from './sinks/download.ts';
 
 export { nativeChaChaAvailable } from './payload/cipher.ts';
 
