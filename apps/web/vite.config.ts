@@ -5,9 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-
-/** Content pages, each its own HTML entry. */
-const PAGES = ['how-it-works', 'security', 'faq'];
+import { PAGES } from './pages.ts';
 
 /**
  * Build number: the commit time, so later commits on main always compare

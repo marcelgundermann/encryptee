@@ -11,18 +11,25 @@
 		"fmt:check": "oxfmt --check",
 		"typecheck": "pnpm -r typecheck",
 		"test": "pnpm -r test",
+		"knip": "knip",
+		"check": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm knip && pnpm test",
 		"e2e": "pnpm --filter @encryptee/web e2e",
 		"deploy:v1": "wrangler deploy -c deploy/v1/wrangler.jsonc"
 	},
 	"devDependencies": {
 		"@oxlint/plugins": "catalog:",
+		"knip": "catalog:",
 		"oxfmt": "catalog:",
 		"oxlint": "catalog:",
 		"typescript": "catalog:",
 		"wrangler": "catalog:"
 	},
-	"engines": {
-		"node": ">=24"
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": ">=24",
+			"onFail": "error"
+		}
 	},
 	"packageManager": "pnpm@12.16.1"
 }

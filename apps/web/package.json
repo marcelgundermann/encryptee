@@ -7,7 +7,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sw.json && tsc -p tsconfig.node.json",
-		"test": "vitest run --passWithNoTests",
+		"test": "vitest run",
 		"e2e": "playwright test",
 		"serve": "wrangler dev -c ../../wrangler.jsonc --port 8799"
 	},
@@ -30,7 +30,6 @@
 		"@types/wicg-file-system-access": "catalog:",
 		"@vitejs/plugin-react": "catalog:",
 		"babel-plugin-react-compiler": "catalog:",
-		"eslint-plugin-react-hooks": "catalog:",
 		"tailwindcss": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
