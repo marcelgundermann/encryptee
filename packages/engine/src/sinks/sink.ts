@@ -22,8 +22,6 @@ export type SinkDescriptor =
 	/** Dropped after counting (benchmarks). */
 	| { kind: 'discard' };
 
-export type SinkKind = SinkDescriptor['kind'];
-
 /** What a finished sink hands back to the main thread. */
 export type SinkResult =
 	| { kind: 'saved' }

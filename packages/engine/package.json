@@ -19,7 +19,6 @@
 	"devDependencies": {
 		"@types/node": "catalog:",
 		"@types/wicg-file-system-access": "catalog:",
-		"@vitest/browser": "catalog:",
 		"@vitest/browser-playwright": "catalog:",
 		"cctv-age": "catalog:",
 		"playwright": "catalog:",

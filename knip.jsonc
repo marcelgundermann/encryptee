@@ -1,0 +1,11 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+	"workspaces": {
+		".": {},
+		"apps/web": {
+			// Every page's HTML links it as a stylesheet, which Knip doesn't follow, unlike its scripts.
+			"entry": ["src/styles.css"]
+		},
+		"packages/engine": {}
+	}
+}

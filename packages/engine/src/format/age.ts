@@ -14,14 +14,11 @@ export const PAYLOAD_NONCE_SIZE = 16;
 export const MAX_HEADER_SIZE = 2 * 1024 * 1024;
 
 const encoder = new TextEncoder();
-export const AGE_MAGIC = encoder.encode('age-encryption.org/v1\n');
+const AGE_MAGIC = encoder.encode('age-encryption.org/v1\n');
 const ARMOR_MAGIC = encoder.encode('-----BEGIN AGE ENCRYPTED FILE-----');
 const LEGACY_MAGIC = encoder.encode('encryptee.io');
 const MAC_LINE_START = encoder.encode('\n--- ');
 const NEWLINE = 0x0a;
-
-/** How many bytes `sniff` needs to classify a file. */
-export const SNIFF_SIZE = ARMOR_MAGIC.length;
 
 export type FileKind = 'age' | 'age-armored' | 'legacy' | 'plain';
 
@@ -37,7 +34,7 @@ export function sniffBytes(head: Uint8Array): FileKind {
 }
 
 /** Number of payload chunks for a plaintext. An empty file still has one (empty, final) chunk. */
-export function chunkCount(plaintextSize: number): number {
+function chunkCount(plaintextSize: number): number {
 	return Math.max(1, Math.ceil(plaintextSize / CHUNK_SIZE));
 }
 

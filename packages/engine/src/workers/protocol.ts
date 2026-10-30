@@ -6,7 +6,7 @@ import type { SinkDescriptor, SinkResult } from '../sinks/sink.ts';
 /** Input of one file task. `synthetic` produces zero bytes without I/O (benchmarks). */
 export type Source = { kind: 'blob'; blob: Blob } | { kind: 'synthetic'; size: number };
 
-export type TaskOperation =
+type TaskOperation =
 	| { mode: 'encrypt'; credentials: EncryptCredentials }
 	| { mode: 'decrypt'; credentials: DecryptCredentials };
 
