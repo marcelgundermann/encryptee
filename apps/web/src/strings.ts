@@ -30,7 +30,7 @@ export const strings = {
 	},
 	encrypt: {
 		passphrase: 'Passphrase',
-		people: 'People',
+		publicKeys: 'Public keys',
 		generatedHint: 'Generated for you. Write it down; nobody can recover it.',
 		newPassphrase: 'New',
 		copy: 'Copy',
@@ -41,7 +41,6 @@ export const strings = {
 		whoCanOpen: 'Who can open them',
 		pasteKey: 'Paste a public key (age1…)',
 		addKey: 'Add',
-		noContacts: 'No saved people yet. Add them under Keys, or paste a key.',
 		mixedKeys:
 			'You’re mixing post-quantum and classic keys. The files will only be as strong as the classic keys.',
 		submit: (n: number) => `Encrypt ${files(n)} →`,
@@ -100,17 +99,8 @@ export const strings = {
 		privateNote:
 			'Your private key is in the key file. Encryptee never keeps it; if you lose the file, files sent to this key can’t be opened.',
 		publicKey: 'Public key · share freely',
-		copyLink: 'Copy share link',
 		copyKey: 'Copy public key',
-		copied: 'Copied',
-		people: 'People',
-		noPeople: 'No one yet. Saved people show up when you encrypt.',
-		name: 'Name',
-		key: 'Public key (age1…)',
-		add: 'Add',
-		remove: 'Remove',
-		quantumSafe: 'post-quantum',
-		classicTag: 'classic'
+		copied: 'Copied'
 	},
 	update: {
 		ready: 'A new version is ready.',

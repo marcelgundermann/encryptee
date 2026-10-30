@@ -156,7 +156,7 @@ test('public keys: create a key, encrypt to it, decrypt with the key file', asyn
 	await page.getByRole('button', { name: 'encryptee' }).click();
 	const plain = randomBytes(300_000);
 	await dropFile(page, 'notes.txt', plain);
-	await page.getByRole('radio', { name: 'People' }).check({ force: true });
+	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
 	await page.locator('#encrypt-paste').fill(publicKey);
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	const encrypted = page.waitForEvent('download');
