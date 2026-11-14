@@ -17,16 +17,10 @@ export interface Capabilities {
 	directoryPicker: boolean;
 	/** A service worker controls this page, so the streaming download route is reachable. */
 	serviceWorkerDownload: boolean;
-	opfs: boolean;
 }
 
 /** How one job's outputs get saved, decided before the job starts. */
-export type SinkChoice =
-	| 'file-picker'
-	| 'directory-picker'
-	| 'sw-download'
-	| 'opfs'
-	| 'unsupported';
+export type SinkChoice = 'file-picker' | 'directory-picker' | 'sw-download' | 'opfs';
 
 /**
  * Largest input the non-Chromium save paths are trusted with until
@@ -59,14 +53,15 @@ export function detectCapabilities(): Capabilities {
 		cores: navigator.hardwareConcurrency || 2,
 		savePicker: typeof window !== 'undefined' && 'showSaveFilePicker' in window,
 		directoryPicker: typeof window !== 'undefined' && 'showDirectoryPicker' in window,
-		serviceWorkerDownload: !!navigator.serviceWorker?.controller,
-		// SyncAccessHandle is only exposed in dedicated workers, so it can't be
-		// probed here; every browser with getDirectory has it there.
-		opfs: !!navigator.storage?.getDirectory
+		serviceWorkerDownload: !!navigator.serviceWorker?.controller
 	};
 }
 
-/** Picks the save path: native pickers on Chromium, else a streamed download, else OPFS staging. */
+/**
+ * Picks the save path: native pickers on Chromium, else a streamed download,
+ * else OPFS staging, which every browser has (whether it opens is checked when
+ * choosing the save location).
+ */
 export function chooseSink(capabilities: Capabilities, fileCount: number): SinkChoice {
 	if (fileCount === 1 && capabilities.savePicker) return 'file-picker';
 
@@ -74,9 +69,7 @@ export function chooseSink(capabilities: Capabilities, fileCount: number): SinkC
 
 	if (capabilities.serviceWorkerDownload) return 'sw-download';
 
-	if (capabilities.opfs) return 'opfs';
-
-	return 'unsupported';
+	return 'opfs';
 }
 
 /** Size limit for a save path in this browser; pickers write straight to disk and have none. */

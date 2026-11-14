@@ -2,11 +2,11 @@ import {
 	checkCredentials,
 	chooseSaveLocation,
 	readKeyFile,
-	startJob,
+	type CheckedCredentials,
 	type DecryptCredentials,
 	type Job
 } from '@encryptee/engine';
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { errorMessage, strings } from '../strings.ts';
 import { Warnings } from './Warnings.tsx';
 import {
@@ -39,11 +39,26 @@ export function DecryptCard(props: {
 	const [passphrase, setPassphrase] = useState('');
 	const [keyFile, setKeyFile] = useState<KeyFile | null>(null);
 	const [keyFilePassphrase, setKeyFilePassphrase] = useState('');
-	const [phase, setPhase] = useState<'idle' | 'checking' | 'needs-click'>('idle');
+	const [checking, setChecking] = useState(false);
+	/** Credentials that opened the first header, waiting for a save location. */
+	const [checked, setChecked] = useState<CheckedCredentials | null>(null);
 	const [checkingKeyFile, setCheckingKeyFile] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const keyInput = useRef<HTMLInputElement>(null);
 	const passphraseInput = useRef<HTMLInputElement>(null);
+
+	const mounted = useRef(false);
+
+	useEffect(() => {
+		mounted.current = true;
+
+		return () => {
+			mounted.current = false;
+		};
+	}, []);
+
+	// Stops the checked job's workers when it's replaced or the card goes away.
+	useEffect(() => () => checked?.discard(), [checked]);
 
 	const credentials: DecryptCredentials | null =
 		props.unlock === 'passphrase'
@@ -56,6 +71,7 @@ export function DecryptCard(props: {
 
 	const loadKeyFile = async (name: string, bytes: Uint8Array, pass?: string) => {
 		setError(null);
+		setChecked(null);
 		setCheckingKeyFile(true);
 
 		try {
@@ -73,45 +89,54 @@ export function DecryptCard(props: {
 			void loadKeyFile(keyFile.name, keyFile.bytes, keyFilePassphrase);
 	};
 
-	const start = async (creds: DecryptCredentials) => {
+	const start = async (handle: CheckedCredentials) => {
 		const choice = await chooseSaveLocation('decrypt', props.files);
 
 		if (choice.location) {
-			props.onStart(
-				startJob({ mode: 'decrypt', files: props.files, credentials: creds, save: choice.location })
-			);
-		} else if (choice.reason === 'needs-gesture') {
-			setPhase('needs-click');
-		} else {
+			props.onStart(handle.startJob(choice.location));
+			setChecked(null);
+		} else if (choice.reason !== 'needs-gesture') {
 			if (choice.reason === 'unsupported') setError(strings.unsupported);
 
 			if (choice.reason === 'save-failed') setError(strings.errors['save-failed']);
-			setPhase('idle');
+			setChecked(null);
 		}
 	};
 
-	// Check the header first (scrypt, in a worker) so a wrong passphrase fails
-	// here, before the save picker. If the check outlasts the click's user
-	// activation, the picker is refused and we ask for one more click.
+	// Open the first header (scrypt, in the job's worker) so a wrong passphrase
+	// fails here, before the save picker; the job reuses it. If the check
+	// outlasts the click's user activation, the picker is refused and we ask
+	// for one more click.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
 
 		if (!credentials) return;
-		setPhase('checking');
+		setChecked(null);
+		setChecking(true);
 		setError(null);
+		let handle: CheckedCredentials;
 
 		try {
-			await checkCredentials(props.files[0]!, credentials);
+			handle = await checkCredentials({ files: props.files, credentials });
 		} catch (cause) {
 			setError(errorMessage(cause));
-			setPhase('idle');
 			passphraseInput.current?.focus();
 			passphraseInput.current?.select();
 
 			return;
+		} finally {
+			setChecking(false);
 		}
 
-		await start(credentials);
+		// Back was pressed during the check: nothing will start this job.
+		if (!mounted.current) {
+			handle.discard();
+
+			return;
+		}
+
+		setChecked(handle);
+		await start(handle);
 	};
 
 	return (
@@ -144,6 +169,7 @@ export function DecryptCard(props: {
 							onChange: (e) => {
 								setPassphrase(e.target.value);
 								setError(null);
+								setChecked(null);
 							}
 						}}
 					/>
@@ -208,19 +234,16 @@ export function DecryptCard(props: {
 
 				{error && <Hint tone="error">{error}</Hint>}
 				<Warnings mode="decrypt" files={props.files} />
-				{phase === 'needs-click' && <Hint>{strings.decrypt.checked}</Hint>}
+				{checked && <Hint>{strings.decrypt.checked}</Hint>}
 				{/* The same button either way, so it keeps focus for the second press. */}
-				{phase === 'needs-click' && credentials ? (
-					<BigButton onClick={() => void start(credentials)}>
+				{checked ? (
+					<BigButton onClick={() => void start(checked)}>
 						{strings.decrypt.chooseSave}
 						<Arrow />
 					</BigButton>
 				) : (
-					<BigButton
-						type="submit"
-						disabled={!credentials || phase === 'checking' || props.disabled}
-					>
-						{phase === 'checking' ? (
+					<BigButton type="submit" disabled={!credentials || checking || props.disabled}>
+						{checking ? (
 							strings.decrypt.checking
 						) : (
 							<>

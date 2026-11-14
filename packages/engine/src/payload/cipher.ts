@@ -102,7 +102,12 @@ class WebCryptoChunkCipher implements ChunkCipher {
 	private constructor(private readonly key: CryptoKey) {}
 
 	static async create(rawKey: Uint8Array<ArrayBuffer>): Promise<WebCryptoChunkCipher> {
-		return new WebCryptoChunkCipher(await importChaChaKey(rawKey));
+		const key = await crypto.subtle.importKey('raw-secret', rawKey, ALGORITHM, false, [
+			'encrypt',
+			'decrypt'
+		]);
+
+		return new WebCryptoChunkCipher(key);
 	}
 
 	async seal(
@@ -132,19 +137,6 @@ class WebCryptoChunkCipher implements ChunkCipher {
 	}
 }
 
-async function importChaChaKey(key: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
-	// The modern-algorithms draft imports symmetric keys as `raw-secret`; older
-	// builds only knew `raw` and reject `raw-secret`, so the retry below runs.
-	try {
-		return await crypto.subtle.importKey('raw-secret', key, ALGORITHM, false, [
-			'encrypt',
-			'decrypt'
-		]);
-	} catch {
-		return await crypto.subtle.importKey('raw', key, ALGORITHM, false, ['encrypt', 'decrypt']);
-	}
-}
-
 let nativeProbe: Promise<boolean> | undefined;
 
 /**
@@ -159,8 +151,6 @@ export function nativeChaChaAvailable(): Promise<boolean> {
 }
 
 async function probeNative(): Promise<boolean> {
-	if (typeof crypto === 'undefined' || !crypto.subtle) return false;
-
 	try {
 		const key = new Uint8Array(32).map((_, i) => i);
 		const nonce = writeChunkNonce(new Uint8Array(12), 7, true);

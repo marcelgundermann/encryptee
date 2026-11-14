@@ -1,5 +1,6 @@
 import { EngineError, serializeError } from '../errors.ts';
 import {
+	HEADER_PROBE_SIZE,
 	MAX_HEADER_SIZE,
 	PAYLOAD_NONCE_SIZE,
 	headerLength,
@@ -12,14 +13,12 @@ import { batchRange, openLayout, sealLayout, type PayloadLayout } from '../paylo
 import { openSink } from '../sinks/open-sink.ts';
 import type { ByteSink, SinkResult } from '../sinks/sink.ts';
 import type { CryptoPool } from './pool.ts';
-import type { CoordinatorEvent, FileTask, Source } from './protocol.ts';
+import type { CoordinatorEvent, FileTask, Source, TaskOperation } from './protocol.ts';
 
 const PROGRESS_INTERVAL_MS = 100;
 
-/** First read when looking for the header; almost every header fits. */
-const HEADER_PROBE_SIZE = 64 * 1024;
-
-interface Prepared {
+/** What a file needs before its payload: the layout, the payload key and, when sealing, the header. */
+export interface Prepared {
 	layout: PayloadLayout;
 	payloadKey: Uint8Array<ArrayBuffer>;
 	/** Header and payload nonce, written before the payload when sealing. */
@@ -30,20 +29,21 @@ interface Prepared {
 /**
  * Runs one file task inside the coordinator: header, then a sliding window of
  * batches through the crypto pool, written to the sink strictly in order.
- * Nothing reaches the sink before the header has been verified.
+ * Nothing reaches the sink before the header has been verified. A file whose
+ * header a `check` already opened passes its `checked` preparation.
  */
 export async function runFileTask(
 	task: FileTask,
 	pool: CryptoPool,
 	emit: (event: CoordinatorEvent) => void,
-	signal: AbortSignal
+	signal: AbortSignal,
+	checked?: Prepared
 ): Promise<SinkResult> {
 	const read = reader(task.source);
-	const size = task.source.kind === 'blob' ? task.source.blob.size : task.source.size;
 	let sink: ByteSink | null = null;
 
 	try {
-		const prepared = await prepare(task, read, size);
+		const prepared = checked ?? (await prepare(task.operation, task.source, task.batchChunks));
 		signal.throwIfAborted();
 		const backend: Backend = await pool.setKey(prepared.payloadKey, task.backend);
 		prepared.payloadKey.fill(0);
@@ -65,12 +65,14 @@ export async function runFileTask(
 	}
 }
 
-async function prepare(
-	task: FileTask,
-	read: (start: number, end: number) => Promise<ArrayBuffer>,
-	size: number
+/** Seals a new header, or opens the file's header with its credentials. */
+export async function prepare(
+	operation: TaskOperation,
+	source: Source,
+	batchChunks: number
 ): Promise<Prepared> {
-	const { operation, batchChunks } = task;
+	const read = reader(source);
+	const size = source.kind === 'blob' ? source.blob.size : source.size;
 
 	if (operation.mode === 'encrypt') {
 		const { header, fileKey } = await sealHeader(operation.credentials);

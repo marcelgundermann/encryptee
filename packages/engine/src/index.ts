@@ -1,7 +1,8 @@
 // The engine's public surface. The UI never touches workers, chunks or formats.
-export { startJob } from './job.ts';
+export { checkCredentials, startJob } from './job.ts';
 
 export type {
+	CheckedCredentials,
 	FileStatus,
 	Job,
 	JobFile,
@@ -39,13 +40,7 @@ export { nativeChaChaAvailable } from './payload/cipher.ts';
 
 export type { Backend } from './payload/cipher.ts';
 
-export {
-	checkCredentials,
-	generateKeyPair,
-	protectKeyFile,
-	readKeyFile,
-	validatePublicKeys
-} from './tools.ts';
+export { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from './tools.ts';
 
 export { keyFileText, mixesPqAndClassic, publicKeyType } from './keys/key-pair.ts';
 

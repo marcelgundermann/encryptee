@@ -1,4 +1,3 @@
-import { checkCredentials } from '../check.ts';
 import { serializeError } from '../errors.ts';
 import { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from '../keys/keys.ts';
 import type { ToolRequest, ToolResponse } from './tools-protocol.ts';
@@ -17,8 +16,6 @@ self.onmessage = async ({ data }: MessageEvent<ToolRequest>) => {
 async function respond(request: ToolRequest): Promise<ToolResponse> {
 	try {
 		switch (request.tool) {
-			case 'checkCredentials':
-				return { ok: true, value: await checkCredentials(...request.args) };
 			case 'generateKeyPair':
 				return { ok: true, value: await generateKeyPair(...request.args) };
 			case 'protectKeyFile':

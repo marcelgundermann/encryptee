@@ -13,6 +13,9 @@ export const PAYLOAD_NONCE_SIZE = 16;
 /** age 1.3.2 rejects larger headers, so we never read further than this. */
 export const MAX_HEADER_SIZE = 2 * 1024 * 1024;
 
+/** First read when looking for the header; almost every header fits. */
+export const HEADER_PROBE_SIZE = 64 * 1024;
+
 const encoder = new TextEncoder();
 const AGE_MAGIC = encoder.encode('age-encryption.org/v1\n');
 const ARMOR_MAGIC = encoder.encode('-----BEGIN AGE ENCRYPTED FILE-----');

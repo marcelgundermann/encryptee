@@ -1,5 +1,5 @@
-import { defaultTuning, detectCapabilities } from './capabilities.ts';
-import { EngineError, serializeError, type SerializedError } from './errors.ts';
+import { defaultTuning, detectCapabilities, type Tuning } from './capabilities.ts';
+import { EngineError, deserializeError, serializeError, type SerializedError } from './errors.ts';
 import type { DecryptCredentials, EncryptCredentials } from './format/header.ts';
 import { acquireJobGuards } from './guards.ts';
 import type { Backend } from './payload/cipher.ts';
@@ -82,34 +82,150 @@ const FILE_LOCAL_ERRORS = new Set([
 	'corrupted'
 ]);
 
+type JobTuning = Tuning & { backend?: Backend };
+
 /** Starts an encrypt or decrypt job over `files`. One input file → one output file. */
 export function startJob(options: JobOptions): Job {
-	if (options.save.kind === 'file' && options.files.length !== 1) {
-		throw new EngineError('internal', 'a single save file needs exactly one input file');
+	assertSaveFits(options.save, options.files.length);
+	const tuning = jobTuning(options.tuning);
+
+	return new RunningJob(options, tuning, spawnWorkers(tuning.workers));
+}
+
+/** A decrypt job whose first header opened, waiting for its save location. */
+export interface CheckedCredentials {
+	/** Starts the job; the first file's header isn't opened again. Once only. */
+	startJob(save: SaveLocation): Job;
+	/** Stops the job's workers when no job follows. Does nothing once `startJob` ran. */
+	discard(): void;
+}
+
+/**
+ * Opens the first file's header with `credentials` in a new decrypt job's
+ * workers, so wrong credentials fail before the user picks where to save, and
+ * the job doesn't run scrypt for that header a second time. Rejects with the
+ * header's error: `wrong-credentials`, `not-encrypted`, `legacy-file`, …
+ */
+export async function checkCredentials(options: {
+	files: File[];
+	credentials: DecryptCredentials;
+	tuning?: JobOptions['tuning'];
+}): Promise<CheckedCredentials> {
+	const { files, credentials } = options;
+	const [first] = files;
+
+	if (!first) throw new EngineError('internal', 'nothing to check');
+	const tuning = jobTuning(options.tuning);
+	const workers = spawnWorkers(tuning.workers);
+
+	try {
+		await new Promise<void>((resolve, reject) => {
+			workers.coordinator.onmessage = ({ data }: MessageEvent<CoordinatorEvent>) => {
+				if (data.type === 'checked') resolve();
+				else if (data.type === 'failed') reject(deserializeError(data.error));
+			};
+
+			workers.coordinator.onerror = (event) =>
+				reject(new EngineError('internal', event.message || 'worker crashed'));
+
+			workers.coordinator.postMessage({
+				type: 'check',
+				id: FIRST_FILE,
+				source: sourceOf(first),
+				credentials,
+				batchChunks: tuning.batchChunks
+			} satisfies CoordinatorRequest);
+		});
+	} catch (error) {
+		workers.terminate();
+		throw error;
 	}
 
-	const tuning = { ...defaultTuning(detectCapabilities()), ...options.tuning };
+	let taken = false;
 
-	return new RunningJob(options, tuning);
+	return {
+		startJob(save) {
+			if (taken) throw new EngineError('internal', 'a check starts one job');
+			assertSaveFits(save, files.length);
+			taken = true;
+
+			return new RunningJob({ mode: 'decrypt', credentials, files, save }, tuning, workers);
+		},
+		discard() {
+			if (taken) return;
+			taken = true;
+			workers.terminate();
+		}
+	};
+}
+
+/** A file task's id is its file's index; `checkCredentials` opens the first. */
+const FIRST_FILE = 0;
+
+function assertSaveFits(save: SaveLocation, fileCount: number): void {
+	if (save.kind === 'file' && fileCount !== 1) {
+		throw new EngineError('internal', 'a single save file needs exactly one input file');
+	}
+}
+
+function jobTuning(overrides: JobOptions['tuning']): JobTuning {
+	return { ...defaultTuning(detectCapabilities()), ...overrides };
+}
+
+/** One job's workers: a coordinator wired to its pool of crypto workers. */
+interface JobWorkers {
+	coordinator: Worker;
+	terminate(): void;
+}
+
+function spawnWorkers(count: number): JobWorkers {
+	// The main thread only spawns the workers and wires them together;
+	// file bytes travel coordinator ⇄ crypto workers over these ports.
+	const coordinator = new Worker(new URL('./workers/coordinator.worker.ts', import.meta.url), {
+		type: 'module',
+		name: 'encryptee-coordinator'
+	});
+
+	const crypto: Worker[] = [];
+	const ports: MessagePort[] = [];
+
+	for (let i = 0; i < count; i++) {
+		const worker = new Worker(new URL('./workers/crypto.worker.ts', import.meta.url), {
+			type: 'module',
+			name: 'encryptee-crypto'
+		});
+
+		const channel = new MessageChannel();
+		worker.postMessage({ type: 'connect', port: channel.port1 } satisfies CryptoConnect, [
+			channel.port1
+		]);
+		ports.push(channel.port2);
+		crypto.push(worker);
+	}
+
+	coordinator.postMessage({ type: 'init', pool: ports } satisfies CoordinatorRequest, ports);
+
+	return {
+		coordinator,
+		terminate() {
+			coordinator.terminate();
+
+			for (const worker of crypto) worker.terminate();
+		}
+	};
 }
 
 class RunningJob implements Job {
 	readonly done: Promise<JobSnapshot>;
 	private snapshot: JobSnapshot;
 	private readonly listeners = new Set<() => void>();
-	private readonly coordinator: Worker;
-	private readonly crypto: Worker[];
 	private cancelled = false;
 	private currentId = -1;
 
 	constructor(
 		private readonly options: JobOptions,
-		private readonly tuning: {
-			workers: number;
-			batchChunks: number;
-			window: number;
-			backend?: Backend;
-		}
+		private readonly tuning: JobTuning,
+		private readonly workers: JobWorkers
 	) {
 		this.snapshot = {
 			mode: options.mode,
@@ -133,30 +249,6 @@ class RunningJob implements Job {
 			backend: null
 		};
 
-		// The main thread only spawns the workers and wires them together;
-		// file bytes travel coordinator ⇄ crypto workers over these ports.
-		this.coordinator = new Worker(new URL('./workers/coordinator.worker.ts', import.meta.url), {
-			type: 'module',
-			name: 'encryptee-coordinator'
-		});
-		this.crypto = [];
-		const ports: MessagePort[] = [];
-
-		for (let i = 0; i < tuning.workers; i++) {
-			const worker = new Worker(new URL('./workers/crypto.worker.ts', import.meta.url), {
-				type: 'module',
-				name: 'encryptee-crypto'
-			});
-
-			const channel = new MessageChannel();
-			worker.postMessage({ type: 'connect', port: channel.port1 } satisfies CryptoConnect, [
-				channel.port1
-			]);
-			ports.push(channel.port2);
-			this.crypto.push(worker);
-		}
-
-		this.request({ type: 'init', pool: ports }, ports);
 		this.done = this.run();
 	}
 
@@ -195,9 +287,7 @@ class RunningJob implements Job {
 			this.failUnfinished(serializeError(cause));
 		} finally {
 			guards.release();
-			this.coordinator.terminate();
-
-			for (const worker of this.crypto) worker.terminate();
+			this.workers.terminate();
 		}
 
 		const statuses = this.snapshot.files.map((file) => file.status);
@@ -216,7 +306,8 @@ class RunningJob implements Job {
 	private async runFile(index: number): Promise<'next' | 'stop'> {
 		const input = this.options.files[index]!;
 		const file = this.snapshot.files[index]!;
-		const id = ++this.currentId;
+		const id = index;
+		this.currentId = id;
 		this.updateFile(index, { status: 'running' });
 		const doneBefore = this.snapshot.bytesDone;
 		let output: Output;
@@ -246,7 +337,7 @@ class RunningJob implements Job {
 		const result = await new Promise<
 			{ ok: true; result: SinkResult } | { ok: false; error: SerializedError }
 		>((resolve) => {
-			this.coordinator.onmessage = ({ data }: MessageEvent<CoordinatorEvent>) => {
+			this.workers.coordinator.onmessage = ({ data }: MessageEvent<CoordinatorEvent>) => {
 				if (data.id !== id) return;
 
 				switch (data.type) {
@@ -276,7 +367,7 @@ class RunningJob implements Job {
 				}
 			};
 
-			this.coordinator.onerror = (event) =>
+			this.workers.coordinator.onerror = (event) =>
 				resolve({
 					ok: false,
 					error: { code: 'internal', message: event.message || 'worker crashed' }
@@ -334,7 +425,7 @@ class RunningJob implements Job {
 	}
 
 	private request(message: CoordinatorRequest, transfer: Transferable[] = []): void {
-		this.coordinator.postMessage(message, transfer);
+		this.workers.coordinator.postMessage(message, transfer);
 	}
 
 	private updateFile(index: number, patch: Partial<JobFile>): void {

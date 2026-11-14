@@ -6,7 +6,7 @@ import type { SinkDescriptor, SinkResult } from '../sinks/sink.ts';
 /** Input of one file task. `synthetic` produces zero bytes without I/O (benchmarks). */
 export type Source = { kind: 'blob'; blob: Blob } | { kind: 'synthetic'; size: number };
 
-type TaskOperation =
+export type TaskOperation =
 	| { mode: 'encrypt'; credentials: EncryptCredentials }
 	| { mode: 'decrypt'; credentials: DecryptCredentials };
 
@@ -26,11 +26,21 @@ export interface FileTask {
 /** Main thread → coordinator. */
 export type CoordinatorRequest =
 	| { type: 'init'; pool: MessagePort[] }
+	/** Opens file `id`'s header ahead of its `run`, which then doesn't open it again. */
+	| {
+			type: 'check';
+			id: number;
+			source: Source;
+			credentials: DecryptCredentials;
+			batchChunks: number;
+	  }
 	| { type: 'run'; task: FileTask }
 	| { type: 'cancel'; id: number };
 
 /** Coordinator → main thread. */
 export type CoordinatorEvent =
+	/** The header of a `check` opened with its credentials. */
+	| { type: 'checked'; id: number }
 	/** The header checked out and the sink is open; from here on bytes reach the sink. */
 	| { type: 'opened'; id: number; outputSize: number; backend: Backend }
 	/** Input bytes processed so far (throttled to ~10 Hz). */

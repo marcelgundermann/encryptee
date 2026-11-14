@@ -1,6 +1,13 @@
 import { Decrypter, Encrypter } from 'age-encryption';
 import { describe, expect, test } from 'vite-plus/test';
-import { generateKeyPair, inspectFile, startJob } from '../src/index.ts';
+import { server } from 'vite-plus/test/browser';
+import {
+	checkCredentials,
+	generateKeyPair,
+	inspectFile,
+	nativeChaChaAvailable,
+	startJob
+} from '../src/index.ts';
 import { generateKeyPair as generateKeyPairInline } from '../src/keys/keys.ts';
 import {
 	CHUNK,
@@ -84,6 +91,10 @@ describe('round trips through the worker pipeline', () => {
 
 		expect(snapshot.backend).toBe('noble');
 		expect(equalBytes(output!, plain)).toBe(true);
+	});
+
+	test.runIf(server.browser === 'chromium')('Chromium has native ChaCha20-Poly1305', async () => {
+		expect(await nativeChaChaAvailable()).toBe(true);
 	});
 });
 
@@ -323,17 +334,39 @@ describe('inspectFile', () => {
 });
 
 describe('checkCredentials', () => {
+	const right = { kind: 'passphrase', passphrase: passphrase.passphrase } as const;
+
 	test('accepts the right passphrase and rejects a wrong one without decrypting', async () => {
-		const { checkCredentials } = await import('../src/index.ts');
-		const sealed = new Blob([await encrypt(randomBytes(CHUNK), passphrase)]);
+		const files = [file(await encrypt(randomBytes(CHUNK), passphrase), 'test.bin.age')];
+
+		(await checkCredentials({ files, credentials: right })).discard();
 		await expect(
-			checkCredentials(sealed, { kind: 'passphrase', passphrase: passphrase.passphrase })
-		).resolves.toBeUndefined();
-		await expect(
-			checkCredentials(sealed, { kind: 'passphrase', passphrase: 'wrong' })
+			checkCredentials({ files, credentials: { kind: 'passphrase', passphrase: 'wrong' } })
 		).rejects.toMatchObject({ code: 'wrong-credentials' });
 		await expect(
-			checkCredentials(new Blob(['plain text']), { kind: 'passphrase', passphrase: 'x' })
+			checkCredentials({
+				files: [file(new TextEncoder().encode('plain text'))],
+				credentials: right
+			})
 		).rejects.toMatchObject({ code: 'not-encrypted' });
+	});
+
+	test('a checked job decrypts every file, the checked one first', async () => {
+		const plain = [randomBytes(3 * CHUNK + 1), randomBytes(CHUNK - 7)];
+
+		const files = await Promise.all(
+			plain.map(async (bytes, i) => file(await encrypt(bytes, passphrase), `${i}.bin.age`))
+		);
+
+		const checked = await checkCredentials({ files, credentials: right, tuning: SMALL_BATCHES });
+		const snapshot = await checked.startJob({ kind: 'memory' }).done;
+
+		expect(snapshot.status).toBe('done');
+
+		for (const [i, { output }] of snapshot.files.entries()) {
+			expect(output?.kind === 'memory' && equalBytes(await output.blob.bytes(), plain[i]!)).toBe(
+				true
+			);
+		}
 	});
 });

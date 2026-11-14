@@ -9,7 +9,7 @@ export async function acquireJobGuards(): Promise<{ release(): void }> {
 	let released = false;
 
 	const requestLock = async () => {
-		if (released || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
+		if (released || document.visibilityState !== 'visible') return;
 		lock = await navigator.wakeLock.request('screen').catch(() => null);
 	};
 

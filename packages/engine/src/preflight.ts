@@ -62,7 +62,7 @@ export async function preflight(input: {
 	if (sink === 'opfs') warnings.push({ code: 'needs-double-space' });
 
 	// Only OPFS staging lands in origin storage; estimate() is a hint at best.
-	if (sink === 'opfs' && navigator.storage?.estimate) {
+	if (sink === 'opfs') {
 		const { quota = 0, usage = 0 } = await navigator.storage
 			.estimate()
 			.catch((): StorageEstimate => ({}));

@@ -2,16 +2,7 @@ import { describe, expect, test } from 'vite-plus/test';
 import { commands } from 'vite-plus/test/browser';
 import { keyFileText } from '../src/keys/key-pair.ts';
 import { generateKeyPair, protectKeyFile, readKeyFile } from '../src/index.ts';
-import {
-	CHUNK,
-	TEST_LOG_N,
-	decrypt,
-	encrypt,
-	equalBytes,
-	fromBase64,
-	randomBytes,
-	toBase64
-} from './helpers.ts';
+import { CHUNK, TEST_LOG_N, decrypt, encrypt, equalBytes, randomBytes } from './helpers.ts';
 
 /** Interop with the reference `age` CLI (≥ 1.3) via Vitest browser commands. */
 const available = await commands.ageAvailable();
@@ -28,11 +19,13 @@ describe.runIf(available)('age CLI interop', () => {
 			const sealed = await encrypt(plain, { kind: 'public-keys', publicKeys: [pair.publicKey] });
 
 			const result = await commands.ageDecrypt({
-				input: toBase64(sealed),
+				input: sealed.toBase64(),
 				identity: keyFileText(pair)
 			});
 
-			expect(result.ok ? equalBytes(fromBase64(result.output), plain) : result.error).toBe(true);
+			expect(
+				result.ok ? equalBytes(Uint8Array.fromBase64(result.output), plain) : result.error
+			).toBe(true);
 		}
 	);
 
@@ -43,15 +36,17 @@ describe.runIf(available)('age CLI interop', () => {
 			scryptLogN: TEST_LOG_N
 		});
 
-		const result = await commands.ageDecrypt({ input: toBase64(sealed), passphrase: 'interop' });
-		expect(result.ok ? equalBytes(fromBase64(result.output), plain) : result.error).toBe(true);
+		const result = await commands.ageDecrypt({ input: sealed.toBase64(), passphrase: 'interop' });
+		expect(result.ok ? equalBytes(Uint8Array.fromBase64(result.output), plain) : result.error).toBe(
+			true
+		);
 	});
 
 	test.each([true, false])('the engine opens files `age` encrypted (pq: %s)', async (pq) => {
 		const pair = await commands.ageKeygen(pq);
 
-		const sealed = fromBase64(
-			await commands.ageEncrypt({ input: toBase64(plain), recipients: [pair.publicKey] })
+		const sealed = Uint8Array.fromBase64(
+			await commands.ageEncrypt({ input: plain.toBase64(), recipients: [pair.publicKey] })
 		);
 
 		const { output } = await decrypt(sealed, {
@@ -63,8 +58,8 @@ describe.runIf(available)('age CLI interop', () => {
 	});
 
 	test('the engine opens passphrase files `age` encrypted', async () => {
-		const sealed = fromBase64(
-			await commands.ageEncrypt({ input: toBase64(plain), passphrase: 'from-cli' })
+		const sealed = Uint8Array.fromBase64(
+			await commands.ageEncrypt({ input: plain.toBase64(), passphrase: 'from-cli' })
 		);
 
 		const { output } = await decrypt(sealed, { kind: 'passphrase', passphrase: 'from-cli' });
@@ -78,14 +73,14 @@ describe.runIf(available)('age CLI interop', () => {
 		const protectedFile = await protectKeyFile(keyFileText(pair), 'key-pass', TEST_LOG_N);
 
 		const opened = await commands.ageDecrypt({
-			input: toBase64(protectedFile),
+			input: protectedFile.toBase64(),
 			passphrase: 'key-pass'
 		});
 
 		if (!opened.ok) throw new Error(opened.error);
-		const identity = new TextDecoder().decode(fromBase64(opened.output));
+		const identity = new TextDecoder().decode(Uint8Array.fromBase64(opened.output));
 		const sealed = await encrypt(plain, { kind: 'public-keys', publicKeys: [pair.publicKey] });
-		const result = await commands.ageDecrypt({ input: toBase64(sealed), identity });
+		const result = await commands.ageDecrypt({ input: sealed.toBase64(), identity });
 		expect(result.ok).toBe(true);
 		expect(await readKeyFile(protectedFile, 'key-pass')).toMatchObject({
 			privateKeys: [pair.privateKey]

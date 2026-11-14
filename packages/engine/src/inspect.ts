@@ -1,4 +1,5 @@
 import {
+	HEADER_PROBE_SIZE,
 	MAX_HEADER_SIZE,
 	headerLength,
 	sniffBytes,
@@ -17,21 +18,23 @@ export interface FileInfo {
 	recipientTypes: string[];
 }
 
+/** Holds every magic `sniffBytes` knows; the armor line, the longest, is 34 bytes. */
+const SNIFF_SIZE = 64;
+
 /**
  * Reads the age header at the start of `file`: `null` if it isn't an age file
- * or the header doesn't end within the size age allows.
+ * or the header doesn't end within the size age allows. Other files cost only
+ * a few bytes, since a selection inspects every file at once.
  */
-export async function readHeader(
-	file: Blob
-): Promise<{ kind: FileKind; header: Uint8Array | null }> {
-	let head = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());
-	const kind = sniffBytes(head);
+async function readHeader(file: Blob): Promise<{ kind: FileKind; header: Uint8Array | null }> {
+	const kind = sniffBytes(await file.slice(0, SNIFF_SIZE).bytes());
 
 	if (kind !== 'age') return { kind, header: null };
+	let head = await file.slice(0, HEADER_PROBE_SIZE).bytes();
 	let length = headerLength(head);
 
 	if (length === null && file.size > head.length) {
-		head = new Uint8Array(await file.slice(0, MAX_HEADER_SIZE).arrayBuffer());
+		head = await file.slice(0, MAX_HEADER_SIZE).bytes();
 		length = headerLength(head);
 	}
 

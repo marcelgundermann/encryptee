@@ -1,5 +1,5 @@
 import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
-import { scryptAsync } from '@noble/hashes/scrypt.js';
+import { scrypt } from '@noble/hashes/scrypt.js';
 import { Decrypter, Encrypter, Stanza, type Recipient } from 'age-encryption';
 import { EngineError } from '../errors.ts';
 import { PAYLOAD_NONCE_SIZE, TAG_SIZE, headerLength } from './age.ts';
@@ -119,7 +119,9 @@ const SCRYPT_LABEL = new TextEncoder().encode('age-encryption.org/v1/scrypt');
 
 /**
  * The age scrypt recipient, byte-compatible with typage's (which isn't
- * exported). Uses `scryptAsync` so the worker stays responsive to cancel.
+ * exported). Synchronous like typage's: a cancel waits for the header either
+ * way, and yielding would only slow scrypt down (a clamped `setTimeout` every
+ * 10 ms where workers lack `scheduler.yield`).
  */
 class ScryptRecipient implements Recipient {
 	constructor(
@@ -127,13 +129,13 @@ class ScryptRecipient implements Recipient {
 		private readonly logN: number
 	) {}
 
-	async wrapFileKey(fileKey: Uint8Array): Promise<Stanza[]> {
+	wrapFileKey(fileKey: Uint8Array): Stanza[] {
 		const salt = crypto.getRandomValues(new Uint8Array(16));
 		const labelAndSalt = new Uint8Array(SCRYPT_LABEL.length + salt.length);
 		labelAndSalt.set(SCRYPT_LABEL);
 		labelAndSalt.set(salt, SCRYPT_LABEL.length);
 
-		const key = await scryptAsync(this.passphrase, labelAndSalt, {
+		const key = scrypt(this.passphrase, labelAndSalt, {
 			N: 2 ** this.logN,
 			r: 8,
 			p: 1,
@@ -143,10 +145,6 @@ class ScryptRecipient implements Recipient {
 		const body = chacha20poly1305(key, new Uint8Array(12)).encrypt(fileKey);
 		key.fill(0);
 
-		return [new Stanza(['scrypt', base64NoPad(salt), String(this.logN)], body)];
+		return [new Stanza(['scrypt', salt.toBase64({ omitPadding: true }), String(this.logN)], body)];
 	}
-}
-
-function base64NoPad(bytes: Uint8Array): string {
-	return btoa(String.fromCharCode(...bytes)).replace(/=+$/, '');
 }

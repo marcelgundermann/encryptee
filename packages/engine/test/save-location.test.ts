@@ -192,7 +192,6 @@ function fakeBrowser(
 			savePicker: false,
 			directoryPicker: false,
 			serviceWorkerDownload: false,
-			opfs: false,
 			...capabilities
 		},
 		showSaveFilePicker: () => Promise.reject(new Error('unexpected save picker')),
@@ -202,12 +201,7 @@ function fakeBrowser(
 	};
 }
 
-const pickers = {
-	savePicker: true,
-	directoryPicker: true,
-	serviceWorkerDownload: true,
-	opfs: true
-};
+const pickers = { savePicker: true, directoryPicker: true, serviceWorkerDownload: true };
 
 const one = [{ name: 'a.txt' }];
 const two = [{ name: 'a.txt' }, { name: 'b.txt' }];
@@ -243,24 +237,16 @@ describe('choosing a save location', () => {
 
 	test('without pickers, a service worker download, else OPFS staging', async () => {
 		expect(
-			await chooseSaveLocationIn(
-				fakeBrowser({ serviceWorkerDownload: true, opfs: true }),
-				'encrypt',
-				one
-			)
+			await chooseSaveLocationIn(fakeBrowser({ serviceWorkerDownload: true }), 'encrypt', one)
 		).toEqual({ location: { kind: 'sw-download' } });
-		expect(await chooseSaveLocationIn(fakeBrowser({ opfs: true }), 'encrypt', two)).toEqual({
+		expect(await chooseSaveLocationIn(fakeBrowser({}), 'encrypt', two)).toEqual({
 			location: { kind: 'opfs' }
 		});
 	});
 
-	test('a browser with nothing to save to, or OPFS that refuses to open, is unsupported', async () => {
-		const refusing = fakeBrowser({ opfs: true }, { opfsOpens: () => Promise.resolve(false) });
+	test('OPFS that refuses to open, as in private windows, is unsupported', async () => {
+		const refusing = fakeBrowser({}, { opfsOpens: () => Promise.resolve(false) });
 
-		expect(await chooseSaveLocationIn(fakeBrowser({}), 'encrypt', one)).toEqual({
-			location: null,
-			reason: 'unsupported'
-		});
 		expect(await chooseSaveLocationIn(refusing, 'encrypt', one)).toEqual({
 			location: null,
 			reason: 'unsupported'

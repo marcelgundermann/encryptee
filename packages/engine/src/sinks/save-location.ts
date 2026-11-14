@@ -26,8 +26,8 @@ export type SaveLocation =
 /** Where one output file ended up: what its sink handed back, or the browser's downloads. */
 export type FileOutput = SinkResult | { kind: 'downloaded' };
 
-/** What the UI can say before Start: it will ask where to save, use the downloads, or can't. */
-export type SavePlan = 'ask' | 'downloads' | 'unsupported';
+/** What the UI can say before Start: it will ask where to save, or use the downloads. */
+export type SavePlan = 'ask' | 'downloads';
 
 export type SaveChoice =
 	| { location: SaveLocation }
@@ -84,8 +84,6 @@ export async function chooseSaveLocationIn(
 				return (await environment.opfsOpens())
 					? { location: { kind: 'opfs' } }
 					: { location: null, reason: 'unsupported' };
-			case 'unsupported':
-				return { location: null, reason: 'unsupported' };
 		}
 	} catch (cause) {
 		return { location: null, reason: pickerFailure(cause) };
@@ -106,8 +104,6 @@ function planOf(choice: SinkChoice): SavePlan {
 		case 'sw-download':
 		case 'opfs':
 			return 'downloads';
-		case 'unsupported':
-			return 'unsupported';
 	}
 }
 
@@ -208,7 +204,7 @@ function streamedOutput(name: string): Output {
  * and from downloads that are long done.
  */
 async function stagedOutput(name: string): Promise<Output> {
-	void navigator.storage.persist?.();
+	void navigator.storage.persist();
 	const root = await navigator.storage.getDirectory();
 	const staging = await root.getDirectoryHandle(OPFS_STAGING_DIR, { create: true });
 	const staged = `${crypto.randomUUID()}.part`;

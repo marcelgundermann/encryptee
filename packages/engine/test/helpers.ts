@@ -41,10 +41,6 @@ export function file(bytes: Uint8Array<ArrayBuffer>, name = 'test.bin'): File {
 	return new File([bytes], name);
 }
 
-async function blobBytes(blob: Blob): Promise<Uint8Array<ArrayBuffer>> {
-	return new Uint8Array(await blob.arrayBuffer());
-}
-
 export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 	if (a.length !== b.length) return false;
 
@@ -76,7 +72,7 @@ export async function encrypt(
 		throw new Error(`encrypt failed: ${JSON.stringify(output?.error)}`);
 	}
 
-	return blobBytes(output.output.blob);
+	return output.output.blob.bytes();
 }
 
 export async function decrypt(
@@ -94,21 +90,7 @@ export async function decrypt(
 
 	const output = snapshot.files[0]?.output;
 
-	return { snapshot, output: output?.kind === 'memory' ? await blobBytes(output.blob) : null };
-}
-
-export function toBase64(bytes: Uint8Array): string {
-	let binary = '';
-
-	for (let i = 0; i < bytes.length; i += 0x8000) {
-		binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	}
-
-	return btoa(binary);
-}
-
-export function fromBase64(text: string): Uint8Array<ArrayBuffer> {
-	return Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+	return { snapshot, output: output?.kind === 'memory' ? await output.blob.bytes() : null };
 }
 
 export async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
