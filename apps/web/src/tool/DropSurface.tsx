@@ -6,13 +6,10 @@ import { useFocusIfLost } from './ui.tsx';
  * Makes the whole window a drop target. Returns whether files are being
  * dragged over it, so the UI can show the drop surface on top of any step.
  */
-export function useWindowDrop(onFiles: (files: File[]) => void, enabled: boolean): boolean {
+export function useWindowDrop(onFiles: (files: File[]) => void): boolean {
 	const [dragging, setDragging] = useState(false);
 	const depth = useRef(0);
-
-	const receive = useEffectEvent((files: File[]) => {
-		if (enabled && files.length > 0) onFiles(files);
-	});
+	const receive = useEffectEvent(onFiles);
 
 	useEffect(() => {
 		const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false;
@@ -54,7 +51,7 @@ export function useWindowDrop(onFiles: (files: File[]) => void, enabled: boolean
 		};
 	}, []);
 
-	return dragging && enabled;
+	return dragging;
 }
 
 /**

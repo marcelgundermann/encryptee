@@ -10,6 +10,20 @@ function ageFile(name: string, ...types: string[]): File {
 }
 
 const plain = (name: string) => new File(['just some text'], name);
+
+/** A file whose bytes can't be read, like a folder dropped in Chromium. */
+class UnreadableFile extends File {
+	override slice(): Blob {
+		return new UnreadableBlob();
+	}
+}
+
+class UnreadableBlob extends Blob {
+	override async arrayBuffer(): Promise<ArrayBuffer> {
+		throw new DOMException('The file could not be read.', 'NotReadableError');
+	}
+}
+
 const passphraseFile = ageFile('notes.txt.age', 'scrypt');
 const keyFile = ageFile('photo.jpg.age', 'mlkem768x25519');
 const legacyFile = new File(['encryptee.io…'], 'report.pdf.cre');
@@ -48,9 +62,28 @@ test.each([
 		[passphraseFile, keyFile],
 		strings.selection.mixedLocks
 	],
-	['a legacy file', [legacyFile], strings.selection.legacy],
-	['a legacy file among others', [plain('a.txt'), keyFile, legacyFile], strings.selection.legacy],
-	['an armored age file', [armoredFile], strings.selection.armored]
+	['a legacy file', [legacyFile], strings.errors['legacy-file']],
+	[
+		'a legacy file among others',
+		[plain('a.txt'), keyFile, legacyFile],
+		strings.errors['legacy-file']
+	],
+	['an armored age file', [armoredFile], strings.errors.armored],
+	[
+		'an armored and a legacy file, the legacy one first',
+		[armoredFile, legacyFile],
+		strings.errors['legacy-file']
+	]
 ])('%s can’t be used, and say why', async (_, files, message) => {
 	expect(await classify(files)).toEqual({ kind: 'invalid', files, message });
+});
+
+test('a file that can’t be read can’t be used', async () => {
+	const files = [plain('a.txt'), new UnreadableFile([], 'gone.txt')];
+
+	expect(await classify(files)).toEqual({
+		kind: 'invalid',
+		files,
+		message: strings.errors.internal
+	});
 });

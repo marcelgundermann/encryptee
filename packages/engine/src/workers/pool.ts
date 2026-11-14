@@ -1,6 +1,6 @@
 import { EngineError, deserializeError } from '../errors.ts';
-import type { BatchPosition } from '../payload/batch.ts';
 import type { Backend } from '../payload/cipher.ts';
+import type { BatchPosition } from '../payload/layout.ts';
 import type { CryptoRequest, CryptoResponse } from './protocol.ts';
 
 interface Member {
@@ -31,10 +31,6 @@ export class CryptoPool {
 		}
 	}
 
-	get size(): number {
-		return this.members.length;
-	}
-
 	/** Hands every worker the payload key; resolves with the backend they chose. */
 	async setKey(key: Uint8Array<ArrayBuffer>, backend?: Backend): Promise<Backend> {
 		const replies = this.members.map(
@@ -62,11 +58,11 @@ export class CryptoPool {
 
 		return new Promise((resolve, reject) => {
 			this.pending.set(task, { member, resolve, reject });
-			this.post(member, { type: mode, task, ...position, data }, [data]);
+			const { firstChunk, final } = position;
+			this.post(member, { type: mode, task, firstChunk, final, data }, [data]);
 		});
 	}
 
-	/** Drops the key in every worker. */
 	forget(): void {
 		for (const member of this.members) this.post(member, { type: 'forget' });
 	}
@@ -78,16 +74,16 @@ export class CryptoPool {
 			return;
 		}
 
-		if (message.type === 'error' && message.task === null) {
+		if (message.type === 'key-failed') {
 			this.ready.shift()?.reject(deserializeError(message.error));
 
 			return;
 		}
 
-		const pending = this.pending.get(message.task!);
+		const pending = this.pending.get(message.task);
 
 		if (!pending) return;
-		this.pending.delete(message.task!);
+		this.pending.delete(message.task);
 		pending.member.busy--;
 
 		if (message.type === 'result') pending.resolve(new Uint8Array(message.data));

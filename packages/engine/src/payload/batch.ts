@@ -1,15 +1,7 @@
 import { EngineError } from '../errors.ts';
 import { CHUNK_SIZE, SEALED_CHUNK_SIZE, TAG_SIZE } from '../format/age.ts';
 import { writeChunkNonce, type ChunkCipher } from './cipher.ts';
-
-/**
- * A batch is a run of consecutive age chunks handled by one crypto worker in
- * one message. `final` marks the batch holding the file's last chunk.
- */
-export interface BatchPosition {
-	firstChunk: number;
-	final: boolean;
-}
+import type { BatchPosition } from './layout.ts';
 
 /** Seals a run of plaintext chunks. Only a final batch may end in a short (or empty) chunk. */
 export async function sealBatch(

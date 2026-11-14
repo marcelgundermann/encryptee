@@ -1,4 +1,5 @@
 import { EngineError, type SerializedError } from '../errors.ts';
+import { numberedName } from '../format/names.ts';
 import { OPFS_STAGING_DIR, type ByteSink, type SinkDescriptor, type SinkResult } from './sink.ts';
 import { SwDownloadSink } from './sw-stream.ts';
 
@@ -12,9 +13,9 @@ declare global {
 /** Opens the writer for a descriptor. Runs in the coordinator (a dedicated worker). */
 export async function openSink(descriptor: SinkDescriptor): Promise<ByteSink> {
 	switch (descriptor.kind) {
-		case 'fsa-file':
+		case 'file':
 			return FsaSink.open(descriptor.handle, null);
-		case 'fsa-directory': {
+		case 'directory': {
 			const name = await uniqueName(descriptor.handle, descriptor.name);
 			const handle = await descriptor.handle.getFileHandle(name, { create: true });
 
@@ -90,7 +91,6 @@ class OpfsSink implements ByteSink {
 		const directory = await root.getDirectoryHandle(OPFS_STAGING_DIR, { create: true });
 		const handle = await directory.getFileHandle(name, { create: true });
 		const access = await handle.createSyncAccessHandle();
-		access.truncate(0);
 
 		return new OpfsSink(directory, name, access);
 	}
@@ -148,14 +148,10 @@ class DiscardSink implements ByteSink {
 	async abort(): Promise<void> {}
 }
 
-/** `name`, or `stem (n).ext` if `name` already exists in `directory`. */
+/** `name`, or the first numbered name `directory` doesn't have yet. */
 async function uniqueName(directory: FileSystemDirectoryHandle, name: string): Promise<string> {
-	const dot = name.lastIndexOf('.', name.endsWith('.age') ? name.length - 5 : undefined);
-	const stem = dot > 0 ? name.slice(0, dot) : name;
-	const extension = dot > 0 ? name.slice(dot) : '';
-
 	for (let n = 0; ; n++) {
-		const candidate = n === 0 ? name : `${stem} (${n})${extension}`;
+		const candidate = numberedName(name, n);
 
 		try {
 			await directory.getFileHandle(candidate);

@@ -1,30 +1,27 @@
 import { serializeError } from '../errors.ts';
-import { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from '../keys/keys.ts';
-import type { ToolRequest, ToolResponse } from './tools-protocol.ts';
+import * as keys from '../keys/keys.ts';
+import type {
+	ToolArgs,
+	ToolName,
+	ToolRequest,
+	ToolResponse,
+	ToolResult
+} from './tools-protocol.ts';
 
 declare const self: DedicatedWorkerGlobalScope;
+
+const tools: {
+	[K in ToolName]: (...args: ToolArgs[K]) => ToolResult[K] | Promise<ToolResult[K]>;
+} = keys;
 
 self.onmessage = async ({ data }: MessageEvent<ToolRequest>) => {
 	data.port.postMessage(await respond(data));
 	data.port.close();
 };
 
-/**
- * Runs the tool `request` names. Each case narrows `args` to that tool's
- * parameters, and a tool without a case fails to compile.
- */
-async function respond(request: ToolRequest): Promise<ToolResponse> {
+async function respond<K extends ToolName>(request: ToolRequest<K>): Promise<ToolResponse<K>> {
 	try {
-		switch (request.tool) {
-			case 'generateKeyPair':
-				return { ok: true, value: await generateKeyPair(...request.args) };
-			case 'protectKeyFile':
-				return { ok: true, value: await protectKeyFile(...request.args) };
-			case 'readKeyFile':
-				return { ok: true, value: await readKeyFile(...request.args) };
-			case 'validatePublicKeys':
-				return { ok: true, value: validatePublicKeys(...request.args) };
-		}
+		return { ok: true, value: await tools[request.tool](...request.args) };
 	} catch (error) {
 		return { ok: false, error: serializeError(error) };
 	}

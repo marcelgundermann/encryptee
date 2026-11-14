@@ -1,16 +1,9 @@
 import { describe, expect, test } from 'vite-plus/test';
 import type { Capabilities } from '../src/capabilities.ts';
+import { startJob } from '../src/index.ts';
 import { chooseSaveLocationIn, type SaveEnvironment } from '../src/sinks/save-location.ts';
 import { OPFS_STAGING_DIR } from '../src/sinks/sink.ts';
-import { TEST_LOG_N, decrypt, encrypt, equalBytes, file, randomBytes, runJob } from './helpers.ts';
-
-const passphrase = {
-	kind: 'passphrase',
-	passphrase: 'correct horse battery staple',
-	scryptLogN: TEST_LOG_N
-} as const;
-
-const unlock = { kind: 'passphrase', passphrase: passphrase.passphrase } as const;
+import { decrypt, encrypt, equalBytes, file, passphrase, randomBytes } from './helpers.ts';
 
 /** WebKit refuses OPFS in Playwright's ephemeral contexts, which is how Vitest runs it. */
 const opfs = await navigator.storage.getDirectory().then(
@@ -58,7 +51,7 @@ async function readFile(handle: FileSystemFileHandle): Promise<Uint8Array<ArrayB
 
 /** Encrypts `bytes` and flips a bit in the last chunk's tag. */
 async function corrupted(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-	const sealed = await encrypt(bytes, passphrase);
+	const sealed = await encrypt(bytes, passphrase.encrypt);
 	sealed[sealed.length - 1]! ^= 1;
 
 	return sealed;
@@ -74,12 +67,12 @@ describe('save location failures', () => {
 			// Nothing controls the test page, so the download can't be handed to a service worker.
 			expect(navigator.serviceWorker?.controller ?? null).toBeNull();
 
-			const result = await runJob({
+			const result = await startJob({
 				mode: 'encrypt',
-				credentials: passphrase,
+				credentials: passphrase.encrypt,
 				files: [file(randomBytes(100), 'a.txt'), file(randomBytes(100), 'b.txt')],
 				save: { kind: 'sw-download' }
-			});
+			}).done;
 
 			expect(result.status).toBe('failed');
 			expect(result.files.map((f) => f.status)).toEqual(['failed', 'cancelled']);
@@ -94,12 +87,12 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		await writeFile(directory, 'a.txt.age', 'keep me');
 		const plain = randomBytes(100);
 
-		const result = await runJob({
+		const result = await startJob({
 			mode: 'encrypt',
-			credentials: passphrase,
+			credentials: passphrase.encrypt,
 			files: [file(plain, 'a.txt'), file(randomBytes(100), 'b.txt')],
 			save: { kind: 'directory', handle: directory }
-		});
+		}).done;
 
 		expect(result.status).toBe('done');
 		expect(result.files.map((f) => f.output)).toEqual([{ kind: 'saved' }, { kind: 'saved' }]);
@@ -109,22 +102,22 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		expect(new TextDecoder().decode(kept)).toBe('keep me');
 
 		const sealed = await readFile(await directory.getFileHandle('a (1).txt.age'));
-		expect(equalBytes((await decrypt(sealed, unlock)).output!, plain)).toBe(true);
+		expect(equalBytes((await decrypt(sealed, passphrase.decrypt)).output!, plain)).toBe(true);
 	});
 
 	test('a corrupted file removes only the output it created in the folder', async () => {
 		const directory = await pickedDirectory();
 		await writeFile(directory, 'other.txt', 'not ours');
 
-		const result = await runJob({
+		const result = await startJob({
 			mode: 'decrypt',
-			credentials: unlock,
+			credentials: passphrase.decrypt,
 			files: [
-				file(await encrypt(randomBytes(100), passphrase), 'a.txt.age'),
+				file(await encrypt(randomBytes(100), passphrase.encrypt), 'a.txt.age'),
 				file(await corrupted(randomBytes(100)), 'b.txt.age')
 			],
 			save: { kind: 'directory', handle: directory }
-		});
+		}).done;
 
 		expect(result.files.map((f) => f.status)).toEqual(['done', 'failed']);
 		expect(result.files[1]!.error?.code).toBe('corrupted');
@@ -135,12 +128,12 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		const directory = await pickedDirectory();
 		const handle = await writeFile(directory, 'out.txt', 'previous');
 
-		const result = await runJob({
+		const result = await startJob({
 			mode: 'decrypt',
-			credentials: unlock,
+			credentials: passphrase.decrypt,
 			files: [file(await corrupted(randomBytes(100)), 'out.txt.age')],
 			save: { kind: 'file', handle }
-		});
+		}).done;
 
 		expect(result.files[0]!.error?.code).toBe('corrupted');
 		expect(new TextDecoder().decode(await readFile(handle))).toBe('previous');
@@ -148,29 +141,40 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 });
 
 describe.skipIf(!opfs)('staging in OPFS', () => {
-	test('a staged output is handed to the browser downloads', async () => {
-		const result = await runJob({
-			mode: 'encrypt',
-			credentials: passphrase,
-			files: [file(randomBytes(100), 'a.txt')],
-			save: { kind: 'opfs' }
-		});
+	test('a staged output holds the whole encrypted file and goes to the downloads', async () => {
+		const staging = await stagingDirectory();
+		const before = await names(staging);
+		const plain = randomBytes(3 * 64 * 1024 + 5);
 
-		expect(result.status).toBe('done');
+		const result = await startJob({
+			mode: 'encrypt',
+			credentials: passphrase.encrypt,
+			files: [file(plain, 'a.txt')],
+			save: { kind: 'opfs' }
+		}).done;
+
 		expect(result.files[0]!.output).toEqual({ kind: 'downloaded' });
+		const staged = (await names(staging)).find((name) => !before.includes(name));
+		const sealed = await readFile(await staging.getFileHandle(staged!));
+		expect(equalBytes((await decrypt(sealed, passphrase.decrypt)).output!, plain)).toBe(true);
 	});
 
 	test('staging removes files left behind and keeps files still being downloaded', async () => {
 		const staging = await stagingDirectory();
-		const job = { mode: 'encrypt', credentials: passphrase, save: { kind: 'opfs' } } as const;
+
+		const job = {
+			mode: 'encrypt',
+			credentials: passphrase.encrypt,
+			save: { kind: 'opfs' }
+		} as const;
 
 		const before = await names(staging);
-		await runJob({ ...job, files: [file(randomBytes(100), 'first.txt')] });
+		await startJob({ ...job, files: [file(randomBytes(100), 'first.txt')] }).done;
 		const first = (await names(staging)).filter((name) => !before.includes(name));
 		expect(first).toHaveLength(1);
 
 		await writeFile(staging, 'left-behind.part', 'from a closed tab');
-		await runJob({ ...job, files: [file(randomBytes(100), 'second.txt')] });
+		await startJob({ ...job, files: [file(randomBytes(100), 'second.txt')] }).done;
 		const after = await names(staging);
 
 		expect(after).not.toContain('left-behind.part');
@@ -235,29 +239,27 @@ describe('choosing a save location', () => {
 		});
 	});
 
-	test('without pickers, a service worker download, else OPFS staging', async () => {
-		expect(
-			await chooseSaveLocationIn(fakeBrowser({ serviceWorkerDownload: true }), 'encrypt', one)
-		).toEqual({ location: { kind: 'sw-download' } });
-		expect(await chooseSaveLocationIn(fakeBrowser({}), 'encrypt', two)).toEqual({
-			location: { kind: 'opfs' }
+	test.each([
+		['a service worker controls the page', { serviceWorkerDownload: true }, 'sw-download'],
+		['no service worker controls the page', {}, 'opfs']
+	] as const)('without pickers, when %s, the downloads are %s', async (_, capabilities, kind) => {
+		expect(await chooseSaveLocationIn(fakeBrowser(capabilities), 'encrypt', two)).toEqual({
+			location: { kind }
 		});
 	});
 
 	test('OPFS that refuses to open, as in private windows, is unsupported', async () => {
 		const refusing = fakeBrowser({}, { opfsOpens: () => Promise.resolve(false) });
 
-		expect(await chooseSaveLocationIn(refusing, 'encrypt', one)).toEqual({
-			location: null,
-			reason: 'unsupported'
+		await expect(chooseSaveLocationIn(refusing, 'encrypt', one)).rejects.toMatchObject({
+			code: 'unsupported'
 		});
 	});
 
 	test.each([
 		[new DOMException('closed', 'AbortError'), 'dismissed'],
 		[new DOMException('no activation', 'NotAllowedError'), 'needs-gesture'],
-		[new DOMException('no activation', 'SecurityError'), 'needs-gesture'],
-		[new TypeError('broken'), 'save-failed']
+		[new DOMException('no activation', 'SecurityError'), 'needs-gesture']
 	])('a picker failing with %s gives %s', async (error, reason) => {
 		const browser = fakeBrowser(pickers, {
 			showSaveFilePicker: async () => {
@@ -266,6 +268,18 @@ describe('choosing a save location', () => {
 		});
 
 		expect(await chooseSaveLocationIn(browser, 'encrypt', one)).toEqual({ location: null, reason });
+	});
+
+	test('a picker that breaks for any other reason fails the save', async () => {
+		const browser = fakeBrowser(pickers, {
+			showSaveFilePicker: async () => {
+				throw new TypeError('broken');
+			}
+		});
+
+		await expect(chooseSaveLocationIn(browser, 'encrypt', one)).rejects.toMatchObject({
+			code: 'save-failed'
+		});
 	});
 
 	test('the picker opens before anything is awaited, inside the click', async () => {

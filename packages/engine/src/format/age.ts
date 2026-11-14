@@ -1,4 +1,4 @@
-import { EngineError } from '../errors.ts';
+import { EngineError, type EngineErrorCode } from '../errors.ts';
 
 /** Plaintext bytes per age payload chunk, fixed by the spec. */
 export const CHUNK_SIZE = 64 * 1024;
@@ -11,10 +11,13 @@ export const SEALED_CHUNK_SIZE = CHUNK_SIZE + TAG_SIZE;
 export const PAYLOAD_NONCE_SIZE = 16;
 
 /** age 1.3.2 rejects larger headers, so we never read further than this. */
-export const MAX_HEADER_SIZE = 2 * 1024 * 1024;
+const MAX_HEADER_SIZE = 2 * 1024 * 1024;
 
 /** First read when looking for the header; almost every header fits. */
-export const HEADER_PROBE_SIZE = 64 * 1024;
+const HEADER_PROBE_SIZE = 64 * 1024;
+
+/** Holds every magic `sniffBytes` knows; the armor line, the longest, is 34 bytes. */
+const SNIFF_SIZE = 64;
 
 const encoder = new TextEncoder();
 const AGE_MAGIC = encoder.encode('age-encryption.org/v1\n');
@@ -23,7 +26,14 @@ const LEGACY_MAGIC = encoder.encode('encryptee.io');
 const MAC_LINE_START = encoder.encode('\n--- ');
 const NEWLINE = 0x0a;
 
-export type FileKind = 'age' | 'age-armored' | 'legacy' | 'plain';
+type FileKind = 'age' | 'age-armored' | 'legacy' | 'plain';
+
+/** Why a decrypt refuses a file that isn't age. */
+export const REFUSALS = {
+	legacy: 'legacy-file',
+	'age-armored': 'armored',
+	plain: 'not-encrypted'
+} as const satisfies Record<Exclude<FileKind, 'age'>, EngineErrorCode>;
 
 /** Classifies a file by its first bytes. The extension is never consulted. */
 export function sniffBytes(head: Uint8Array): FileKind {
@@ -73,6 +83,32 @@ export function headerLength(bytes: Uint8Array): number | null {
 	const end = bytes.indexOf(NEWLINE, mac + MAC_LINE_START.length);
 
 	return end === -1 ? null : end + 1;
+}
+
+/** Reads bytes `[start, end)` of a file. */
+export type ReadRange = (start: number, end: number) => Promise<ArrayBuffer>;
+
+/**
+ * Reads the age header at the start of a file of `size` bytes: `null` if it
+ * isn't an age file or the header doesn't end within the size age allows.
+ * Other files cost only a few bytes, since a selection inspects every file.
+ */
+export async function readHeader(
+	read: ReadRange,
+	size: number
+): Promise<{ kind: FileKind; header: Uint8Array | null }> {
+	const kind = sniffBytes(new Uint8Array(await read(0, Math.min(size, SNIFF_SIZE))));
+
+	if (kind !== 'age') return { kind, header: null };
+	let head = new Uint8Array(await read(0, Math.min(size, HEADER_PROBE_SIZE)));
+	let length = headerLength(head);
+
+	if (length === null && size > head.length) {
+		head = new Uint8Array(await read(0, Math.min(size, MAX_HEADER_SIZE)));
+		length = headerLength(head);
+	}
+
+	return { kind, header: length === null ? null : head.subarray(0, length) };
 }
 
 /** The recipient types named in a header, e.g. `scrypt`, `X25519`, `mlkem768x25519`. */

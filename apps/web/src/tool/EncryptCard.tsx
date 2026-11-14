@@ -71,23 +71,18 @@ export function EncryptCard(props: {
 	// chooseSaveLocation: the save picker needs this click's user activation.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
-		let keys = publicKeys;
 
-		if (method === 'public-keys' && draft.trim() !== '') {
-			try {
+		try {
+			let keys = publicKeys;
+
+			if (method === 'public-keys' && draft.trim() !== '') {
 				keys = [...new Set([...publicKeys, ...(await parseKeys(draft))])];
-			} catch (cause) {
-				setError(errorMessage(cause));
-
-				return;
+				addKeys(keys);
 			}
 
-			addKeys(keys);
-		}
+			const choice = await chooseSaveLocation('encrypt', props.files);
 
-		const choice = await chooseSaveLocation('encrypt', props.files);
-
-		if (choice.location) {
+			if (!choice.location) return;
 			props.onStart(
 				startJob({
 					mode: 'encrypt',
@@ -99,14 +94,15 @@ export function EncryptCard(props: {
 							: { kind: 'public-keys', publicKeys: keys }
 				})
 			);
-		} else if (choice.reason === 'unsupported') setError(strings.unsupported);
-		else if (choice.reason === 'save-failed') setError(strings.errors['save-failed']);
+		} catch (cause) {
+			setError(errorMessage(cause));
+		}
 	};
 
 	return (
 		<Card>
 			<form onSubmit={submit}>
-				<Kicker heading>{strings.selection.encrypting(props.files.length)}</Kicker>
+				<Kicker heading>{strings.selection.encrypt(props.files.length)}</Kicker>
 				<FileLines files={props.files} />
 				<TextButton tone="muted" className="mt-3" onClick={props.onBack}>
 					{strings.selection.other}

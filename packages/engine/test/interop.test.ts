@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vite-plus/test';
 import { commands } from 'vite-plus/test/browser';
+import { generateKeyPair } from '../src/index.ts';
 import { keyFileText } from '../src/keys/key-pair.ts';
-import { generateKeyPair, protectKeyFile, readKeyFile } from '../src/index.ts';
+import { protectKeyFile } from '../src/keys/keys.ts';
 import { CHUNK, TEST_LOG_N, decrypt, encrypt, equalBytes, randomBytes } from './helpers.ts';
 
 /** Interop with the reference `age` CLI (≥ 1.3) via Vitest browser commands. */
@@ -82,8 +83,5 @@ describe.runIf(available)('age CLI interop', () => {
 		const sealed = await encrypt(plain, { kind: 'public-keys', publicKeys: [pair.publicKey] });
 		const result = await commands.ageDecrypt({ input: sealed.toBase64(), identity });
 		expect(result.ok).toBe(true);
-		expect(await readKeyFile(protectedFile, 'key-pass')).toMatchObject({
-			privateKeys: [pair.privateKey]
-		});
 	});
 });

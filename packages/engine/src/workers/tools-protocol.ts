@@ -1,31 +1,24 @@
 import type { SerializedError } from '../errors.ts';
-import type {
-	generateKeyPair,
-	protectKeyFile,
-	readKeyFile,
-	validatePublicKeys
-} from '../keys/keys.ts';
+import type * as keys from '../keys/keys.ts';
 
-export interface Tools {
-	generateKeyPair: typeof generateKeyPair;
-	protectKeyFile: typeof protectKeyFile;
-	readKeyFile: typeof readKeyFile;
-	validatePublicKeys: (...args: Parameters<typeof validatePublicKeys>) => Promise<string[]>;
-}
+/** The key tools: every function `keys.ts` exports, run in the tools worker. */
+type Tools = typeof keys;
 
 export type ToolName = keyof Tools;
 
-/** Result of tool `T`, as posted back. */
-export type ToolValue<T extends ToolName = ToolName> = Awaited<ReturnType<Tools[T]>>;
+export type ToolArgs = { [K in ToolName]: Parameters<Tools[K]> };
+
+/** Each tool's result, as posted back. */
+export type ToolResult = { [K in ToolName]: Awaited<ReturnType<Tools[K]>> };
 
 /**
- * One call of tool `T`, posted to the worker, which answers on `port`. Without
- * `T` it is a union discriminated by `tool`, so checking `tool` narrows `args`.
+ * One call of tool `K`, posted to the worker, which answers on `port`. For a
+ * generic `K`, `tools[request.tool]` takes `request.args`.
  */
-export type ToolRequest<T extends ToolName = ToolName> = {
-	[K in T]: { tool: K; args: Parameters<Tools[K]>; port: MessagePort };
-}[T];
+export type ToolRequest<K extends ToolName = ToolName> = {
+	[P in K]: { tool: P; args: ToolArgs[P]; port: MessagePort };
+}[K];
 
-export type ToolResponse<T extends ToolName = ToolName> =
-	| { ok: true; value: ToolValue<T> }
+export type ToolResponse<K extends ToolName> =
+	| { ok: true; value: ToolResult[K] }
 	| { ok: false; error: SerializedError };

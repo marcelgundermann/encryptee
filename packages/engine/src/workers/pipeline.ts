@@ -1,19 +1,12 @@
 import { EngineError, serializeError } from '../errors.ts';
-import {
-	HEADER_PROBE_SIZE,
-	MAX_HEADER_SIZE,
-	PAYLOAD_NONCE_SIZE,
-	headerLength,
-	sealedPayloadSize,
-	sniffBytes
-} from '../format/age.ts';
+import { PAYLOAD_NONCE_SIZE, REFUSALS, readHeader, type ReadRange } from '../format/age.ts';
 import { openHeader, sealHeader } from '../format/header.ts';
-import { derivePayloadKey, type Backend } from '../payload/cipher.ts';
+import { derivePayloadKey } from '../payload/cipher.ts';
 import { batchRange, openLayout, sealLayout, type PayloadLayout } from '../payload/layout.ts';
 import { openSink } from '../sinks/open-sink.ts';
 import type { ByteSink, SinkResult } from '../sinks/sink.ts';
 import type { CryptoPool } from './pool.ts';
-import type { CoordinatorEvent, FileTask, Source, TaskOperation } from './protocol.ts';
+import type { CoordinatorEvent, FileTask, Source, TaskOperation, Tuning } from './protocol.ts';
 
 const PROGRESS_INTERVAL_MS = 100;
 
@@ -29,35 +22,36 @@ export interface Prepared {
 /**
  * Runs one file task inside the coordinator: header, then a sliding window of
  * batches through the crypto pool, written to the sink strictly in order.
- * Nothing reaches the sink before the header has been verified. A file whose
- * header a `check` already opened passes its `checked` preparation.
+ * Nothing reaches the sink before the header has been verified. `preparation`
+ * is the header a `check` already opened, or the one being prepared.
  */
 export async function runFileTask(
 	task: FileTask,
+	preparation: Prepared | Promise<Prepared>,
 	pool: CryptoPool,
+	tuning: Tuning,
 	emit: (event: CoordinatorEvent) => void,
-	signal: AbortSignal,
-	checked?: Prepared
+	signal: AbortSignal
 ): Promise<SinkResult> {
 	const read = reader(task.source);
 	let sink: ByteSink | null = null;
 
 	try {
-		const prepared = checked ?? (await prepare(task.operation, task.source, task.batchChunks));
+		const prepared = await preparation;
 		signal.throwIfAborted();
-		const backend: Backend = await pool.setKey(prepared.payloadKey, task.backend);
+		const backend = await pool.setKey(prepared.payloadKey, tuning.backend);
 		prepared.payloadKey.fill(0);
 
 		sink = await openSink(task.sink);
 		emit({ type: 'opened', id: task.id, outputSize: prepared.outputSize, backend });
 
 		if (prepared.prefix) await untilAborted(sink.write(prepared.prefix), signal);
-		await pumpBatches(task, prepared.layout, read, pool, sink, emit, signal);
+		await pumpBatches(task, prepared.layout, tuning.window, read, pool, sink, emit, signal);
 		signal.throwIfAborted();
 
 		return await sink.close();
 	} catch (error) {
-		const reason = signal.aborted ? new EngineError('cancelled', 'cancelled') : error;
+		const reason: unknown = signal.aborted ? signal.reason : error;
 		await sink?.abort(serializeError(reason));
 		throw reason;
 	} finally {
@@ -83,42 +77,22 @@ export async function prepare(
 		const payloadKey = derivePayloadKey(fileKey, nonce);
 		fileKey.fill(0);
 
-		return {
-			layout: sealLayout(size, batchChunks),
-			payloadKey,
-			prefix,
-			outputSize: prefix.length + sealedPayloadSize(size)
-		};
+		const layout = sealLayout(size, batchChunks);
+
+		return { layout, payloadKey, prefix, outputSize: prefix.length + layout.outputSize };
 	}
 
-	let head = new Uint8Array(await read(0, Math.min(size, HEADER_PROBE_SIZE)));
-	const kind = sniffBytes(head);
+	const { kind, header } = await readHeader(read, size);
 
-	if (kind === 'legacy') throw new EngineError('legacy-file', 'this is an Encryptee v1 file');
+	if (kind !== 'age') throw new EngineError(REFUSALS[kind], `not an age file: ${kind}`);
 
-	if (kind === 'age-armored')
-		throw new EngineError('armored', 'armored age files are not supported');
-
-	if (kind !== 'age') throw new EngineError('not-encrypted', 'not an age file');
-	let length = headerLength(head);
-
-	if (length === null && size > head.length) {
-		head = new Uint8Array(await read(0, Math.min(size, MAX_HEADER_SIZE)));
-		length = headerLength(head);
-	}
-
-	if (length === null) throw new EngineError('corrupted', 'the header is incomplete');
-	const nonceEnd = length + PAYLOAD_NONCE_SIZE;
+	if (!header) throw new EngineError('corrupted', 'the header is incomplete');
+	const nonceEnd = header.length + PAYLOAD_NONCE_SIZE;
 
 	if (size < nonceEnd) throw new EngineError('corrupted', 'the file is truncated');
 
-	const fileKey = await openHeader(head.subarray(0, length), operation.credentials);
-
-	const nonce =
-		head.length >= nonceEnd
-			? head.slice(length, nonceEnd)
-			: new Uint8Array(await read(length, nonceEnd));
-
+	const fileKey = await openHeader(header, operation.credentials);
+	const nonce = new Uint8Array(await read(header.length, nonceEnd));
 	const payloadKey = derivePayloadKey(fileKey, nonce);
 	fileKey.fill(0);
 	const layout = openLayout(nonceEnd, size, batchChunks);
@@ -129,7 +103,8 @@ export async function prepare(
 async function pumpBatches(
 	task: FileTask,
 	layout: PayloadLayout,
-	read: (start: number, end: number) => Promise<ArrayBuffer>,
+	window: number,
+	read: ReadRange,
 	pool: CryptoPool,
 	sink: ByteSink,
 	emit: (event: CoordinatorEvent) => void,
@@ -142,19 +117,19 @@ async function pumpBatches(
 	let lastProgress = 0;
 
 	const start = (index: number) => {
-		const range = batchRange(layout, index, task.batchChunks);
+		const range = batchRange(layout, index);
 		const result = read(range.start, range.end).then((data) => pool.run(mode, range, data));
 		result.catch(() => {}); // Observed below; avoid unhandled-rejection noise for later batches.
 		inFlight.set(index, result);
 	};
 
 	for (let next = 0; next < layout.batches; next++) {
-		while (nextToStart < layout.batches && nextToStart < next + task.window) start(nextToStart++);
+		while (nextToStart < layout.batches && nextToStart < next + window) start(nextToStart++);
 		const output = await untilAborted(inFlight.get(next)!, signal);
 		inFlight.delete(next);
 		await untilAborted(sink.write(output), signal);
 
-		const range = batchRange(layout, next, task.batchChunks);
+		const range = batchRange(layout, next);
 		bytesDone += range.end - range.start;
 		const now = performance.now();
 
@@ -165,7 +140,7 @@ async function pumpBatches(
 	}
 }
 
-function reader(source: Source): (start: number, end: number) => Promise<ArrayBuffer> {
+function reader(source: Source): ReadRange {
 	if (source.kind === 'blob') return (start, end) => source.blob.slice(start, end).arrayBuffer();
 
 	return async (start, end) => new ArrayBuffer(end - start);

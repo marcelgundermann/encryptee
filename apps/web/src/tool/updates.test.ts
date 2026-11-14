@@ -7,6 +7,15 @@ function serve(body: string): void {
 	vi.stubGlobal('fetch', async () => new Response(body));
 }
 
+test('the answer comes from the network, never from a cache', async () => {
+	const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(securityJson));
+	vi.stubGlobal('fetch', fetch);
+
+	await checkSafety();
+
+	expect(fetch).toHaveBeenCalledWith('/security.json', { cache: 'no-store' });
+});
+
 test('the security.json this repo deploys lets this build run', async () => {
 	serve(securityJson);
 

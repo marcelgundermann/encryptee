@@ -32,6 +32,13 @@ async function waitForServiceWorker(page: Page): Promise<void> {
 	});
 }
 
+/** Opens the tool without its native pickers, once a service worker controls it. */
+async function openTool(page: Page): Promise<void> {
+	await page.addInitScript(hidePickers);
+	await page.goto('/');
+	await waitForServiceWorker(page);
+}
+
 async function dropFile(page: Page, name: string, buffer: Buffer): Promise<void> {
 	await page
 		.locator('input[type=file]')
@@ -80,18 +87,14 @@ test('content pages and the 404 page render without CSP violations', async ({ pa
 
 test('encrypt and decrypt round trip through the service-worker download', async ({ page }) => {
 	const violations = watchCsp(page);
-	await page.addInitScript(hidePickers);
-	await page.goto('/');
-	await waitForServiceWorker(page);
+	await openTool(page);
 	const plain = randomBytes(3 * 1024 * 1024 + 17);
 	expect((await roundTrip(page, plain)).equals(plain)).toBe(true);
 	expect(violations).toEqual([]);
 });
 
 test('works offline once installed', async ({ page, context }) => {
-	await page.addInitScript(hidePickers);
-	await page.goto('/');
-	await waitForServiceWorker(page);
+	await openTool(page);
 	await context.setOffline(true);
 	await page.reload();
 	await expect(page.getByText('Choose files', { exact: true })).toBeVisible();
@@ -115,9 +118,7 @@ test.describe('without a service worker', () => {
 });
 
 test('a wrong passphrase is rejected on the card, before anything is saved', async ({ page }) => {
-	await page.addInitScript(hidePickers);
-	await page.goto('/');
-	await waitForServiceWorker(page);
+	await openTool(page);
 	await dropFile(page, 'a.txt', randomBytes(1000));
 	await page.getByRole('button', { name: 'Use my own' }).click();
 	await page.locator('#encrypt-own').fill('right');
@@ -132,17 +133,16 @@ test('a wrong passphrase is rejected on the card, before anything is saved', asy
 	let downloads = 0;
 	page.on('download', () => downloads++);
 	await page.getByRole('button', { name: 'Decrypt', exact: true }).click();
-	await expect(
-		page.getByText('That doesn’t match. Check the passphrase or key file.')
-	).toBeVisible();
+	// The check runs scrypt at full strength, which takes seconds on a slow machine.
+	await expect(page.getByText('That doesn’t match. Check the passphrase or key file.')).toBeVisible(
+		{ timeout: 30_000 }
+	);
 	await expect(page.getByRole('heading', { name: 'Encrypted with a passphrase.' })).toBeVisible();
 	expect(downloads).toBe(0);
 });
 
 test('public keys: create a key, encrypt to it, decrypt with the key file', async ({ page }) => {
-	await page.addInitScript(hidePickers);
-	await page.goto('/');
-	await waitForServiceWorker(page);
+	await openTool(page);
 	await page.getByRole('button', { name: 'Keys' }).click();
 	await page.getByRole('button', { name: 'Create my key' }).click();
 	const keyPassphrase = (await page.locator('#keys-generated').textContent())!;
@@ -173,7 +173,8 @@ test('public keys: create a key, encrypt to it, decrypt with the key file', asyn
 	});
 	await page.locator('#decrypt-key-passphrase').fill(keyPassphrase);
 	await page.getByRole('button', { name: 'Use key file' }).click();
-	await expect(page.getByText('Key loaded from key.age')).toBeVisible();
+	// Opening the protected key file runs scrypt at full strength.
+	await expect(page.getByText('Key loaded from key.age')).toBeVisible({ timeout: 30_000 });
 	const decrypted = page.waitForEvent('download');
 	await page.getByRole('button', { name: 'Decrypt', exact: true }).click();
 	const output = await readFile(await (await decrypted).path());
@@ -181,9 +182,7 @@ test('public keys: create a key, encrypt to it, decrypt with the key file', asyn
 });
 
 test('a public key pasted but not added is still encrypted to', async ({ page }) => {
-	await page.addInitScript(hidePickers);
-	await page.goto('/');
-	await waitForServiceWorker(page);
+	await openTool(page);
 	await dropFile(page, 'notes.txt', randomBytes(1000));
 	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
 	await page

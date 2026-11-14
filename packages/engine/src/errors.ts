@@ -18,6 +18,7 @@ export type EngineErrorCode =
 	| 'cancelled'
 	| 'save-failed'
 	| 'storage-full'
+	/** This browser can't save the output, or lacks a cipher backend a benchmark or test forced. */
 	| 'unsupported'
 	| 'internal';
 

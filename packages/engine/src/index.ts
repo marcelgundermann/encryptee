@@ -14,7 +14,9 @@ export type {
 
 export { chooseSaveLocation, whereToSave } from './sinks/save-location.ts';
 
-export type { FileOutput, SaveChoice, SaveLocation, SavePlan } from './sinks/save-location.ts';
+export type { SaveChoice, SaveLocation, SavePlan } from './sinks/save-location.ts';
+
+export type { FileOutput } from './sinks/sink.ts';
 
 export type { DecryptCredentials, EncryptCredentials } from './format/header.ts';
 
@@ -22,27 +24,17 @@ export { EngineError } from './errors.ts';
 
 export type { EngineErrorCode, SerializedError } from './errors.ts';
 
-export { defaultTuning } from './capabilities.ts';
-
-export type { Tuning } from './capabilities.ts';
-
 export { preflight } from './preflight.ts';
 
-export type { Preflight, PreflightWarning } from './preflight.ts';
+export type { PreflightWarning } from './preflight.ts';
 
 export { inspectFile } from './inspect.ts';
 
 export type { FileInfo } from './inspect.ts';
 
-export type { FileKind } from './format/age.ts';
+export { generateKeyPair, readKeyFile, saveKeyFile, validatePublicKeys } from './tools.ts';
 
-export { nativeChaChaAvailable } from './payload/cipher.ts';
-
-export type { Backend } from './payload/cipher.ts';
-
-export { generateKeyPair, protectKeyFile, readKeyFile, validatePublicKeys } from './tools.ts';
-
-export { keyFileText, mixesPqAndClassic, publicKeyType } from './keys/key-pair.ts';
+export { mixesPqAndClassic } from './keys/key-pair.ts';
 
 export type { KeyPair, KeyType } from './keys/key-pair.ts';
 

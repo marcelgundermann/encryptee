@@ -1,7 +1,6 @@
 import {
 	checkCredentials,
 	chooseSaveLocation,
-	readKeyFile,
 	type CheckedCredentials,
 	type DecryptCredentials,
 	type Job
@@ -18,16 +17,10 @@ import {
 	Hint,
 	Kicker,
 	LineField,
-	StableLabel,
 	TextButton,
 	touchScreen
 } from './ui.tsx';
-
-interface KeyFile {
-	name: string;
-	bytes: Uint8Array;
-	privateKeys: string[] | null;
-}
+import { useKeyFile } from './useKeyFile.tsx';
 
 export function DecryptCard(props: {
 	files: File[];
@@ -37,14 +30,16 @@ export function DecryptCard(props: {
 	onBack: () => void;
 }) {
 	const [passphrase, setPassphrase] = useState('');
-	const [keyFile, setKeyFile] = useState<KeyFile | null>(null);
-	const [keyFilePassphrase, setKeyFilePassphrase] = useState('');
 	const [checking, setChecking] = useState(false);
 	/** Credentials that opened the first header, waiting for a save location. */
 	const [checked, setChecked] = useState<CheckedCredentials | null>(null);
-	const [checkingKeyFile, setCheckingKeyFile] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const keyInput = useRef<HTMLInputElement>(null);
+
+	const keyFile = useKeyFile('decrypt', () => {
+		setError(null);
+		setChecked(null);
+	});
+
 	const passphraseInput = useRef<HTMLInputElement>(null);
 
 	const mounted = useRef(false);
@@ -65,48 +60,27 @@ export function DecryptCard(props: {
 			? passphrase
 				? { kind: 'passphrase', passphrase }
 				: null
-			: keyFile?.privateKeys
-				? { kind: 'private-keys', privateKeys: keyFile.privateKeys }
+			: keyFile.picked?.keys
+				? { kind: 'private-keys', privateKeys: keyFile.picked.keys.privateKeys }
 				: null;
 
-	const loadKeyFile = async (name: string, bytes: Uint8Array, pass?: string) => {
-		setError(null);
-		setChecked(null);
-		setCheckingKeyFile(true);
-
+	const start = async (handle: CheckedCredentials) => {
 		try {
-			const contents = await readKeyFile(bytes, pass);
-			setKeyFile({ name, bytes, privateKeys: contents.protected ? null : contents.privateKeys });
+			const choice = await chooseSaveLocation('decrypt', props.files);
+
+			// The check outlasted the click's user activation: keep it for one more click.
+			if (!choice.location && choice.reason === 'needs-gesture') return;
+
+			if (choice.location) props.onStart(handle.startJob(choice.location));
 		} catch (cause) {
 			setError(errorMessage(cause));
-		} finally {
-			setCheckingKeyFile(false);
 		}
-	};
 
-	const submitKeyFile = () => {
-		if (keyFile && !checkingKeyFile)
-			void loadKeyFile(keyFile.name, keyFile.bytes, keyFilePassphrase);
-	};
-
-	const start = async (handle: CheckedCredentials) => {
-		const choice = await chooseSaveLocation('decrypt', props.files);
-
-		if (choice.location) {
-			props.onStart(handle.startJob(choice.location));
-			setChecked(null);
-		} else if (choice.reason !== 'needs-gesture') {
-			if (choice.reason === 'unsupported') setError(strings.unsupported);
-
-			if (choice.reason === 'save-failed') setError(strings.errors['save-failed']);
-			setChecked(null);
-		}
+		setChecked(null);
 	};
 
 	// Open the first header (scrypt, in the job's worker) so a wrong passphrase
-	// fails here, before the save picker; the job reuses it. If the check
-	// outlasts the click's user activation, the picker is refused and we ask
-	// for one more click.
+	// fails here, before the save picker; the job reuses it.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
 
@@ -142,7 +116,7 @@ export function DecryptCard(props: {
 	return (
 		<Card>
 			<form onSubmit={submit}>
-				<Kicker>{strings.selection.decrypting(props.files.length)}</Kicker>
+				<Kicker>{strings.selection.decrypt(props.files.length)}</Kicker>
 				<FileLines files={props.files} />
 				<TextButton tone="muted" className="mt-3" onClick={props.onBack}>
 					{strings.selection.other}
@@ -177,58 +151,19 @@ export function DecryptCard(props: {
 					<>
 						<button
 							type="button"
-							onClick={() => keyInput.current?.click()}
+							onClick={keyFile.choose}
 							className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg"
 						>
 							<span className="min-w-0 truncate">
-								{keyFile ? keyFile.name : strings.decrypt.keyFile}
+								{keyFile.picked?.name ?? strings.keyFile.choose}
 							</span>
 							<span className="shrink-0 text-sm text-muted">
-								{keyFile?.privateKeys
-									? strings.decrypt.keysLoaded(keyFile.name)
-									: strings.decrypt.keyFileHint}
+								{keyFile.picked?.keys
+									? strings.keyFile.loaded(keyFile.picked.name)
+									: strings.keyFile.hint}
 							</span>
 						</button>
-						<input
-							ref={keyInput}
-							type="file"
-							hidden
-							aria-label={strings.decrypt.keyFile}
-							onChange={async (event) => {
-								const file = event.currentTarget.files?.[0];
-								event.currentTarget.value = '';
-
-								if (file) await loadKeyFile(file.name, new Uint8Array(await file.arrayBuffer()));
-							}}
-						/>
-						{keyFile && !keyFile.privateKeys && (
-							<LineField
-								id="decrypt-key-passphrase"
-								label={strings.decrypt.keyFilePassphrase}
-								input={{
-									type: 'password',
-									autoFocus: !touchScreen(),
-									value: keyFilePassphrase,
-									onChange: (e) => setKeyFilePassphrase(e.target.value),
-									onKeyDown: (e) => {
-										if (e.key === 'Enter') {
-											e.preventDefault();
-											submitKeyFile();
-										}
-									}
-								}}
-								action={
-									<TextButton onClick={submitKeyFile}>
-										<StableLabel
-											current={
-												checkingKeyFile ? strings.decrypt.checking : strings.decrypt.applyKeyFile
-											}
-											labels={[strings.decrypt.applyKeyFile, strings.decrypt.checking]}
-										/>
-									</TextButton>
-								}
-							/>
-						)}
+						{keyFile.field}
 					</>
 				)}
 
@@ -237,7 +172,7 @@ export function DecryptCard(props: {
 				{checked && <Hint>{strings.decrypt.checked}</Hint>}
 				{/* The same button either way, so it keeps focus for the second press. */}
 				{checked ? (
-					<BigButton onClick={() => void start(checked)}>
+					<BigButton disabled={props.disabled} onClick={() => void start(checked)}>
 						{strings.decrypt.chooseSave}
 						<Arrow />
 					</BigButton>

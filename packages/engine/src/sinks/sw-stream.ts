@@ -8,8 +8,8 @@ import type { ByteSink, SinkResult } from './sink.ts';
 import { SW_CREDIT_WINDOW, SW_MAX_MESSAGE_BYTES, type DownloadPortMessage } from './sw-protocol.ts';
 
 /**
- * Feeds the service worker's download stream. Each message is at most 256 KiB
- * (Safari drops larger ones) and waits for a credit from the SW, so a slow disk
+ * Feeds the service worker's download stream. Each message stays within
+ * `SW_MAX_MESSAGE_BYTES` and waits for a credit from the SW, so a slow disk
  * on the download side throttles the whole pipeline.
  */
 export class SwDownloadSink implements ByteSink {

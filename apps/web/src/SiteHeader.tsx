@@ -1,11 +1,6 @@
 import type { ReactNode } from 'react';
+import { PAGES } from '../pages.ts';
 import { strings } from './strings.ts';
-
-const PAGE_LINKS = [
-	{ href: '/how-it-works/', label: strings.nav.howItWorks },
-	{ href: '/security/', label: strings.nav.security },
-	{ href: '/faq/', label: strings.nav.faq }
-];
 
 const wordmarkClass = 'hit-area focus-ring font-semibold tracking-tight';
 
@@ -37,15 +32,15 @@ export function SiteHeader({
 			)}
 			<nav className="flex gap-5 text-muted">
 				{children}
-				{PAGE_LINKS.map((link) => (
+				{PAGES.map((page) => (
 					<a
-						key={link.href}
-						href={link.href}
-						aria-current={location.pathname === link.href ? 'page' : undefined}
+						key={page}
+						href={`/${page}/`}
+						aria-current={location.pathname === `/${page}/` ? 'page' : undefined}
 						// With the tool's own items there's no room for Security on a phone.
-						className={`${navItemClass} ${children && link.href === '/security/' ? 'hidden sm:inline' : ''}`}
+						className={`${navItemClass} ${children && page === 'security' ? 'hidden sm:inline' : ''}`}
 					>
-						{link.label}
+						{strings.nav[page]}
 					</a>
 				))}
 			</nav>

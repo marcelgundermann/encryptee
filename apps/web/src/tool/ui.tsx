@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ComponentProps, type ReactNode, type Ref } from 'react';
+import {
+	useEffect,
+	useId,
+	useRef,
+	useState,
+	type ComponentProps,
+	type ReactNode,
+	type Ref
+} from 'react';
 import { formatBytes, strings } from '../strings.ts';
 
 /*
@@ -48,31 +56,35 @@ export function Card({ children }: { children: ReactNode }) {
 	return <div className="w-full max-w-lg">{children}</div>;
 }
 
+/** The step's h1. It takes focus when focus fell back to the page with the step before. */
+export function StepHeading({ children, className }: { children: ReactNode; className: string }) {
+	const ref = useFocusIfLost<HTMLHeadingElement>();
+
+	return (
+		<h1 ref={ref} tabIndex={-1} className={`focus:outline-hidden ${className}`}>
+			{children}
+		</h1>
+	);
+}
+
 /** A small label over a step; `heading` makes it the step's h1 when there's no Headline. */
 export function Kicker({ children, heading = false }: { children: ReactNode; heading?: boolean }) {
-	const ref = useFocusIfLost<HTMLHeadingElement>(heading);
 	const className = 'mb-4 text-sm font-medium tracking-wide text-muted uppercase';
 
 	return heading ? (
-		<h1 ref={ref} tabIndex={-1} className={`${className} focus:outline-hidden`}>
-			{children}
-		</h1>
+		<StepHeading className={className}>{children}</StepHeading>
 	) : (
 		<p className={className}>{children}</p>
 	);
 }
 
 export function Headline({ children, tone }: { children: ReactNode; tone?: 'error' }) {
-	const ref = useFocusIfLost<HTMLHeadingElement>();
-
 	return (
-		<h1
-			ref={ref}
-			tabIndex={-1}
-			className={`text-3xl font-semibold tracking-tight text-balance focus:outline-hidden sm:text-4xl ${tone === 'error' ? 'text-danger' : ''}`}
+		<StepHeading
+			className={`text-3xl font-semibold tracking-tight text-balance sm:text-4xl ${tone === 'error' ? 'text-danger' : ''}`}
 		>
 			{children}
-		</h1>
+		</StepHeading>
 	);
 }
 
@@ -145,15 +157,12 @@ export function TextButton({
 	);
 }
 
-/** One of several labels, in the width of the widest, so swapping them moves nothing. */
-export function StableLabel({ current, labels }: { current: string; labels: readonly string[] }) {
+/** `labels[shown]`, in the width of the widest label, so swapping them moves nothing. */
+export function StableLabel({ labels, shown }: { labels: readonly string[]; shown: number }) {
 	return (
 		<span className="inline-grid">
-			{labels.map((label) => (
-				<span
-					key={label}
-					className={`col-start-1 row-start-1 ${label === current ? '' : 'invisible'}`}
-				>
+			{labels.map((label, i) => (
+				<span key={label} className={`col-start-1 row-start-1 ${i === shown ? '' : 'invisible'}`}>
 					{label}
 				</span>
 			))}
@@ -161,13 +170,14 @@ export function StableLabel({ current, labels }: { current: string; labels: read
 	);
 }
 
-/** Two-way pill switch, e.g. Passphrase | Public keys, built on native radios. */
+/** A pill switch, e.g. Passphrase | Public keys, built on native radios. */
 export function Segmented<T extends string>(props: {
 	label: string;
 	options: ReadonlyArray<{ value: T; label: string }>;
 	value: T;
 	onChange: (value: T) => void;
 }) {
+	const name = useId();
 	const index = props.options.findIndex((option) => option.value === props.value);
 
 	return (
@@ -190,7 +200,7 @@ export function Segmented<T extends string>(props: {
 					<input
 						type="radio"
 						className="sr-only"
-						name={props.label}
+						name={name}
 						value={option.value}
 						checked={option.value === props.value}
 						onChange={() => props.onChange(option.value)}

@@ -1,12 +1,9 @@
-import {
-	chooseSink,
-	detectCapabilities,
-	type Capabilities,
-	type SinkChoice
-} from '../capabilities.ts';
-import { serializeError, type SerializedError } from '../errors.ts';
-import { STAGED_DOWNLOAD_MS, SwDownload, downloadStagedFile } from './download.ts';
-import { OPFS_STAGING_DIR, type SinkDescriptor, type SinkResult } from './sink.ts';
+import { detectCapabilities, type Capabilities } from '../capabilities.ts';
+import { EngineError, serializeError, type SerializedError } from '../errors.ts';
+import { outputName } from '../format/names.ts';
+import { stagedOutput } from './opfs-staging.ts';
+import type { Output, SinkDescriptor } from './sink.ts';
+import { streamedOutput } from './sw-download.ts';
 
 /** Where a job's output files end up. In the app, `chooseSaveLocation` gives one. */
 export type SaveLocation =
@@ -18,20 +15,18 @@ export type SaveLocation =
 	| { kind: 'sw-download' }
 	/** The browser's downloads, staged in the origin private file system first. */
 	| { kind: 'opfs' }
-	/** Collected into a Blob (tests and small files only). */
+	/** Collected into a Blob (tests). */
 	| { kind: 'memory' }
 	/** Dropped after counting (benchmarks). */
 	| { kind: 'discard' };
-
-/** Where one output file ended up: what its sink handed back, or the browser's downloads. */
-export type FileOutput = SinkResult | { kind: 'downloaded' };
 
 /** What the UI can say before Start: it will ask where to save, or use the downloads. */
 export type SavePlan = 'ask' | 'downloads';
 
 export type SaveChoice =
 	| { location: SaveLocation }
-	| { location: null; reason: 'dismissed' | 'needs-gesture' | 'unsupported' | 'save-failed' };
+	/** The user closed the picker, or the click's user activation had run out. */
+	| { location: null; reason: 'dismissed' | 'needs-gesture' };
 
 /** What choosing a save location depends on: this browser, or a fake one in tests. */
 export interface SaveEnvironment {
@@ -42,16 +37,55 @@ export interface SaveEnvironment {
 	opfsOpens(): Promise<boolean>;
 }
 
+/**
+ * Largest input the downloads are trusted with in each browser until
+ * measurements raise it. `null` means no limit.
+ */
+const SIZE_LIMITS: Record<Capabilities['browser'], number | null> = {
+	chromium: null,
+	firefox: 4 * 1024 ** 3,
+	safari: 4 * 1024 ** 3,
+	other: 2 * 1024 ** 3
+};
+
+/** How a browser saves a job, decided by its capabilities and the number of files. */
+interface SaveRoute {
+	kind: 'file' | 'directory' | 'sw-download' | 'opfs';
+	plan: SavePlan;
+	/** Largest input it's trusted with; `null` for no limit. */
+	sizeLimit: number | null;
+}
+
+/**
+ * Native pickers on Chromium, which write straight to disk, else a streamed
+ * download, else OPFS staging, which every browser has (whether it opens is
+ * checked when choosing).
+ */
+export function saveRoute(capabilities: Capabilities, fileCount: number): SaveRoute {
+	if (fileCount === 1 && capabilities.savePicker)
+		return { kind: 'file', plan: 'ask', sizeLimit: null };
+
+	if (fileCount > 1 && capabilities.directoryPicker)
+		return { kind: 'directory', plan: 'ask', sizeLimit: null };
+
+	return {
+		kind: capabilities.serviceWorkerDownload ? 'sw-download' : 'opfs',
+		plan: 'downloads',
+		sizeLimit: SIZE_LIMITS[capabilities.browser]
+	};
+}
+
 /** How a job over `fileCount` files would be saved in this browser. */
 export function whereToSave(fileCount: number): SavePlan {
-	return planOf(chooseSink(detectCapabilities(), fileCount));
+	return saveRoute(detectCapabilities(), fileCount).plan;
 }
 
 /**
  * Picks where a job's outputs go, showing a save picker where the browser has
  * one. Call it straight from the click handler, before awaiting anything: the
  * pickers need the click's user activation, and once it has expired the
- * choice is `needs-gesture`, so ask for another click. Never throws.
+ * choice is `needs-gesture`, so ask for another click. Rejects with
+ * `unsupported` where OPFS won't open, and `save-failed` if a picker breaks.
  */
 export function chooseSaveLocation(
 	mode: 'encrypt' | 'decrypt',
@@ -66,56 +100,43 @@ export async function chooseSaveLocationIn(
 	mode: 'encrypt' | 'decrypt',
 	files: readonly { name: string }[]
 ): Promise<SaveChoice> {
-	const choice = chooseSink(environment.capabilities, files.length);
-
-	try {
-		switch (choice) {
-			case 'file-picker': {
-				const handle = await environment.showSaveFilePicker(outputName(mode, files[0]!.name));
-
-				return { location: { kind: 'file', handle } };
+	switch (saveRoute(environment.capabilities, files.length).kind) {
+		case 'file':
+			return pick(async () => ({
+				kind: 'file',
+				handle: await environment.showSaveFilePicker(outputName(mode, files[0]!.name))
+			}));
+		case 'directory':
+			return pick(async () => ({
+				kind: 'directory',
+				handle: await environment.showDirectoryPicker()
+			}));
+		case 'sw-download':
+			return { location: { kind: 'sw-download' } };
+		case 'opfs':
+			if (!(await environment.opfsOpens())) {
+				throw new EngineError('unsupported', 'the origin private file system does not open');
 			}
 
-			case 'directory-picker':
-				return { location: { kind: 'directory', handle: await environment.showDirectoryPicker() } };
-			case 'sw-download':
-				return { location: { kind: 'sw-download' } };
-			case 'opfs':
-				return (await environment.opfsOpens())
-					? { location: { kind: 'opfs' } }
-					: { location: null, reason: 'unsupported' };
-		}
+			return { location: { kind: 'opfs' } };
+	}
+}
+
+async function pick(show: () => Promise<SaveLocation>): Promise<SaveChoice> {
+	try {
+		return { location: await show() };
 	} catch (cause) {
-		return { location: null, reason: pickerFailure(cause) };
+		if (cause instanceof DOMException && cause.name === 'AbortError') {
+			return { location: null, reason: 'dismissed' };
+		}
+
+		// The browser refused the picker: the click's activation had run out.
+		if (cause instanceof DOMException && /NotAllowed|Security/.test(cause.name)) {
+			return { location: null, reason: 'needs-gesture' };
+		}
+
+		throw new EngineError('save-failed', 'the save picker failed', { cause });
 	}
-}
-
-export function outputName(mode: 'encrypt' | 'decrypt', name: string): string {
-	if (mode === 'encrypt') return `${name}.age`;
-
-	return /\.age$/i.test(name) && name.length > 4 ? name.slice(0, -4) : `${name}.decrypted`;
-}
-
-function planOf(choice: SinkChoice): SavePlan {
-	switch (choice) {
-		case 'file-picker':
-		case 'directory-picker':
-			return 'ask';
-		case 'sw-download':
-		case 'opfs':
-			return 'downloads';
-	}
-}
-
-function pickerFailure(cause: unknown): 'dismissed' | 'needs-gesture' | 'save-failed' {
-	if (cause instanceof DOMException && cause.name === 'AbortError') return 'dismissed';
-
-	// The browser refused the picker: the click's activation had run out.
-	if (cause instanceof DOMException && /NotAllowed|Security/.test(cause.name)) {
-		return 'needs-gesture';
-	}
-
-	return 'save-failed';
 }
 
 function browserEnvironment(): SaveEnvironment {
@@ -131,35 +152,18 @@ function browserEnvironment(): SaveEnvironment {
 	};
 }
 
-/**
- * The main-thread half of one output file; the coordinator opens its worker
- * half, a `ByteSink`, from `sink`. Any step may throw, and the job fails the
- * file with `saveError` of what was thrown.
- */
-export interface Output {
-	readonly sink: SinkDescriptor;
-	readonly transfer: Transferable[];
-	/** The header checked out and the sink is open; `size` bytes will follow. */
-	opened(size: number): void;
-	finish(result: SinkResult): Promise<FileOutput>;
-	/** Lets go of what the output holds after a failure or cancel. Never throws. */
-	release(): void;
-}
-
-/** Prepares the output for the file named `name` at `location`. */
 export async function openOutput(location: SaveLocation, name: string): Promise<Output> {
 	switch (location.kind) {
 		case 'file':
-			return sinkOnly({ kind: 'fsa-file', handle: location.handle });
+		case 'memory':
+		case 'discard':
+			return sinkOnly(location);
 		case 'directory':
-			return sinkOnly({ kind: 'fsa-directory', handle: location.handle, name });
+			return sinkOnly({ ...location, name });
 		case 'sw-download':
 			return streamedOutput(name);
 		case 'opfs':
 			return stagedOutput(name);
-		case 'memory':
-		case 'discard':
-			return sinkOnly({ kind: location.kind });
 	}
 }
 
@@ -179,76 +183,4 @@ function sinkOnly(sink: SinkDescriptor): Output {
 		finish: async (result) => result,
 		release() {}
 	};
-}
-
-function streamedOutput(name: string): Output {
-	const download = new SwDownload(name);
-
-	return {
-		sink: { kind: 'sw-download', port: download.port },
-		transfer: [download.port],
-		opened: (size) => download.begin(size),
-		async finish() {
-			download.end();
-
-			return { kind: 'downloaded' };
-		},
-		release: () => download.end()
-	};
-}
-
-/**
- * Stages the output in OPFS, then downloads it from there. Each staged file is
- * held under a Web Lock until its download has had time to finish, and every
- * new staging first deletes the files nobody holds: leftovers from closed tabs
- * and from downloads that are long done.
- */
-async function stagedOutput(name: string): Promise<Output> {
-	void navigator.storage.persist();
-	const root = await navigator.storage.getDirectory();
-	const staging = await root.getDirectoryHandle(OPFS_STAGING_DIR, { create: true });
-	const staged = `${crypto.randomUUID()}.part`;
-	const unlock = await holdStagingLock(staged);
-	await sweepStaging(staging);
-
-	return {
-		sink: { kind: 'opfs', name: staged },
-		transfer: [],
-		opened() {},
-		async finish() {
-			await downloadStagedFile(staging, staged, name);
-			setTimeout(unlock, STAGED_DOWNLOAD_MS);
-
-			return { kind: 'downloaded' };
-		},
-		release: unlock
-	};
-}
-
-const stagingLock = (staged: string) => `${OPFS_STAGING_DIR}/${staged}`;
-
-/** Resolves once the lock on `staged` is held, with the function that lets it go. */
-function holdStagingLock(staged: string): Promise<() => void> {
-	return new Promise((held, failed) => {
-		navigator.locks
-			.request(stagingLock(staged), () => new Promise<void>((release) => held(() => release())))
-			.catch(failed);
-	});
-}
-
-async function sweepStaging(staging: FileSystemDirectoryHandle): Promise<void> {
-	const staged: string[] = [];
-
-	try {
-		for await (const name of staging.keys()) staged.push(name);
-	} catch {
-		// Housekeeping only: a staging area we can't list is no reason to fail the save.
-		return;
-	}
-
-	for (const name of staged) {
-		await navigator.locks.request(stagingLock(name), { ifAvailable: true }, async (lock) => {
-			if (lock) await staging.removeEntry(name).catch(() => {});
-		});
-	}
 }

@@ -15,18 +15,14 @@ export async function acquireJobGuards(): Promise<{ release(): void }> {
 
 	const onVisibility = () => void requestLock();
 
-	if (typeof document !== 'undefined') {
-		await requestLock();
-		document.addEventListener('visibilitychange', onVisibility);
-		addEventListener('beforeunload', onBeforeUnload);
-	}
+	await requestLock();
+	document.addEventListener('visibilitychange', onVisibility);
+	addEventListener('beforeunload', onBeforeUnload);
 
 	return {
 		release() {
 			released = true;
 			void lock?.release().catch(() => {});
-
-			if (typeof document === 'undefined') return;
 			document.removeEventListener('visibilitychange', onVisibility);
 			removeEventListener('beforeunload', onBeforeUnload);
 		}

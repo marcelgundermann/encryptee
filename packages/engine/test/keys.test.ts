@@ -2,13 +2,12 @@ import { describe, expect, test } from 'vite-plus/test';
 import {
 	generatePassphrase,
 	generateKeyPair,
-	keyFileText,
 	mixesPqAndClassic,
-	protectKeyFile,
-	publicKeyType,
 	readKeyFile,
 	validatePublicKeys
 } from '../src/index.ts';
+import { keyFileText, publicKeyType } from '../src/keys/key-pair.ts';
+import { protectKeyFile } from '../src/keys/keys.ts';
 import { TEST_LOG_N } from './helpers.ts';
 
 describe('key pairs', () => {

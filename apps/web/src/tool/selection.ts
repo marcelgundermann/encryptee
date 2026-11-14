@@ -1,5 +1,5 @@
-import { inspectFile } from '@encryptee/engine';
-import { strings } from '../strings.ts';
+import { inspectFile, type FileInfo } from '@encryptee/engine';
+import { errorMessage, strings } from '../strings.ts';
 
 /** What the dropped files are, decided by their headers, never their names. */
 export type Selection =
@@ -10,19 +10,27 @@ export type Selection =
 
 export async function classify(files: File[]): Promise<Selection> {
 	if (files.length === 0) return { kind: 'none' };
-	const infos = await Promise.all(files.map(inspectFile));
 	const invalid = (message: string): Selection => ({ kind: 'invalid', files, message });
+	let infos: FileInfo[];
 
-	if (infos.some((info) => info.kind === 'legacy')) return invalid(strings.selection.legacy);
+	try {
+		infos = await Promise.all(files.map(inspectFile));
+	} catch (cause) {
+		return invalid(errorMessage(cause));
+	}
 
-	if (infos.some((info) => info.kind === 'age-armored')) return invalid(strings.selection.armored);
+	const unusable = new Set(infos.map((info) => (info.kind === 'unusable' ? info.reason : null)));
 
-	const encrypted = infos.filter((info) => info.kind === 'age');
+	for (const reason of ['legacy-file', 'armored'] satisfies Array<'legacy-file' | 'armored'>) {
+		if (unusable.has(reason)) return invalid(strings.errors[reason]);
+	}
+
+	const encrypted = infos.filter((info) => info.kind === 'encrypted');
 
 	if (encrypted.length === 0) return { kind: 'encrypt', files };
 
 	if (encrypted.length !== files.length) return invalid(strings.selection.mixed);
-	const locks = new Set(encrypted.map((info) => info.unlock ?? 'private-key'));
+	const locks = new Set(encrypted.map((info) => info.unlock));
 
 	if (locks.size > 1) return invalid(strings.selection.mixedLocks);
 

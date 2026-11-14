@@ -7,9 +7,7 @@ import { Hint } from './ui.tsx';
 export function Warnings({ mode, files }: { mode: 'encrypt' | 'decrypt'; files: File[] }) {
 	const [warnings, setWarnings] = useState<PreflightWarning[]>([]);
 	useEffect(() => {
-		void preflight({ mode, sizes: files.map((file) => file.size) }).then((result) =>
-			setWarnings(result.warnings)
-		);
+		void preflight({ mode, sizes: files.map((file) => file.size) }).then(setWarnings);
 	}, [mode, files]);
 
 	return warnings.map((warning) => (

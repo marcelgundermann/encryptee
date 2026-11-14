@@ -1,4 +1,5 @@
 import { EngineError, type EngineErrorCode, type PreflightWarning } from '@encryptee/engine';
+import type { Page } from '../pages.ts';
 
 /** All UI copy lives here. */
 
@@ -8,10 +9,10 @@ export const strings = {
 	wordmark: 'encryptee',
 	nav: {
 		keys: 'Keys',
-		howItWorks: 'How it works',
+		'how-it-works': 'How it works',
 		security: 'Security',
 		faq: 'FAQ'
-	},
+	} satisfies Record<Page | 'keys', string>,
 	drop: {
 		title: 'Drop files.',
 		titleTouch: 'Choose files.',
@@ -21,26 +22,36 @@ export const strings = {
 		release: 'Release to add.'
 	},
 	selection: {
-		encrypting: (n: number) => `Encrypting ${files(n)}`,
-		decrypting: (n: number) => `Decrypting ${files(n)}`,
+		encrypt: (n: number) => `Encrypting ${files(n)}`,
+		decrypt: (n: number) => `Decrypting ${files(n)}`,
 		other: 'Choose other files',
 		more: (n: number) => `and ${n.toLocaleString('en')} more ${n === 1 ? 'file' : 'files'}`,
 		unusable: (n: number) => (n === 1 ? 'Can’t use this file.' : 'Can’t use these files.'),
 		mixed: 'Drop either files to encrypt or encrypted files to decrypt, not both at once.',
-		mixedLocks: 'Some of these files use a passphrase and some use a key. Decrypt them separately.',
-		legacy: 'This file is from the old Encryptee. Open it at v1.encryptee.io.',
-		armored: 'Armored age files (-----BEGIN AGE ENCRYPTED FILE-----) aren’t supported yet.'
+		mixedLocks: 'Some of these files use a passphrase and some use a key. Decrypt them separately.'
+	},
+	passphrase: {
+		label: 'Passphrase',
+		generatedHint: 'Generated for you. Write it down; nobody can recover it.',
+		new: 'New',
+		copy: 'Copy',
+		copied: 'Copied',
+		own: 'Use my own',
+		generated: 'Generate one instead',
+		repeat: 'Repeat passphrase',
+		mismatch: 'The passphrases don’t match.'
+	},
+	keyFile: {
+		choose: 'Choose your key file',
+		hint: 'Usually called key.age',
+		loaded: (name: string) => `Key loaded from ${name}`,
+		passphrase: 'Key file passphrase',
+		apply: 'Use key file',
+		checking: 'Checking…'
 	},
 	encrypt: {
 		passphrase: 'Passphrase',
 		publicKeys: 'Public keys',
-		generatedHint: 'Generated for you. Write it down; nobody can recover it.',
-		newPassphrase: 'New',
-		copy: 'Copy',
-		ownPassphrase: 'Use my own',
-		generatedPassphrase: 'Generate one instead',
-		repeat: 'Repeat passphrase',
-		mismatch: 'The passphrases don’t match.',
 		whoCanOpen: 'Who can open them',
 		pasteKey: 'Paste a public key (age1…)',
 		addKey: 'Add',
@@ -56,11 +67,6 @@ export const strings = {
 		encryptedWithPassphrase: 'Encrypted with a passphrase.',
 		encryptedToKey: 'Encrypted to a public key.',
 		passphrase: 'Passphrase',
-		keyFile: 'Choose your key file',
-		keyFileHint: 'Usually called key.age',
-		keyFilePassphrase: 'Key file passphrase',
-		applyKeyFile: 'Use key file',
-		keysLoaded: (name: string) => `Key loaded from ${name}`,
 		checking: 'Checking…',
 		checked: 'That matches. Now choose where to save.',
 		submit: 'Decrypt',
@@ -77,9 +83,13 @@ export const strings = {
 		cancel: 'Cancel'
 	},
 	done: {
-		encrypted: (n: number) => `${files(n)} encrypted.`,
-		decrypted: (n: number) => `${files(n)} decrypted.`,
-		partial: (ok: number, total: number, verb: string) => `${ok} of ${files(total)} ${verb}.`,
+		encrypt: (n: number) => `${files(n)} encrypted.`,
+		decrypt: (n: number) => `${files(n)} decrypted.`,
+		partial: {
+			encrypt: (ok: number, total: number) => `${ok} of ${files(total)} encrypted.`,
+			decrypt: (ok: number, total: number) => `${ok} of ${files(total)} decrypted.`
+		},
+		file: '✓',
 		saved: 'Saved where you chose.',
 		downloaded: 'Saved to your downloads.',
 		again: 'Do another'
@@ -121,20 +131,19 @@ export const strings = {
 		unsafe: 'This version has a known problem. Update before encrypting or decrypting.',
 		offline: (date: string) => `Offline · version from ${date}`
 	},
-	unsupported:
-		'This browser can’t save files this way. Use a current Chrome, Edge, Firefox or Safari.',
 	errors: {
 		'wrong-credentials': 'That doesn’t match. Check the passphrase or key file.',
 		'not-encrypted': 'This isn’t an encrypted file.',
 		'legacy-file': 'This file is from the old Encryptee. Open it at v1.encryptee.io.',
-		armored: 'Armored age files aren’t supported yet.',
+		armored: 'Armored age files (-----BEGIN AGE ENCRYPTED FILE-----) aren’t supported yet.',
 		corrupted: 'This file was changed or is incomplete. Nothing was saved.',
 		'invalid-public-key': 'That isn’t a valid public key.',
 		'invalid-key-file': 'That isn’t a valid key file.',
 		cancelled: 'Cancelled. Nothing was saved.',
 		'save-failed': 'Saving failed.',
 		'storage-full': 'There isn’t enough space to save the file.',
-		unsupported: 'This browser can’t do that.',
+		unsupported:
+			'This browser can’t save files this way. Use a current Chrome, Edge, Firefox or Safari.',
 		internal: 'Something went wrong.'
 	} satisfies Record<EngineErrorCode, string>,
 	warnings: {

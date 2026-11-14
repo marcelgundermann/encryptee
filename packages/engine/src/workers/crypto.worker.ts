@@ -8,7 +8,6 @@ declare const self: DedicatedWorkerGlobalScope;
 let cipher: ChunkCipher | null = null;
 
 self.onmessage = ({ data }: MessageEvent<CryptoConnect>) => {
-	if (data.type !== 'connect') return;
 	const port = data.port;
 
 	const reply = (message: CryptoResponse, transfer: Transferable[] = []) =>
@@ -22,7 +21,7 @@ self.onmessage = ({ data }: MessageEvent<CryptoConnect>) => {
 					request.key.fill(0);
 					reply({ type: 'ready', backend: cipher.backend });
 				} catch (error) {
-					reply({ type: 'error', task: null, error: serializeError(error) });
+					reply({ type: 'key-failed', error: serializeError(error) });
 				}
 
 				return;

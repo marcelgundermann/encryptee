@@ -1,5 +1,5 @@
 import type { Job } from '@encryptee/engine';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { navItemClass, SiteHeader } from '../SiteHeader.tsx';
 import { strings } from '../strings.ts';
 import { DecryptCard } from './DecryptCard.tsx';
@@ -19,19 +19,30 @@ import { buildDate, useUpdates } from './updates.ts';
 export function App() {
 	const [view, setView] = useState<'tool' | 'keys'>('tool');
 	const [selection, setSelection] = useState<Selection>({ kind: 'none' });
+	/** Counts the selections, so each one gets a fresh card. */
+	const [selections, setSelections] = useState(0);
 	const [job, setJob] = useState<Job | null>(null);
 	const snapshot = useJobSnapshot(job);
 	const running = snapshot?.status === 'running';
 	const { safety, updateReady, applyUpdate } = useUpdates(running);
+	const latest = useRef<File[]>([]);
 
-	const choose = (files: File[]) => {
+	// A running job keeps the screen: files dropped or opened meanwhile are ignored.
+	const choose = async (files: File[]) => {
+		if (running || files.length === 0) return;
+		latest.current = files;
 		setJob(null);
 		setView('tool');
-		void classify(files).then(setSelection);
+		const chosen = await classify(files);
+
+		// A later choice replaced this one while it was read.
+		if (latest.current !== files) return;
+		setSelection(chosen);
+		setSelections((n) => n + 1);
 	};
 
 	const onLaunch = useEffectEvent(choose);
-	const dragging = useWindowDrop(choose, !running);
+	const dragging = useWindowDrop(choose) && !running;
 
 	useEffect(() => {
 		// PWA file handler for .age files (D15, Chromium).
@@ -58,7 +69,8 @@ export function App() {
 	let content;
 
 	if (view === 'keys') content = <KeysScreen />;
-	else if (job) content = <JobScreen job={job} onReset={reset} />;
+	else if (job && snapshot)
+		content = <JobScreen snapshot={snapshot} onCancel={job.cancel} onReset={reset} />;
 	else if (selection.kind === 'encrypt')
 		content = (
 			<EncryptCard
@@ -96,7 +108,7 @@ export function App() {
 				onWordmarkClick={() => {
 					setView('tool');
 
-					if (!running && !job) reset();
+					if (!job) reset();
 				}}
 			>
 				<button
@@ -126,13 +138,14 @@ export function App() {
 				className={`flex flex-1 justify-center px-6 pb-24 ${centered ? 'items-center pt-8' : 'items-start pt-[12vh]'}`}
 			>
 				<div
-					key={step}
+					// Each selection gets a fresh card; the Keys screen and a job keep theirs.
+					key={view === 'keys' || job ? step : `${step} ${selections}`}
 					className={`flex w-full justify-center ${shown.changed ? 'motion-safe:animate-step-in' : ''}`}
 				>
 					{content}
 				</div>
 			</main>
-			{dragging && (selection.kind !== 'none' || view === 'keys' || job) && <DropOverlay />}
+			{dragging && step !== 'none' && <DropOverlay />}
 		</div>
 	);
 }

@@ -4,7 +4,7 @@ export const DOWNLOAD_ROUTE = '/__download/';
 /** Safari drops postMessage payloads above this size (field reports, 2026). */
 export const SW_MAX_MESSAGE_BYTES = 256 * 1024;
 
-/** How many messages the SW lets the coordinator send ahead (4 MiB). */
+/** How many messages the SW lets the coordinator send ahead. */
 export const SW_CREDIT_WINDOW = 16;
 
 /** Page → service worker, on `navigator.serviceWorker.controller`. */

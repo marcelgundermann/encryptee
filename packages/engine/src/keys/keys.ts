@@ -7,9 +7,13 @@ import {
 } from 'age-encryption';
 import { EngineError } from '../errors.ts';
 import { sniffBytes } from '../format/age.ts';
-import { DEFAULT_SCRYPT_LOG_N, assertPublicKey } from '../format/header.ts';
+import { DEFAULT_SCRYPT_LOG_N, assertPublicKey, noIdentityMatched } from '../format/header.ts';
 import type { KeyPair, KeyType } from './key-pair.ts';
 
+// Every function this module exports is a key tool: the tools worker runs it
+// for the page, which calls it through `tools.ts`.
+
+/** Generates a key pair: post-quantum hybrid by default. */
 export async function generateKeyPair(type: KeyType = 'pq'): Promise<KeyPair> {
 	const privateKey =
 		type === 'pq' ? await generateHybridIdentity() : await generateX25519Identity();
@@ -65,9 +69,7 @@ export async function readKeyFile(
 		try {
 			text = await decrypter.decrypt(bytes, 'text');
 		} catch (cause) {
-			const message = cause instanceof Error ? cause.message : '';
-
-			if (message.includes('no identity matched')) {
+			if (noIdentityMatched(cause)) {
 				throw new EngineError('wrong-credentials', 'wrong passphrase for this key file', { cause });
 			}
 

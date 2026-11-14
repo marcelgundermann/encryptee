@@ -24,6 +24,16 @@ export const CHUNK = 64 * KiB;
 /** Fast scrypt for tests; production uses logN 18. */
 export const TEST_LOG_N = 10;
 
+/** Encrypts to a passphrase with fast scrypt, and decrypts with it. */
+export const passphrase = {
+	encrypt: {
+		kind: 'passphrase',
+		passphrase: 'correct horse battery staple',
+		scryptLogN: TEST_LOG_N
+	},
+	decrypt: { kind: 'passphrase', passphrase: 'correct horse battery staple' }
+} satisfies { encrypt: EncryptCredentials; decrypt: DecryptCredentials };
+
 /** Small batches and a small window so even little files cross batch boundaries. */
 export const SMALL_BATCHES = { workers: 2, batchChunks: 2, window: 3 };
 
@@ -41,6 +51,18 @@ export function file(bytes: Uint8Array<ArrayBuffer>, name = 'test.bin'): File {
 	return new File([bytes], name);
 }
 
+export function concat(parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
+	const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+	let offset = 0;
+
+	for (const part of parts) {
+		out.set(part, offset);
+		offset += part.length;
+	}
+
+	return out;
+}
+
 export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 	if (a.length !== b.length) return false;
 
@@ -49,22 +71,18 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 	return true;
 }
 
-export async function runJob(options: JobOptions): Promise<JobSnapshot> {
-	return startJob(options).done;
-}
-
 export async function encrypt(
 	bytes: Uint8Array<ArrayBuffer>,
 	credentials: EncryptCredentials,
 	tuning: JobOptions['tuning'] = SMALL_BATCHES
 ): Promise<Uint8Array<ArrayBuffer>> {
-	const result = await runJob({
+	const result = await startJob({
 		mode: 'encrypt',
 		credentials,
 		files: [file(bytes)],
 		save: { kind: 'memory' },
 		tuning
-	});
+	}).done;
 
 	const [output] = result.files;
 
@@ -80,13 +98,13 @@ export async function decrypt(
 	credentials: DecryptCredentials,
 	tuning: JobOptions['tuning'] = SMALL_BATCHES
 ): Promise<{ snapshot: JobSnapshot; output: Uint8Array<ArrayBuffer> | null }> {
-	const snapshot = await runJob({
+	const snapshot = await startJob({
 		mode: 'decrypt',
 		credentials,
 		files: [file(bytes, 'test.bin.age')],
 		save: { kind: 'memory' },
 		tuning
-	});
+	}).done;
 
 	const output = snapshot.files[0]?.output;
 

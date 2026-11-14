@@ -1,11 +1,4 @@
-import {
-	generateKeyPair,
-	keyFileText,
-	protectKeyFile,
-	readKeyFile,
-	type KeyPair,
-	type KeyType
-} from '@encryptee/engine';
+import { generateKeyPair, saveKeyFile, type KeyPair, type KeyType } from '@encryptee/engine';
 import { useRef, useState } from 'react';
 import { errorMessage, strings } from '../strings.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
@@ -15,25 +8,13 @@ import {
 	Headline,
 	Hint,
 	Kicker,
-	LineField,
 	MonoBox,
 	OutlineButton,
 	Segmented,
-	StableLabel,
 	TextButton,
-	touchScreen,
 	useCopy
 } from './ui.tsx';
-
-/** Saves a small file through a blob URL. Key files are a few KB, so this works everywhere. */
-function saveSmallFile(contents: Uint8Array<ArrayBuffer> | string, name: string): void {
-	const url = URL.createObjectURL(new Blob([contents], { type: 'application/octet-stream' }));
-	const anchor = document.createElement('a');
-	anchor.href = url;
-	anchor.download = name;
-	anchor.click();
-	setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
+import { useKeyFile } from './useKeyFile.tsx';
 
 type Stage =
 	| { kind: 'start' }
@@ -45,19 +26,22 @@ type Stage =
 	 */
 	| { kind: 'show'; publicKey: string; pair: KeyPair | null; savedAs: string | null };
 
-type Pending = 'create' | 'save' | 'open';
+type Pending = 'create' | 'save';
 
 export function KeysScreen() {
 	const [stage, setStage] = useState<Stage>({ kind: 'start' });
 	const [type, setType] = useState<KeyType>('pq');
 	const [protect, setProtect] = useState(true);
 	const { passphrase, field: passphraseField } = usePassphraseChoice('keys');
-	const [opening, setOpening] = useState<{ name: string; bytes: Uint8Array } | null>(null);
-	const [openPassphrase, setOpenPassphrase] = useState('');
 	// Key generation and scrypt take a moment: one click, one result.
 	const [pending, setPending] = useState<Pending | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const fileInput = useRef<HTMLInputElement>(null);
+
+	const keyFile = useKeyFile('keys', (keys) => {
+		setError(null);
+
+		if (keys) setStage({ kind: 'show', publicKey: keys.publicKeys[0]!, pair: null, savedAs: null });
+	});
 
 	const create = async () => {
 		setPending('create');
@@ -75,44 +59,15 @@ export function KeysScreen() {
 	const save = async (pair: KeyPair) => {
 		setPending('save');
 		setError(null);
-		const text = keyFileText(pair);
-		const name = protect ? 'key.age' : 'key.txt';
 
 		try {
-			// A Blob takes only ArrayBuffer-backed views; copy into one.
-			saveSmallFile(protect ? new Uint8Array(await protectKeyFile(text, passphrase!)) : text, name);
-			setStage({ kind: 'show', publicKey: pair.publicKey, pair, savedAs: name });
+			const savedAs = await saveKeyFile(pair, protect ? passphrase! : null);
+			setStage({ kind: 'show', publicKey: pair.publicKey, pair, savedAs });
 		} catch (cause) {
 			setError(errorMessage(cause));
 		} finally {
 			setPending(null);
 		}
-	};
-
-	const open = async (name: string, bytes: Uint8Array, pass?: string) => {
-		setPending('open');
-		setError(null);
-
-		try {
-			const contents = await readKeyFile(bytes, pass);
-
-			if (contents.protected) {
-				setOpening({ name, bytes });
-
-				return;
-			}
-
-			setOpening(null);
-			setStage({ kind: 'show', publicKey: contents.publicKeys[0]!, pair: null, savedAs: null });
-		} catch (cause) {
-			setError(errorMessage(cause));
-		} finally {
-			setPending(null);
-		}
-	};
-
-	const submitOpening = () => {
-		if (opening && pending === null) void open(opening.name, opening.bytes, openPassphrase);
 	};
 
 	return (
@@ -132,49 +87,13 @@ export function KeysScreen() {
 						]}
 					/>
 					<Hint>{strings.keys.typeHint}</Hint>
-					<BigButton disabled={pending !== null} onClick={() => void create()}>
+					<BigButton disabled={pending !== null || keyFile.reading} onClick={() => void create()}>
 						{pending === 'create' ? strings.keys.creating : strings.keys.create}
 					</BigButton>
-					<TextButton tone="muted" className="mt-4" onClick={() => fileInput.current?.click()}>
+					<TextButton tone="muted" className="mt-4" onClick={keyFile.choose}>
 						{strings.keys.openExisting}
 					</TextButton>
-					<input
-						ref={fileInput}
-						type="file"
-						hidden
-						aria-label={strings.keys.openExisting}
-						onChange={async (event) => {
-							const file = event.currentTarget.files?.[0];
-							event.currentTarget.value = '';
-
-							if (file) await open(file.name, new Uint8Array(await file.arrayBuffer()));
-						}}
-					/>
-					{opening && (
-						<LineField
-							id="keys-open-passphrase"
-							label={strings.decrypt.keyFilePassphrase}
-							input={{
-								type: 'password',
-								autoFocus: !touchScreen(),
-								value: openPassphrase,
-								onChange: (e) => setOpenPassphrase(e.target.value),
-								onKeyDown: (e) => {
-									if (e.key === 'Enter') submitOpening();
-								}
-							}}
-							action={
-								<TextButton onClick={submitOpening}>
-									<StableLabel
-										current={
-											pending === 'open' ? strings.decrypt.checking : strings.decrypt.applyKeyFile
-										}
-										labels={[strings.decrypt.applyKeyFile, strings.decrypt.checking]}
-									/>
-								</TextButton>
-							}
-						/>
-					)}
+					{keyFile.field}
 				</>
 			)}
 

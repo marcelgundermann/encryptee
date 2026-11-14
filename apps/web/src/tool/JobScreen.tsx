@@ -1,29 +1,25 @@
-import type { Job, JobSnapshot } from '@encryptee/engine';
+import type { JobSnapshot } from '@encryptee/engine';
 import { formatBytes, formatDuration, strings } from '../strings.ts';
-import { useJobSnapshot } from './job.ts';
-import {
-	BigButton,
-	Card,
-	Headline,
-	Hint,
-	OutlineButton,
-	shownFiles,
-	useFocusIfLost
-} from './ui.tsx';
+import { BigButton, Card, Headline, Hint, OutlineButton, shownFiles, StepHeading } from './ui.tsx';
 
 /** A running job as one giant number; afterwards, what happened to each file. */
-export function JobScreen({ job, onReset }: { job: Job; onReset: () => void }) {
-	const snapshot = useJobSnapshot(job)!;
-
+export function JobScreen({
+	snapshot,
+	onCancel,
+	onReset
+}: {
+	snapshot: JobSnapshot;
+	onCancel: () => void;
+	onReset: () => void;
+}) {
 	return snapshot.status === 'running' ? (
-		<Running snapshot={snapshot} onCancel={job.cancel} />
+		<Running snapshot={snapshot} onCancel={onCancel} />
 	) : (
 		<Finished snapshot={snapshot} onReset={onReset} />
 	);
 }
 
 function Running({ snapshot, onCancel }: { snapshot: JobSnapshot; onCancel: () => void }) {
-	const heading = useFocusIfLost<HTMLHeadingElement>();
 	const { bytesDone, bytesTotal } = snapshot;
 	const fraction = bytesTotal === 0 ? 0 : bytesDone / bytesTotal;
 	const percent = Math.floor(100 * fraction);
@@ -36,11 +32,7 @@ function Running({ snapshot, onCancel }: { snapshot: JobSnapshot; onCancel: () =
 	// The progress bar carries the numbers for anyone who asks.
 	return (
 		<div className="w-full max-w-4xl">
-			<h1 ref={heading} tabIndex={-1} className="sr-only">
-				{snapshot.mode === 'encrypt'
-					? strings.selection.encrypting(count)
-					: strings.selection.decrypting(count)}
-			</h1>
+			<StepHeading className="sr-only">{strings.selection[snapshot.mode](count)}</StepHeading>
 			<progress
 				className="sr-only"
 				max={100}
@@ -60,7 +52,6 @@ function Running({ snapshot, onCancel }: { snapshot: JobSnapshot; onCancel: () =
 				<span className="text-ghost">%</span>
 			</p>
 			<div className="mt-6 h-1 w-full overflow-hidden bg-surface">
-				{/* Scaled, not resized, and eased over one update so it glides. */}
 				<div
 					className="h-1 origin-left bg-fg motion-safe:transition-transform motion-safe:duration-100 motion-safe:ease-linear"
 					style={{ transform: `scaleX(${fraction})` }}
@@ -93,8 +84,6 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 	const total = snapshot.files.length;
 	const done = snapshot.files.filter((file) => file.status === 'done');
 	const failed = snapshot.files.filter((file) => file.status === 'failed');
-	const encrypt = snapshot.mode === 'encrypt';
-	const verb = encrypt ? 'encrypted' : 'decrypted';
 	const downloaded = done.some((file) => file.output?.kind === 'downloaded');
 	// Failures first, so they're never behind the "and N more" line.
 	const listed = snapshot.files.toSorted((a, b) => order[a.status] - order[b.status]);
@@ -103,10 +92,9 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 	let headline: string;
 
 	if (snapshot.status === 'cancelled') headline = strings.failed.cancelled;
-	else if (done.length === total)
-		headline = encrypt ? strings.done.encrypted(total) : strings.done.decrypted(total);
-	else if (done.length > 0) headline = strings.done.partial(done.length, total, verb);
-	else headline = encrypt ? strings.failed.encrypt : strings.failed.decrypt;
+	else if (done.length === total) headline = strings.done[snapshot.mode](total);
+	else if (done.length > 0) headline = strings.done.partial[snapshot.mode](done.length, total);
+	else headline = strings.failed[snapshot.mode];
 	const ok = snapshot.status === 'done';
 	const savedTo = downloaded ? strings.done.downloaded : strings.done.saved;
 
@@ -125,11 +113,11 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 				</svg>
 			)}
 			<div className={ok ? 'mt-6' : ''}>
-				<Headline tone={ok || snapshot.status === 'cancelled' ? undefined : 'error'}>
-					{headline}
-				</Headline>
+				<Headline tone={snapshot.status === 'failed' ? 'error' : undefined}>{headline}</Headline>
 			</div>
-			{snapshot.status === 'cancelled' && <Hint>{strings.failed.cancelledHint}</Hint>}
+			{snapshot.status === 'cancelled' && done.length === 0 && (
+				<Hint>{strings.failed.cancelledHint}</Hint>
+			)}
 			{done.length > 0 && (
 				<p className="mt-3 break-words text-muted">
 					{total === 1 ? (
@@ -158,7 +146,7 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 							<span className="truncate">{file.outputName}</span>
 							<span className={file.status === 'failed' ? 'text-danger' : 'text-muted'}>
 								{file.status === 'done'
-									? '✓'
+									? strings.done.file
 									: file.error
 										? strings.errors[file.error.code]
 										: strings.failed.cancelled}

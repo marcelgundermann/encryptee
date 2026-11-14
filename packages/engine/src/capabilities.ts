@@ -19,20 +19,6 @@ export interface Capabilities {
 	serviceWorkerDownload: boolean;
 }
 
-/** How one job's outputs get saved, decided before the job starts. */
-export type SinkChoice = 'file-picker' | 'directory-picker' | 'sw-download' | 'opfs';
-
-/**
- * Largest input the non-Chromium save paths are trusted with until
- * measurements raise it. `null` means no limit.
- */
-const SIZE_LIMITS: Record<BrowserFamily, number | null> = {
-	chromium: null,
-	firefox: 4 * 1024 ** 3,
-	safari: 4 * 1024 ** 3,
-	other: 2 * 1024 ** 3
-};
-
 export function detectCapabilities(): Capabilities {
 	const ua = navigator.userAgent;
 	const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
@@ -51,46 +37,8 @@ export function detectCapabilities(): Capabilities {
 		ios,
 		mobile: brands?.mobile ?? (ios || /Android|Mobi/.test(ua)),
 		cores: navigator.hardwareConcurrency || 2,
-		savePicker: typeof window !== 'undefined' && 'showSaveFilePicker' in window,
-		directoryPicker: typeof window !== 'undefined' && 'showDirectoryPicker' in window,
+		savePicker: 'showSaveFilePicker' in window,
+		directoryPicker: 'showDirectoryPicker' in window,
 		serviceWorkerDownload: !!navigator.serviceWorker?.controller
 	};
-}
-
-/**
- * Picks the save path: native pickers on Chromium, else a streamed download,
- * else OPFS staging, which every browser has (whether it opens is checked when
- * choosing the save location).
- */
-export function chooseSink(capabilities: Capabilities, fileCount: number): SinkChoice {
-	if (fileCount === 1 && capabilities.savePicker) return 'file-picker';
-
-	if (fileCount > 1 && capabilities.directoryPicker) return 'directory-picker';
-
-	if (capabilities.serviceWorkerDownload) return 'sw-download';
-
-	return 'opfs';
-}
-
-/** Size limit for a save path in this browser; pickers write straight to disk and have none. */
-export function sizeLimit(capabilities: Capabilities, sink: SinkChoice): number | null {
-	if (sink === 'file-picker' || sink === 'directory-picker') return null;
-
-	return SIZE_LIMITS[capabilities.browser];
-}
-
-export interface Tuning {
-	/** Crypto workers. */
-	workers: number;
-	/** 64 KiB chunks per batch. */
-	batchChunks: number;
-	/** Batches in flight. */
-	window: number;
-}
-
-/** Tuning from the plan: N = clamp(cores − 1, 1, 8), 4 MiB batches (1 MiB on mobile), 2N in flight. */
-export function defaultTuning(capabilities: Capabilities): Tuning {
-	const workers = Math.min(8, Math.max(1, capabilities.cores - 1));
-
-	return { workers, batchChunks: capabilities.mobile ? 16 : 64, window: 2 * workers };
 }

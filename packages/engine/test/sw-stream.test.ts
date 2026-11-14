@@ -1,7 +1,7 @@
 import { expect, test } from 'vite-plus/test';
 import { SW_CREDIT_WINDOW, SW_MAX_MESSAGE_BYTES } from '../src/sinks/sw-protocol.ts';
 import { SwDownloadSink, createPortStream } from '../src/sinks/sw-stream.ts';
-import { sha256Hex } from './helpers.ts';
+import { concat, sha256Hex } from './helpers.ts';
 
 /** Both ends of one download's port: the coordinator writes, the service worker reads. */
 function download() {
@@ -19,18 +19,6 @@ async function readAll(reader: ReadableStreamDefaultReader<Uint8Array>): Promise
 	for (let r = await reader.read(); !r.done; r = await reader.read()) chunks.push(r.value);
 
 	return chunks;
-}
-
-function concat(chunks: Uint8Array[]): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.length, 0));
-	let offset = 0;
-
-	for (const chunk of chunks) {
-		out.set(chunk, offset);
-		offset += chunk.length;
-	}
-
-	return out;
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));

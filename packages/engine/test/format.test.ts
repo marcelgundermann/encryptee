@@ -8,6 +8,7 @@ import {
 	sniffBytes,
 	stanzaTypes
 } from '../src/format/age.ts';
+import { numberedName, outputName } from '../src/format/names.ts';
 import { writeChunkNonce } from '../src/payload/cipher.ts';
 import { CHUNK } from './helpers.ts';
 
@@ -26,9 +27,9 @@ describe('payload sizes', () => {
 	});
 
 	test.each([0, 15, SEALED_CHUNK_SIZE + 1, SEALED_CHUNK_SIZE + TAG_SIZE])(
-		'rejects impossible sealed size %i',
+		'an impossible sealed size, %i, is corrupted',
 		(size) => {
-			expect(() => openedPayloadSize(size)).toThrow(/payload/);
+			expect(() => openedPayloadSize(size)).toThrow(expect.objectContaining({ code: 'corrupted' }));
 		}
 	);
 });
@@ -70,5 +71,28 @@ describe('chunk nonce', () => {
 		expect(Array.from(writeChunkNonce(new Uint8Array(12), 2 ** 40 + 258, true))).toEqual([
 			0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1
 		]);
+	});
+});
+
+describe('output names', () => {
+	test.each([
+		['encrypt', 'notes.txt', 'notes.txt.age'],
+		['decrypt', 'notes.txt.age', 'notes.txt'],
+		['decrypt', 'notes.txt.AGE', 'notes.txt'],
+		['decrypt', 'notes.txt', 'notes.txt.decrypted'],
+		['decrypt', '.age', '.age.decrypted']
+	] as const)('%s turns %s into %s', (mode, name, output) => {
+		expect(outputName(mode, name)).toBe(output);
+	});
+
+	test.each([
+		['photo.jpg', 'photo (1).jpg'],
+		['photo.jpg.age', 'photo (1).jpg.age'],
+		['README', 'README (1)'],
+		['README.age', 'README (1).age'],
+		['.bashrc', '.bashrc (1)'],
+		['.age', '.age (1)']
+	])('the first numbered name for %s is %s', (name, numbered) => {
+		expect(numberedName(name, 1)).toBe(numbered);
 	});
 });

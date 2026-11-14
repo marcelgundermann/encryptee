@@ -88,6 +88,7 @@ function expectation(vector: Vector): Expectation {
 		case 'no match':
 			return { codes: ['wrong-credentials'], sha256: null, opened: [false] };
 		case 'HMAC failure':
+			return { codes: ['corrupted'], sha256: null, opened: [false] };
 		case 'header failure':
 			return { codes: HEADER_FAILURE, sha256: null, opened: [false] };
 		case 'payload failure':

@@ -1,6 +1,6 @@
 import { Decrypter, Encrypter, generateX25519Identity, identityToRecipient } from 'age-encryption';
 import { describe, expect, test } from 'vite-plus/test';
-import { PAYLOAD_NONCE_SIZE, headerLength } from '../src/format/age.ts';
+import { PAYLOAD_NONCE_SIZE, SEALED_CHUNK_SIZE, headerLength } from '../src/format/age.ts';
 import { openBatch, sealBatch } from '../src/payload/batch.ts';
 import {
 	createChunkCipher,
@@ -9,7 +9,7 @@ import {
 	type Backend
 } from '../src/payload/cipher.ts';
 import { batchRange, openLayout, sealLayout } from '../src/payload/layout.ts';
-import { CHUNK, equalBytes, randomBytes } from './helpers.ts';
+import { CHUNK, concat, equalBytes, randomBytes } from './helpers.ts';
 
 const SIZES = [
 	0,
@@ -54,7 +54,7 @@ async function sealAll(
 	const parts: Uint8Array[] = [];
 
 	for (let i = 0; i < layout.batches; i++) {
-		const range = batchRange(layout, i, batchChunks);
+		const range = batchRange(layout, i);
 		parts.push(await sealBatch(cipher, plain.subarray(range.start, range.end), range));
 	}
 
@@ -72,32 +72,14 @@ async function openAll(
 	const parts: Uint8Array[] = [];
 
 	for (let i = 0; i < layout.batches; i++) {
-		const range = batchRange(layout, i, batchChunks);
+		const range = batchRange(layout, i);
 		parts.push(await openBatch(cipher, sealed.subarray(range.start, range.end), range));
 	}
 
 	return concat(parts);
 }
 
-function concat(parts: Uint8Array[]): Uint8Array {
-	const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-	let offset = 0;
-
-	for (const part of parts) {
-		out.set(part, offset);
-		offset += part.length;
-	}
-
-	return out;
-}
-
 const backends: Backend[] = (await nativeChaChaAvailable()) ? ['noble', 'webcrypto'] : ['noble'];
-
-test('reports which payload backends this browser has', () => {
-	// Chromium 155+ ships native ChaCha20-Poly1305; Firefox and WebKit don't (yet).
-	expect(backends).toContain('noble');
-	console.info(`payload backends: ${backends.join(', ')}`);
-});
 
 describe.each(backends)('%s backend', (backend) => {
 	test.each(SIZES)('payload is byte-identical to typage for %i bytes', async (size) => {
@@ -111,29 +93,44 @@ describe.each(backends)('%s backend', (backend) => {
 		}
 	});
 
-	test('rejects a flipped byte, swapped chunks, truncation and a dropped final chunk', async () => {
+	test.each([
+		[
+			'a flipped byte',
+			(payload: Uint8Array<ArrayBuffer>) => {
+				const flipped = payload.slice();
+				flipped[SEALED_CHUNK_SIZE + 5]! ^= 1;
+
+				return flipped;
+			}
+		],
+		[
+			'swapped chunks',
+			(payload: Uint8Array<ArrayBuffer>) => {
+				const swapped = payload.slice();
+				swapped.set(payload.subarray(SEALED_CHUNK_SIZE, 2 * SEALED_CHUNK_SIZE), 0);
+				swapped.set(payload.subarray(0, SEALED_CHUNK_SIZE), SEALED_CHUNK_SIZE);
+
+				return swapped;
+			}
+		],
+		// The new last chunk was not sealed as final.
+		[
+			'a dropped final chunk',
+			(payload: Uint8Array<ArrayBuffer>) => payload.slice(0, 3 * SEALED_CHUNK_SIZE)
+		]
+	])('rejects %s as corrupted', async (_, tamper) => {
 		const plain = randomBytes(3 * CHUNK + 100);
 		const { key, payload } = await typageReference(plain);
-		const sealedChunk = CHUNK + 16;
 
-		const flipped = payload.slice();
-		flipped[sealedChunk + 5]! ^= 1;
-		await expect(openAll(backend, key, flipped, 2)).rejects.toMatchObject({ code: 'corrupted' });
-
-		const swapped = payload.slice();
-		swapped.set(payload.subarray(sealedChunk, 2 * sealedChunk), 0);
-		swapped.set(payload.subarray(0, sealedChunk), sealedChunk);
-		await expect(openAll(backend, key, swapped, 2)).rejects.toMatchObject({ code: 'corrupted' });
-
-		// Truncated at a chunk boundary: the new last chunk was not sealed as final.
-		const truncated = payload.slice(0, 3 * sealedChunk);
-		await expect(openAll(backend, key, truncated, 2)).rejects.toMatchObject({ code: 'corrupted' });
+		await expect(openAll(backend, key, tamper(payload), 2)).rejects.toMatchObject({
+			code: 'corrupted'
+		});
 	});
 
 	test('rejects a dropped final chunk when the file is a whole number of chunks', async () => {
 		const plain = randomBytes(4 * CHUNK);
 		const { key, payload } = await typageReference(plain);
-		const dropped = payload.slice(0, 3 * (CHUNK + 16));
+		const dropped = payload.slice(0, 3 * SEALED_CHUNK_SIZE);
 		await expect(openAll(backend, key, dropped, 4)).rejects.toMatchObject({ code: 'corrupted' });
 	});
 });

@@ -11,7 +11,8 @@ export interface PassphraseChoice {
 
 /**
  * A generated passphrase by default (shown in full, so it can be written
- * down), or the user's own, typed twice.
+ * down), or the user's own, typed twice. Its fields' ids start with `id`;
+ * the e2e tests use them.
  */
 export function usePassphraseChoice(id: string): PassphraseChoice {
 	const [generated, setGenerated] = useState(generatePassphrase);
@@ -32,7 +33,7 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 				<>
 					<LineField
 						id={`${id}-own`}
-						label={strings.encrypt.passphrase}
+						label={strings.passphrase.label}
 						input={{
 							type: 'password',
 							autoComplete: 'new-password',
@@ -44,7 +45,7 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 					/>
 					<LineField
 						id={`${id}-repeat`}
-						label={strings.encrypt.repeat}
+						label={strings.passphrase.repeat}
 						input={{
 							type: 'password',
 							autoComplete: 'new-password',
@@ -61,7 +62,7 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 					/>
 					{mismatch && (
 						<Hint id={`${id}-mismatch`} tone="error">
-							{strings.encrypt.mismatch}
+							{strings.passphrase.mismatch}
 						</Hint>
 					)}
 				</>
@@ -69,7 +70,7 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 				<>
 					<div className="mt-6">
 						<p id={`${id}-generated-label`} className="text-sm text-muted">
-							{strings.encrypt.passphrase}
+							{strings.passphrase.label}
 						</p>
 						<div className="mt-2 flex items-start gap-4 border-b-2 border-fg pb-2">
 							<output
@@ -82,21 +83,21 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 							</output>
 							<TextButton className="mt-1" onClick={() => void copy(generated, output.current)}>
 								<StableLabel
-									current={isCopied(generated) ? strings.keys.copied : strings.encrypt.copy}
-									labels={[strings.encrypt.copy, strings.keys.copied]}
+									labels={[strings.passphrase.copy, strings.passphrase.copied]}
+									shown={isCopied(generated) ? 1 : 0}
 								/>
 							</TextButton>
 							<TextButton className="mt-1" onClick={() => setGenerated(generatePassphrase())}>
-								{strings.encrypt.newPassphrase}
+								{strings.passphrase.new}
 							</TextButton>
 						</div>
 					</div>
-					<Hint>{strings.encrypt.generatedHint}</Hint>
+					<Hint>{strings.passphrase.generatedHint}</Hint>
 				</>
 			)}
 			{/* One button for both ways, so it keeps focus when it's pressed. */}
 			<TextButton tone="muted" className="mt-3" onClick={() => setOwnMode(!ownMode)}>
-				{ownMode ? strings.encrypt.generatedPassphrase : strings.encrypt.ownPassphrase}
+				{ownMode ? strings.passphrase.generated : strings.passphrase.own}
 			</TextButton>
 		</>
 	);

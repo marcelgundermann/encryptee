@@ -1,19 +1,18 @@
 import { detectCapabilities } from '../src/capabilities.ts';
 import {
-	nativeChaChaAvailable,
 	startJob,
-	type Backend,
 	type Job,
 	type JobInput,
 	type JobOptions,
 	type SaveLocation
 } from '../src/index.ts';
-import { outputName } from '../src/sinks/save-location.ts';
+import { outputName } from '../src/format/names.ts';
+import { nativeChaChaAvailable, type Backend } from '../src/payload/cipher.ts';
 import { OPFS_STAGING_DIR } from '../src/sinks/sink.ts';
 
 /**
  * Dev-only throughput bench (plan step 3). Not part of the app build; run with
- * `pnpm --filter @encryptee/engine bench`.
+ * `pnpm vp run @encryptee/engine#bench`.
  */
 const SCENARIOS = [
 	'encrypt-discard',
@@ -121,7 +120,7 @@ $('form', HTMLFormElement).addEventListener('submit', async (event) => {
 							}),
 					files: [input],
 					save: scenario === 'encrypt-opfs' ? { kind: 'opfs' } : save,
-					tuning: { workers, batchChunks, window: 2 * workers, backend }
+					tuning: { workers, batchChunks, backend }
 				};
 
 				await runOne(scenario, options);

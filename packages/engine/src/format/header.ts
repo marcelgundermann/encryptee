@@ -15,7 +15,7 @@ export type DecryptCredentials =
 	| { kind: 'passphrase'; passphrase: string }
 	| { kind: 'private-keys'; privateKeys: string[] };
 
-export interface SealedHeader {
+interface SealedHeader {
 	/** The full header, through the newline after the MAC. */
 	header: Uint8Array;
 	fileKey: Uint8Array;
@@ -84,12 +84,15 @@ export async function openHeader(
 	} catch (cause) {
 		const message = cause instanceof Error ? cause.message : String(cause);
 
-		if (message.includes('no identity matched')) {
-			throw new EngineError('wrong-credentials', message, { cause });
-		}
+		if (noIdentityMatched(cause)) throw new EngineError('wrong-credentials', message, { cause });
 
 		throw new EngineError('corrupted', `invalid header: ${message}`, { cause });
 	}
+}
+
+/** Whether typage failed because no passphrase or private key opened the header. */
+export function noIdentityMatched(cause: unknown): boolean {
+	return cause instanceof Error && cause.message.includes('no identity matched');
 }
 
 /** Throws `invalid-public-key` unless `publicKey` is a recipient typage can encrypt to. */
@@ -99,7 +102,7 @@ export function assertPublicKey(publicKey: string): void {
 
 function addPublicKey(encrypter: Encrypter, publicKey: string): void {
 	try {
-		encrypter.addRecipient(publicKey.trim());
+		encrypter.addRecipient(publicKey);
 	} catch (cause) {
 		throw new EngineError('invalid-public-key', `invalid public key: ${publicKey}`, { cause });
 	}
