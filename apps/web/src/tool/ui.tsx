@@ -1,42 +1,112 @@
-import type { ComponentProps, ReactNode } from 'react';
-import { formatBytes } from '../strings.ts';
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode, type Ref } from 'react';
+import { formatBytes, strings } from '../strings.ts';
 
 /*
  * Building blocks of the "Drop" design (variant A of the prototypes):
  * monochrome, oversized type, one centered card per step.
  */
 
+/** A phone or tablet: no autofocus there, since it would pop the keyboard up. */
+export const touchScreen = () => matchMedia('(pointer: coarse)').matches;
+
+/**
+ * Focuses the element on mount if focus fell back to the page, as it does
+ * when the control that had it unmounts with the step before. Never takes
+ * focus from anything else, like an input that autofocused.
+ */
+export function useFocusIfLost<T extends HTMLElement>(enabled = true) {
+	const ref = useRef<T>(null);
+
+	useEffect(() => {
+		if (enabled && document.activeElement === document.body) {
+			ref.current?.focus();
+		}
+	}, [enabled]);
+
+	return ref;
+}
+
+/** Copies text; if the clipboard refuses, selects it in `fallback` to copy by hand. */
+export function useCopy() {
+	const [copied, setCopied] = useState<string | null>(null);
+
+	const copy = async (text: string, fallback: HTMLElement | null) => {
+		try {
+			await navigator.clipboard.writeText(text);
+			setCopied(text);
+			setTimeout(() => setCopied((current) => (current === text ? null : current)), 2000);
+		} catch {
+			if (fallback) getSelection()?.selectAllChildren(fallback);
+		}
+	};
+
+	// Per text, so a new passphrase never shows as copied.
+	return { isCopied: (text: string) => copied === text, copy };
+}
+
 export function Card({ children }: { children: ReactNode }) {
 	return <div className="w-full max-w-lg">{children}</div>;
 }
 
-export function Kicker({ children }: { children: ReactNode }) {
-	return (
-		<p className="mb-4 text-sm font-medium tracking-wide text-neutral-400 uppercase">{children}</p>
+/** A small label over a step; `heading` makes it the step's h1 when there's no Headline. */
+export function Kicker({ children, heading = false }: { children: ReactNode; heading?: boolean }) {
+	const ref = useFocusIfLost<HTMLHeadingElement>(heading);
+	const className = 'mb-4 text-sm font-medium tracking-wide text-muted uppercase';
+
+	return heading ? (
+		<h1 ref={ref} tabIndex={-1} className={`${className} focus:outline-hidden`}>
+			{children}
+		</h1>
+	) : (
+		<p className={className}>{children}</p>
 	);
 }
 
 export function Headline({ children, tone }: { children: ReactNode; tone?: 'error' }) {
+	const ref = useFocusIfLost<HTMLHeadingElement>();
+
 	return (
 		<h1
-			className={`text-3xl font-semibold tracking-tight sm:text-4xl ${tone === 'error' ? 'text-red-600 dark:text-red-400' : ''}`}
+			ref={ref}
+			tabIndex={-1}
+			className={`text-3xl font-semibold tracking-tight text-balance focus:outline-hidden sm:text-4xl ${tone === 'error' ? 'text-danger' : ''}`}
 		>
 			{children}
 		</h1>
 	);
 }
 
+const SHOWN_FILES = 5;
+
+/** The files a list shows before "and N more"; one more is shown rather than "and 1 more file". */
+export function shownFiles<T>(files: readonly T[]) {
+	return files.length > SHOWN_FILES + 1 ? files.slice(0, SHOWN_FILES) : files;
+}
+
+/** The first few files, then a count, so a big selection never pushes the button away. */
 export function FileLines({ files }: { files: ReadonlyArray<{ name: string; size: number }> }) {
+	const shown = shownFiles(files);
+
 	return (
 		<ul className="space-y-1">
-			{files.map((file, i) => (
+			{shown.map((file, i) => (
 				<li key={`${i}-${file.name}`} className="flex justify-between gap-4 text-xl">
 					<span className="truncate">{file.name}</span>
-					<span className="shrink-0 text-neutral-400 tabular-nums">{formatBytes(file.size)}</span>
+					<span className="shrink-0 text-muted tabular-nums">{formatBytes(file.size)}</span>
 				</li>
 			))}
+			{shown.length < files.length && (
+				<li className="text-xl text-muted">
+					{strings.selection.more(files.length - shown.length)}
+				</li>
+			)}
 		</ul>
 	);
+}
+
+/** The arrow on a button that moves to the next step, kept out of its name. */
+export function Arrow() {
+	return <span aria-hidden="true">{' →'}</span>;
 }
 
 export function BigButton({ className = '', ...props }: ComponentProps<'button'>) {
@@ -44,7 +114,7 @@ export function BigButton({ className = '', ...props }: ComponentProps<'button'>
 		<button
 			type="button"
 			{...props}
-			className={`mt-8 w-full rounded-full bg-black py-4 text-lg font-medium text-white transition hover:bg-neutral-800 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-black disabled:cursor-not-allowed disabled:opacity-30 dark:bg-white dark:text-black dark:hover:bg-neutral-200 dark:focus-visible:outline-white ${className}`}
+			className={`focus-ring mt-8 w-full rounded-full bg-fg py-4 text-lg font-medium text-canvas transition-[scale,background-color] duration-150 ease-out enabled:hover:bg-fg/85 disabled:cursor-not-allowed disabled:opacity-30 motion-safe:enabled:active:scale-[0.97] ${className}`}
 		/>
 	);
 }
@@ -54,18 +124,40 @@ export function OutlineButton({ className = '', ...props }: ComponentProps<'butt
 		<button
 			type="button"
 			{...props}
-			className={`rounded-full border-2 border-black py-3 text-sm font-medium transition hover:bg-neutral-100 disabled:opacity-30 dark:border-white dark:hover:bg-neutral-900 ${className}`}
+			className={`focus-ring rounded-full border-2 border-fg py-3 text-sm font-medium transition-[scale,background-color] duration-150 ease-out enabled:hover:bg-surface disabled:opacity-30 motion-safe:enabled:active:scale-[0.97] ${className}`}
 		/>
 	);
 }
 
-export function TextButton({ className = '', ...props }: ComponentProps<'button'>) {
+export function TextButton({
+	className = '',
+	tone,
+	...props
+}: ComponentProps<'button'> & { tone?: 'muted' }) {
+	const color = tone === 'muted' ? 'text-muted hover:text-fg' : 'hover:text-muted';
+
 	return (
 		<button
 			type="button"
 			{...props}
-			className={`text-sm underline underline-offset-2 hover:text-neutral-500 ${className}`}
+			className={`hit-area focus-ring text-sm underline underline-offset-2 transition-colors disabled:opacity-50 ${color} ${className}`}
 		/>
+	);
+}
+
+/** One of several labels, in the width of the widest, so swapping them moves nothing. */
+export function StableLabel({ current, labels }: { current: string; labels: readonly string[] }) {
+	return (
+		<span className="inline-grid">
+			{labels.map((label) => (
+				<span
+					key={label}
+					className={`col-start-1 row-start-1 ${label === current ? '' : 'invisible'}`}
+				>
+					{label}
+				</span>
+			))}
+		</span>
 	);
 }
 
@@ -76,13 +168,24 @@ export function Segmented<T extends string>(props: {
 	value: T;
 	onChange: (value: T) => void;
 }) {
+	const index = props.options.findIndex((option) => option.value === props.value);
+
 	return (
-		<fieldset className="mt-8 grid grid-flow-col rounded-full bg-neutral-100 p-1 text-sm font-medium dark:bg-neutral-900">
+		<fieldset className="relative mt-8 grid auto-cols-fr grid-flow-col rounded-full bg-surface p-1 text-sm font-medium">
 			<legend className="sr-only">{props.label}</legend>
+			{/* The pill slides to the chosen option, so the switch reads as one control. */}
+			<span
+				aria-hidden="true"
+				className="absolute inset-y-1 left-1 rounded-full bg-raised shadow-sm motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.32,0.72,0,1)]"
+				style={{
+					width: `calc((100% - 0.5rem) / ${props.options.length})`,
+					transform: `translateX(${index * 100}%)`
+				}}
+			/>
 			{props.options.map((option) => (
 				<label
 					key={option.value}
-					className="cursor-pointer rounded-full py-2 text-center text-neutral-500 transition hover:text-black has-checked:bg-white has-checked:text-black has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:outline-black dark:hover:text-white dark:has-checked:bg-neutral-700 dark:has-checked:text-white"
+					className="relative cursor-pointer rounded-full py-3 text-center text-muted transition-colors hover:text-fg has-checked:text-fg has-focus-visible:outline-2 has-focus-visible:outline-fg"
 				>
 					<input
 						type="radio"
@@ -108,14 +211,15 @@ export function LineField(props: {
 }) {
 	return (
 		<div className="mt-6">
-			<label htmlFor={props.id} className="block text-sm text-neutral-500">
+			<label htmlFor={props.id} className="block text-sm text-muted">
 				{props.label}
 			</label>
-			<div className="mt-2 flex items-center gap-3 border-b-2 border-black pb-2 focus-within:border-neutral-500 dark:border-white">
+			{/* Focus thickens the underline to 4px with a shadow, which moves nothing. */}
+			<div className="mt-2 flex items-center gap-4 border-b-2 border-fg pb-2 focus-within:shadow-[0_2px_0_0_var(--color-fg)]">
 				<input
 					id={props.id}
 					{...props.input}
-					className={`w-full min-w-0 bg-transparent text-lg outline-none placeholder:text-neutral-300 dark:placeholder:text-neutral-700 ${props.input.className ?? ''}`}
+					className={`w-full min-w-0 bg-transparent text-lg outline-hidden placeholder:text-ghost ${props.input.className ?? ''}`}
 				/>
 				{props.action}
 			</div>
@@ -123,26 +227,40 @@ export function LineField(props: {
 	);
 }
 
-export function Hint({ children, tone }: { children: ReactNode; tone?: 'error' | 'warning' }) {
+export function Hint({
+	children,
+	tone,
+	id
+}: {
+	children: ReactNode;
+	tone?: 'error' | 'warning';
+	id?: string;
+}) {
 	const color =
-		tone === 'error'
-			? 'text-red-600 dark:text-red-400'
-			: tone === 'warning'
-				? 'text-amber-700 dark:text-amber-400'
-				: 'text-neutral-500';
+		tone === 'error' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-muted';
 
 	return (
-		<p role={tone ? 'alert' : undefined} className={`mt-2 text-sm ${color}`}>
+		<p id={id} role={tone ? 'alert' : undefined} className={`mt-2 text-sm ${color}`}>
 			{children}
 		</p>
 	);
 }
 
-export function MonoBox({ label, children }: { label: string; children: ReactNode }) {
+export function MonoBox({
+	label,
+	children,
+	ref
+}: {
+	label: string;
+	children: ReactNode;
+	ref?: Ref<HTMLParagraphElement>;
+}) {
 	return (
-		<div className="mt-8 rounded-2xl bg-neutral-100 p-4 dark:bg-neutral-900">
-			<p className="text-xs text-neutral-500">{label}</p>
-			<p className="mt-2 font-mono text-xs break-all">{children}</p>
+		<div className="mt-8 rounded-2xl bg-surface p-4">
+			<p className="text-xs text-muted">{label}</p>
+			<p ref={ref} className="mt-2 font-mono text-sm break-all select-all">
+				{children}
+			</p>
 		</div>
 	);
 }

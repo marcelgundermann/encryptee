@@ -1,11 +1,79 @@
 @import 'tailwindcss';
 
-/* The "Drop" design: monochrome, system type, black on white (white on black in dark mode). */
+/*
+ * The "Drop" design: monochrome, system type, black on white (white on black
+ * in dark mode). Components use these roles, never a palette step, so each
+ * pair's contrast is decided here, once for each theme.
+ */
+@theme {
+	--color-canvas: oklch(1 0 0);
+	--color-fg: oklch(0 0 0);
+	/* Secondary text: 5.5:1 on canvas, 5:1 on surface. */
+	--color-muted: oklch(0.52 0 0);
+	/* Display-size text and placeholders only: 3.4:1. */
+	--color-ghost: oklch(0.64 0 0);
+	--color-surface: oklch(0.97 0 0);
+	--color-raised: oklch(1 0 0);
+	--color-line: oklch(0.87 0 0);
+	--color-danger: oklch(0.577 0.245 27.325);
+	--color-warning: oklch(0.555 0.163 48.998);
+
+	--animate-step-in: step-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+	--animate-fade-in: fade-in 150ms ease-out;
+
+	@keyframes step-in {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+	}
+
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+		}
+	}
+}
+
 @layer base {
 	html {
 		color-scheme: light dark;
+		font-synthesis: none;
 	}
 	body {
-		@apply bg-white text-black antialiased dark:bg-neutral-950 dark:text-white;
+		@apply bg-canvas text-fg antialiased;
+	}
+
+	/* The same roles, remapped: muted 6.9:1, ghost 3.3:1 on the dark canvas. */
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--color-canvas: oklch(0.145 0 0);
+			--color-fg: oklch(1 0 0);
+			--color-muted: oklch(0.68 0 0);
+			--color-ghost: oklch(0.5 0 0);
+			--color-surface: oklch(0.205 0 0);
+			--color-raised: oklch(0.371 0 0);
+			--color-line: oklch(0.371 0 0);
+			--color-danger: oklch(0.704 0.191 22.216);
+			--color-warning: oklch(0.828 0.189 84.429);
+		}
+	}
+}
+
+/* Grows a small control's tap target to 44px tall without moving anything. */
+@utility hit-area {
+	position: relative;
+
+	&::after {
+		content: '';
+		position: absolute;
+		inset: -12px -6px;
+	}
+}
+
+@utility focus-ring {
+	&:focus-visible {
+		outline: 2px solid var(--color-fg);
+		outline-offset: 2px;
 	}
 }

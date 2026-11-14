@@ -10,6 +10,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { errorMessage, strings } from '../strings.ts';
 import { Warnings } from './Warnings.tsx';
 import {
+	Arrow,
 	BigButton,
 	Card,
 	FileLines,
@@ -17,7 +18,9 @@ import {
 	Hint,
 	Kicker,
 	LineField,
-	TextButton
+	StableLabel,
+	TextButton,
+	touchScreen
 } from './ui.tsx';
 
 interface KeyFile {
@@ -37,8 +40,10 @@ export function DecryptCard(props: {
 	const [keyFile, setKeyFile] = useState<KeyFile | null>(null);
 	const [keyFilePassphrase, setKeyFilePassphrase] = useState('');
 	const [phase, setPhase] = useState<'idle' | 'checking' | 'needs-click'>('idle');
+	const [checkingKeyFile, setCheckingKeyFile] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const keyInput = useRef<HTMLInputElement>(null);
+	const passphraseInput = useRef<HTMLInputElement>(null);
 
 	const credentials: DecryptCredentials | null =
 		props.unlock === 'passphrase'
@@ -51,13 +56,21 @@ export function DecryptCard(props: {
 
 	const loadKeyFile = async (name: string, bytes: Uint8Array, pass?: string) => {
 		setError(null);
+		setCheckingKeyFile(true);
 
 		try {
 			const contents = await readKeyFile(bytes, pass);
 			setKeyFile({ name, bytes, privateKeys: contents.protected ? null : contents.privateKeys });
 		} catch (cause) {
 			setError(errorMessage(cause));
+		} finally {
+			setCheckingKeyFile(false);
 		}
+	};
+
+	const submitKeyFile = () => {
+		if (keyFile && !checkingKeyFile)
+			void loadKeyFile(keyFile.name, keyFile.bytes, keyFilePassphrase);
 	};
 
 	const start = async (creds: DecryptCredentials) => {
@@ -92,6 +105,8 @@ export function DecryptCard(props: {
 		} catch (cause) {
 			setError(errorMessage(cause));
 			setPhase('idle');
+			passphraseInput.current?.focus();
+			passphraseInput.current?.select();
 
 			return;
 		}
@@ -104,15 +119,15 @@ export function DecryptCard(props: {
 			<form onSubmit={submit}>
 				<Kicker>{strings.selection.decrypting(props.files.length)}</Kicker>
 				<FileLines files={props.files} />
-				<TextButton className="mt-3 text-neutral-500" onClick={props.onBack}>
+				<TextButton tone="muted" className="mt-3" onClick={props.onBack}>
 					{strings.selection.other}
 				</TextButton>
 
 				<div className="mt-8">
 					<Headline>
 						{props.unlock === 'passphrase'
-							? strings.decrypt.lockedPassphrase
-							: strings.decrypt.lockedKey}
+							? strings.decrypt.encryptedWithPassphrase
+							: strings.decrypt.encryptedToKey}
 					</Headline>
 				</div>
 
@@ -121,9 +136,10 @@ export function DecryptCard(props: {
 						id="decrypt-passphrase"
 						label={strings.decrypt.passphrase}
 						input={{
+							ref: passphraseInput,
 							type: 'password',
 							autoComplete: 'current-password',
-							autoFocus: true,
+							autoFocus: !touchScreen(),
 							value: passphrase,
 							onChange: (e) => {
 								setPassphrase(e.target.value);
@@ -136,10 +152,12 @@ export function DecryptCard(props: {
 						<button
 							type="button"
 							onClick={() => keyInput.current?.click()}
-							className="mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-black pb-2 text-left text-lg dark:border-white"
+							className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg"
 						>
-							<span>{keyFile ? keyFile.name : strings.decrypt.keyFile}</span>
-							<span className="text-sm text-neutral-500">
+							<span className="min-w-0 truncate">
+								{keyFile ? keyFile.name : strings.decrypt.keyFile}
+							</span>
+							<span className="shrink-0 text-sm text-muted">
 								{keyFile?.privateKeys
 									? strings.decrypt.keysLoaded(keyFile.name)
 									: strings.decrypt.keyFileHint}
@@ -163,21 +181,24 @@ export function DecryptCard(props: {
 								label={strings.decrypt.keyFilePassphrase}
 								input={{
 									type: 'password',
-									autoFocus: true,
+									autoFocus: !touchScreen(),
 									value: keyFilePassphrase,
 									onChange: (e) => setKeyFilePassphrase(e.target.value),
 									onKeyDown: (e) => {
 										if (e.key === 'Enter') {
 											e.preventDefault();
-											void loadKeyFile(keyFile.name, keyFile.bytes, keyFilePassphrase);
+											submitKeyFile();
 										}
 									}
 								}}
 								action={
-									<TextButton
-										onClick={() => void loadKeyFile(keyFile.name, keyFile.bytes, keyFilePassphrase)}
-									>
-										{strings.decrypt.unlockKeyFile}
+									<TextButton onClick={submitKeyFile}>
+										<StableLabel
+											current={
+												checkingKeyFile ? strings.decrypt.checking : strings.decrypt.applyKeyFile
+											}
+											labels={[strings.decrypt.applyKeyFile, strings.decrypt.checking]}
+										/>
 									</TextButton>
 								}
 							/>
@@ -187,16 +208,26 @@ export function DecryptCard(props: {
 
 				{error && <Hint tone="error">{error}</Hint>}
 				<Warnings mode="decrypt" files={props.files} />
+				{phase === 'needs-click' && <Hint>{strings.decrypt.checked}</Hint>}
+				{/* The same button either way, so it keeps focus for the second press. */}
 				{phase === 'needs-click' && credentials ? (
 					<BigButton onClick={() => void start(credentials)}>
 						{strings.decrypt.chooseSave}
+						<Arrow />
 					</BigButton>
 				) : (
 					<BigButton
 						type="submit"
 						disabled={!credentials || phase === 'checking' || props.disabled}
 					>
-						{phase === 'checking' ? strings.decrypt.checking : strings.decrypt.submit}
+						{phase === 'checking' ? (
+							strings.decrypt.checking
+						) : (
+							<>
+								{strings.decrypt.submit}
+								<Arrow />
+							</>
+						)}
 					</BigButton>
 				)}
 			</form>

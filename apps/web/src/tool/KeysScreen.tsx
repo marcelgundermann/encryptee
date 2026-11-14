@@ -19,7 +19,10 @@ import {
 	MonoBox,
 	OutlineButton,
 	Segmented,
-	TextButton
+	StableLabel,
+	TextButton,
+	touchScreen,
+	useCopy
 } from './ui.tsx';
 
 /** Saves a small file through a blob URL. Key files are a few KB, so this works everywhere. */
@@ -36,8 +39,13 @@ type Stage =
 	| { kind: 'start' }
 	/** A fresh key pair that hasn't been saved yet: nothing else is shown until it is. */
 	| { kind: 'save'; pair: KeyPair }
-	/** A saved or opened key: show the public half. `pair` is set if we can save it again. */
-	| { kind: 'show'; publicKey: string; pair: KeyPair | null };
+	/**
+	 * A saved or opened key: show the public half. `pair` is set if we can save
+	 * it again, `savedAs` if we just saved it.
+	 */
+	| { kind: 'show'; publicKey: string; pair: KeyPair | null; savedAs: string | null };
+
+type Pending = 'create' | 'save' | 'open';
 
 export function KeysScreen() {
 	const [stage, setStage] = useState<Stage>({ kind: 'start' });
@@ -46,23 +54,43 @@ export function KeysScreen() {
 	const { passphrase, field: passphraseField } = usePassphraseChoice('keys');
 	const [opening, setOpening] = useState<{ name: string; bytes: Uint8Array } | null>(null);
 	const [openPassphrase, setOpenPassphrase] = useState('');
+	// Key generation and scrypt take a moment: one click, one result.
+	const [pending, setPending] = useState<Pending | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const fileInput = useRef<HTMLInputElement>(null);
 
-	const save = async (pair: KeyPair) => {
-		const text = keyFileText(pair);
+	const create = async () => {
+		setPending('create');
+		setError(null);
 
-		if (protect) {
-			// A Blob takes only ArrayBuffer-backed views; copy into one.
-			saveSmallFile(new Uint8Array(await protectKeyFile(text, passphrase!)), 'key.age');
-		} else {
-			saveSmallFile(text, 'key.txt');
+		try {
+			setStage({ kind: 'save', pair: await generateKeyPair(type) });
+		} catch (cause) {
+			setError(errorMessage(cause));
+		} finally {
+			setPending(null);
 		}
+	};
 
-		setStage({ kind: 'show', publicKey: pair.publicKey, pair });
+	const save = async (pair: KeyPair) => {
+		setPending('save');
+		setError(null);
+		const text = keyFileText(pair);
+		const name = protect ? 'key.age' : 'key.txt';
+
+		try {
+			// A Blob takes only ArrayBuffer-backed views; copy into one.
+			saveSmallFile(protect ? new Uint8Array(await protectKeyFile(text, passphrase!)) : text, name);
+			setStage({ kind: 'show', publicKey: pair.publicKey, pair, savedAs: name });
+		} catch (cause) {
+			setError(errorMessage(cause));
+		} finally {
+			setPending(null);
+		}
 	};
 
 	const open = async (name: string, bytes: Uint8Array, pass?: string) => {
+		setPending('open');
 		setError(null);
 
 		try {
@@ -75,10 +103,16 @@ export function KeysScreen() {
 			}
 
 			setOpening(null);
-			setStage({ kind: 'show', publicKey: contents.publicKeys[0]!, pair: null });
+			setStage({ kind: 'show', publicKey: contents.publicKeys[0]!, pair: null, savedAs: null });
 		} catch (cause) {
 			setError(errorMessage(cause));
+		} finally {
+			setPending(null);
 		}
+	};
+
+	const submitOpening = () => {
+		if (opening && pending === null) void open(opening.name, opening.bytes, openPassphrase);
 	};
 
 	return (
@@ -89,7 +123,7 @@ export function KeysScreen() {
 				<>
 					<Headline>{strings.keys.title}</Headline>
 					<Segmented
-						label={strings.keys.kicker}
+						label={strings.keys.type}
 						value={type}
 						onChange={setType}
 						options={[
@@ -98,12 +132,10 @@ export function KeysScreen() {
 						]}
 					/>
 					<Hint>{strings.keys.typeHint}</Hint>
-					<BigButton
-						onClick={async () => setStage({ kind: 'save', pair: await generateKeyPair(type) })}
-					>
-						{strings.keys.create}
+					<BigButton disabled={pending !== null} onClick={() => void create()}>
+						{pending === 'create' ? strings.keys.creating : strings.keys.create}
 					</BigButton>
-					<TextButton className="mt-4 text-neutral-500" onClick={() => fileInput.current?.click()}>
+					<TextButton tone="muted" className="mt-4" onClick={() => fileInput.current?.click()}>
 						{strings.keys.openExisting}
 					</TextButton>
 					<input
@@ -124,16 +156,21 @@ export function KeysScreen() {
 							label={strings.decrypt.keyFilePassphrase}
 							input={{
 								type: 'password',
-								autoFocus: true,
+								autoFocus: !touchScreen(),
 								value: openPassphrase,
 								onChange: (e) => setOpenPassphrase(e.target.value),
 								onKeyDown: (e) => {
-									if (e.key === 'Enter') void open(opening.name, opening.bytes, openPassphrase);
+									if (e.key === 'Enter') submitOpening();
 								}
 							}}
 							action={
-								<TextButton onClick={() => void open(opening.name, opening.bytes, openPassphrase)}>
-									{strings.decrypt.unlockKeyFile}
+								<TextButton onClick={submitOpening}>
+									<StableLabel
+										current={
+											pending === 'open' ? strings.decrypt.checking : strings.decrypt.applyKeyFile
+										}
+										labels={[strings.decrypt.applyKeyFile, strings.decrypt.checking]}
+									/>
 								</TextButton>
 							}
 						/>
@@ -144,10 +181,10 @@ export function KeysScreen() {
 			{stage.kind === 'save' && (
 				<>
 					<Headline>{strings.keys.saveTitle}</Headline>
-					<label className="mt-8 flex items-center gap-3 text-sm">
+					<label className="mt-8 flex min-h-11 cursor-pointer items-center gap-3 text-sm">
 						<input
 							type="checkbox"
-							className="size-4 accent-black dark:accent-white"
+							className="size-4 accent-fg"
 							checked={protect}
 							onChange={(e) => setProtect(e.target.checked)}
 						/>
@@ -155,29 +192,22 @@ export function KeysScreen() {
 					</label>
 					{protect && passphraseField}
 					<BigButton
-						disabled={protect && passphrase === null}
+						disabled={(protect && passphrase === null) || pending !== null}
 						onClick={() => void save(stage.pair)}
 					>
-						{strings.keys.save}
+						{pending === 'save' ? strings.keys.saving : strings.keys.save}
 					</BigButton>
 					<Hint>{strings.keys.privateNote}</Hint>
 				</>
 			)}
 
 			{stage.kind === 'show' && (
-				<>
-					<Headline>{strings.keys.title}</Headline>
-					<MonoBox label={strings.keys.publicKey}>{stage.publicKey}</MonoBox>
-					<div className="mt-4 grid">
-						<CopyButton label={strings.keys.copyKey} value={stage.publicKey} />
-					</div>
-					<Hint>{strings.keys.privateNote}</Hint>
-					{stage.pair && (
-						<TextButton className="mt-4 text-neutral-500" onClick={() => void save(stage.pair!)}>
-							{strings.keys.saveAgain}
-						</TextButton>
-					)}
-				</>
+				<ShowKey
+					stage={stage}
+					pending={pending}
+					onSave={save}
+					onRestart={() => setStage({ kind: 'start' })}
+				/>
 			)}
 
 			{error && <Hint tone="error">{error}</Hint>}
@@ -185,18 +215,43 @@ export function KeysScreen() {
 	);
 }
 
-function CopyButton({ label, value }: { label: string; value: string }) {
-	const [copied, setCopied] = useState(false);
-
-	const copy = async () => {
-		await navigator.clipboard.writeText(value);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
-	};
+function ShowKey(props: {
+	stage: Extract<Stage, { kind: 'show' }>;
+	pending: Pending | null;
+	onSave: (pair: KeyPair) => Promise<void>;
+	onRestart: () => void;
+}) {
+	const { publicKey, pair, savedAs } = props.stage;
+	const { isCopied, copy } = useCopy();
+	const box = useRef<HTMLParagraphElement>(null);
 
 	return (
-		<OutlineButton onClick={() => void copy()}>
-			{copied ? strings.keys.copied : label}
-		</OutlineButton>
+		<>
+			<Headline>{strings.keys.title}</Headline>
+			{savedAs && <Hint>{strings.keys.savedTo(savedAs)}</Hint>}
+			<MonoBox ref={box} label={strings.keys.publicKey}>
+				{publicKey}
+			</MonoBox>
+			<div className="mt-4 grid">
+				<OutlineButton onClick={() => void copy(publicKey, box.current)}>
+					{isCopied(publicKey) ? strings.keys.copied : strings.keys.copyKey}
+				</OutlineButton>
+			</div>
+			<Hint>{strings.keys.privateNote}</Hint>
+			<div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">
+				{pair && (
+					<TextButton
+						tone="muted"
+						disabled={props.pending !== null}
+						onClick={() => void props.onSave(pair)}
+					>
+						{props.pending === 'save' ? strings.keys.saving : strings.keys.saveAgain}
+					</TextButton>
+				)}
+				<TextButton tone="muted" onClick={props.onRestart}>
+					{strings.keys.another}
+				</TextButton>
+			</div>
+		</>
 	);
 }

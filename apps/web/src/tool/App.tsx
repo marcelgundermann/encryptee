@@ -1,5 +1,6 @@
 import type { Job } from '@encryptee/engine';
 import { useEffect, useEffectEvent, useState } from 'react';
+import { navItemClass, SiteHeader } from '../SiteHeader.tsx';
 import { strings } from '../strings.ts';
 import { DecryptCard } from './DecryptCard.tsx';
 import { DropOverlay, DropSurface, useWindowDrop } from './DropSurface.tsx';
@@ -45,6 +46,15 @@ export function App() {
 		setSelection({ kind: 'none' });
 	};
 
+	const step = view === 'keys' ? 'keys' : job ? `job-${snapshot?.status}` : selection.kind;
+	// The page load neither animates nor moves focus; a step change after it does.
+	const [shown, setShown] = useState({ step, changed: false });
+
+	if (shown.step !== step) setShown({ step, changed: true });
+	// The drop surface and the running job sit centered; a form sits high and
+	// grows down, so nothing above the pointer moves when it changes height.
+	const centered = step === 'none' || step === 'job-running';
+
 	let content;
 
 	if (view === 'keys') content = <KeysScreen />;
@@ -71,67 +81,57 @@ export function App() {
 	else if (selection.kind === 'invalid')
 		content = (
 			<Card>
-				<Headline tone="error">{selection.message}</Headline>
+				<Headline>{strings.selection.unusable(selection.files.length)}</Headline>
+				<Hint tone="error">{selection.message}</Hint>
 				<TextButton className="mt-6" onClick={reset}>
 					{strings.selection.other}
 				</TextButton>
 			</Card>
 		);
-	else content = <DropSurface onFiles={choose} dragging={dragging} />;
+	else content = <DropSurface onFiles={choose} dragging={dragging} returning={shown.changed} />;
 
 	return (
 		<div className="flex min-h-dvh flex-col">
-			<header className="flex items-center justify-between gap-4 px-6 py-5 text-sm">
+			<SiteHeader
+				onWordmarkClick={() => {
+					setView('tool');
+
+					if (!running && !job) reset();
+				}}
+			>
 				<button
-					className="font-semibold tracking-tight"
-					onClick={() => {
-						setView('tool');
-
-						if (!running && !job) reset();
-					}}
+					className={navItemClass}
+					aria-current={view === 'keys' ? 'page' : undefined}
+					onClick={() => setView(view === 'keys' ? 'tool' : 'keys')}
 				>
-					{strings.wordmark}
+					{strings.nav.keys}
 				</button>
-				<nav className="flex gap-5 text-neutral-500">
-					<button
-						className={
-							view === 'keys'
-								? 'text-black dark:text-white'
-								: 'hover:text-black dark:hover:text-white'
-						}
-						aria-current={view === 'keys' ? 'page' : undefined}
-						onClick={() => setView(view === 'keys' ? 'tool' : 'keys')}
-					>
-						{strings.nav.keys}
-					</button>
-					<a className="hover:text-black dark:hover:text-white" href="/how-it-works/">
-						{strings.nav.howItWorks}
-					</a>
-					<a className="hidden hover:text-black sm:inline dark:hover:text-white" href="/security/">
-						{strings.nav.security}
-					</a>
-					<a className="hover:text-black dark:hover:text-white" href="/faq/">
-						{strings.nav.faq}
-					</a>
-				</nav>
-			</header>
+			</SiteHeader>
 
-			{(updateReady || safety === 'unsafe' || (safety === 'unknown' && !navigator.onLine)) && (
-				<div className="px-6 text-center text-sm" aria-live="polite">
-					{updateReady && (
-						<p>
-							{strings.update.ready}{' '}
-							<TextButton onClick={applyUpdate}>{strings.update.reload}</TextButton>
-						</p>
-					)}
-					{safety === 'unsafe' && <Hint tone="error">{strings.update.unsafe}</Hint>}
-					{safety === 'unknown' && !navigator.onLine && (
-						<p className="text-neutral-500">{strings.update.offline(buildDate)}</p>
-					)}
+			{/* Always mounted: a live region only announces what changes inside it. */}
+			<div className="px-6 text-center text-sm" aria-live="polite">
+				{updateReady && (
+					<p>
+						{strings.update.ready}{' '}
+						<TextButton onClick={applyUpdate}>{strings.update.reload}</TextButton>
+					</p>
+				)}
+				{safety === 'unsafe' && <Hint tone="error">{strings.update.unsafe}</Hint>}
+				{safety === 'unknown' && !navigator.onLine && (
+					<p className="text-muted">{strings.update.offline(buildDate)}</p>
+				)}
+			</div>
+
+			<main
+				className={`flex flex-1 justify-center px-6 pb-24 ${centered ? 'items-center pt-8' : 'items-start pt-[12vh]'}`}
+			>
+				<div
+					key={step}
+					className={`flex w-full justify-center ${shown.changed ? 'motion-safe:animate-step-in' : ''}`}
+				>
+					{content}
 				</div>
-			)}
-
-			<main className="flex flex-1 items-center justify-center px-6 pt-8 pb-24">{content}</main>
+			</main>
 			{dragging && (selection.kind !== 'none' || view === 'keys' || job) && <DropOverlay />}
 		</div>
 	);

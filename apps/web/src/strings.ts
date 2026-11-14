@@ -14,8 +14,9 @@ export const strings = {
 	},
 	drop: {
 		title: 'Drop files.',
-		subtitle: 'We’ll lock or unlock them.',
-		facts: 'Nothing leaves this device · Opens with the age app · Works offline',
+		titleTouch: 'Choose files.',
+		subtitle: 'Encrypted in this browser, or decrypted if they already are.',
+		facts: 'Nothing leaves this device · Opens with the age tool · Works offline',
 		choose: 'Choose files',
 		release: 'Release to add.'
 	},
@@ -23,6 +24,8 @@ export const strings = {
 		encrypting: (n: number) => `Encrypting ${files(n)}`,
 		decrypting: (n: number) => `Decrypting ${files(n)}`,
 		other: 'Choose other files',
+		more: (n: number) => `and ${n.toLocaleString('en')} more ${n === 1 ? 'file' : 'files'}`,
+		unusable: (n: number) => (n === 1 ? 'Can’t use this file.' : 'Can’t use these files.'),
 		mixed: 'Drop either files to encrypt or encrypted files to decrypt, not both at once.',
 		mixedLocks: 'Some of these files use a passphrase and some use a key. Decrypt them separately.',
 		legacy: 'This file is from the old Encryptee. Open it at v1.encryptee.io.',
@@ -41,27 +44,32 @@ export const strings = {
 		whoCanOpen: 'Who can open them',
 		pasteKey: 'Paste a public key (age1…)',
 		addKey: 'Add',
+		removeKey: (key: string) => `Remove public key ${key}`,
 		mixedKeys:
 			'You’re mixing post-quantum and classic keys. The files will only be as strong as the classic keys.',
-		submit: (n: number) => `Encrypt ${files(n)} →`,
+		submit: (n: number) => `Encrypt ${files(n)}`,
 		savePicker: (n: number) =>
 			n === 1 ? 'You’ll choose where to save it next.' : 'You’ll choose a folder next.',
 		saveDownload: 'They’ll be saved to your downloads.'
 	},
 	decrypt: {
-		lockedPassphrase: 'Locked with a passphrase.',
-		lockedKey: 'Locked with a key.',
+		encryptedWithPassphrase: 'Encrypted with a passphrase.',
+		encryptedToKey: 'Encrypted to a public key.',
 		passphrase: 'Passphrase',
 		keyFile: 'Choose your key file',
 		keyFileHint: 'Usually called key.age',
 		keyFilePassphrase: 'Key file passphrase',
-		unlockKeyFile: 'Unlock',
+		applyKeyFile: 'Use key file',
 		keysLoaded: (name: string) => `Key loaded from ${name}`,
 		checking: 'Checking…',
-		submit: 'Decrypt →',
-		chooseSave: 'Choose where to save →'
+		checked: 'That matches. Now choose where to save.',
+		submit: 'Decrypt',
+		chooseSave: 'Choose where to save'
 	},
 	job: {
+		progress: 'Progress',
+		progressText: (percent: number, done: string, total: string) =>
+			`${percent}%, ${done} of ${total}`,
 		preparing: 'Preparing…',
 		of: (done: string, total: string) => `${done} of ${total}`,
 		rate: (rate: string) => `${rate}/s`,
@@ -88,6 +96,9 @@ export const strings = {
 		kicker: 'Your key',
 		title: 'Let people send you files only you can open.',
 		create: 'Create my key',
+		creating: 'Creating…',
+		another: 'Create another key',
+		type: 'Key type',
 		postQuantum: 'Post-quantum',
 		classic: 'Classic',
 		typeHint: 'Post-quantum keys need age 1.3 or newer. Use classic only for older tools.',
@@ -95,6 +106,8 @@ export const strings = {
 		saveTitle: 'Save your key file.',
 		protect: 'Protect it with a passphrase',
 		save: 'Save key file',
+		saving: 'Saving…',
+		savedTo: (name: string) => `Saved ${name} to your downloads.`,
 		saveAgain: 'Save key file again',
 		privateNote:
 			'Your private key is in the key file. Encryptee never keeps it; if you lose the file, files sent to this key can’t be opened.',

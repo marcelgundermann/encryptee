@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { strings } from '../strings.ts';
+import { useFocusIfLost } from './ui.tsx';
 
 /**
  * Makes the whole window a drop target. Returns whether files are being
@@ -56,30 +57,41 @@ export function useWindowDrop(onFiles: (files: File[]) => void, enabled: boolean
 	return dragging && enabled;
 }
 
-/** The empty state: the page is one big drop surface that also opens the file chooser. */
-export function DropSurface(props: { onFiles: (files: File[]) => void; dragging: boolean }) {
+/**
+ * The empty state: the page is one big drop surface that also opens the file
+ * chooser. `returning` focuses it when the user comes back to it from a step.
+ */
+export function DropSurface(props: {
+	onFiles: (files: File[]) => void;
+	dragging: boolean;
+	returning: boolean;
+}) {
 	const input = useRef<HTMLInputElement>(null);
+	const surface = useFocusIfLost<HTMLButtonElement>(props.returning);
 
 	return (
 		<>
 			<button
+				ref={surface}
 				type="button"
 				onClick={() => input.current?.click()}
-				className={`group flex h-[60vh] w-full max-w-5xl flex-col items-start justify-end rounded-[2rem] border-2 border-dashed p-8 text-left transition focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-black sm:p-10 dark:focus-visible:outline-white ${
-					props.dragging
-						? 'border-black bg-neutral-50 dark:border-white dark:bg-neutral-900'
-						: 'border-neutral-300 hover:border-black dark:border-neutral-700 dark:hover:border-white'
+				className={`group focus-ring flex min-h-[60vh] w-full max-w-5xl flex-col items-start justify-end rounded-[2rem] border-2 border-dashed p-8 text-left transition-colors sm:p-10 ${
+					props.dragging ? 'border-fg bg-surface' : 'border-line hover:border-fg'
 				}`}
 			>
-				<span className="text-5xl leading-[0.95] font-semibold tracking-tighter sm:text-8xl">
-					{strings.drop.title}
+				<span className="text-5xl leading-[0.95] font-semibold tracking-tighter text-balance sm:text-8xl">
+					{/* Nothing can be dropped on a phone, so there the title says to choose. */}
+					<span className="pointer-coarse:hidden">{strings.drop.title}</span>
+					<span className="hidden pointer-coarse:inline">{strings.drop.titleTouch}</span>
 					<br />
-					<span className="text-neutral-300 group-hover:text-neutral-400 dark:text-neutral-700 dark:group-hover:text-neutral-500">
+					<span className="text-ghost transition-colors group-hover:text-muted">
 						{props.dragging ? strings.drop.release : strings.drop.subtitle}
 					</span>
 				</span>
-				<span className="mt-8 text-sm text-neutral-500">
-					<span className="underline underline-offset-2">{strings.drop.choose}</span> ·{' '}
+				<span className="mt-8 text-sm text-muted">
+					<span className="pointer-coarse:hidden">
+						<span className="underline underline-offset-2">{strings.drop.choose}</span> ·{' '}
+					</span>
 					{strings.drop.facts}
 				</span>
 			</button>
@@ -101,7 +113,7 @@ export function DropSurface(props: { onFiles: (files: File[]) => void; dragging:
 /** Full-window drop target shown while dragging over any other step. */
 export function DropOverlay() {
 	return (
-		<div className="pointer-events-none fixed inset-4 z-40 flex items-end rounded-[2rem] border-2 border-dashed border-black bg-white/90 p-10 dark:border-white dark:bg-neutral-950/90">
+		<div className="pointer-events-none fixed inset-4 z-40 flex items-end rounded-[2rem] border-2 border-dashed border-fg bg-canvas/90 p-10 motion-safe:animate-fade-in">
 			<span className="text-5xl font-semibold tracking-tighter sm:text-8xl">
 				{strings.drop.release}
 			</span>

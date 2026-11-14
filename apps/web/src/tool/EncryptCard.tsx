@@ -11,6 +11,7 @@ import { errorMessage, strings } from '../strings.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
 import { Warnings } from './Warnings.tsx';
 import {
+	Arrow,
 	BigButton,
 	Card,
 	FileLines,
@@ -22,6 +23,11 @@ import {
 } from './ui.tsx';
 
 type Method = 'passphrase' | 'public-keys';
+
+/** The keys in pasted text, separated by whitespace; rejects if any isn't valid. */
+const parseKeys = (text: string) => validatePublicKeys(text.split(/\s+/).filter(Boolean));
+
+const shortKey = (key: string) => `${key.slice(0, 12)}…${key.slice(-4)}`;
 
 export function EncryptCard(props: {
 	files: File[];
@@ -35,22 +41,50 @@ export function EncryptCard(props: {
 	const [draft, setDraft] = useState('');
 	const [error, setError] = useState<string | null>(null);
 
-	const ready = method === 'passphrase' ? passphrase !== null : publicKeys.length > 0;
+	// Keys still in the paste field count: they're added on submit.
+	const ready =
+		method === 'passphrase' ? passphrase !== null : publicKeys.length > 0 || draft.trim() !== '';
 
-	const addPasted = async () => {
+	const addKeys = (keys: string[]) => {
+		setPublicKeys((current) => [...new Set([...current, ...keys])]);
+		setDraft('');
+		setError(null);
+	};
+
+	const addDraft = async () => {
 		try {
-			const keys = await validatePublicKeys(draft.split(/\s+/).filter(Boolean));
-			setPublicKeys((current) => [...new Set([...current, ...keys])]);
-			setDraft('');
-			setError(null);
+			addKeys(await parseKeys(draft));
 		} catch (cause) {
 			setError(errorMessage(cause));
 		}
 	};
 
-	// Nothing is awaited before chooseSaveLocation: the save picker needs this click.
+	// Pasted keys that are all valid move from the field to the list; anything
+	// else stays in the field, and Add or Encrypt says what's wrong with it.
+	const addPasted = async (text: string) => {
+		try {
+			addKeys(await parseKeys(text));
+		} catch {}
+	};
+
+	// Only the paste field's check, one worker round trip, comes before
+	// chooseSaveLocation: the save picker needs this click's user activation.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
+		let keys = publicKeys;
+
+		if (method === 'public-keys' && draft.trim() !== '') {
+			try {
+				keys = [...new Set([...publicKeys, ...(await parseKeys(draft))])];
+			} catch (cause) {
+				setError(errorMessage(cause));
+
+				return;
+			}
+
+			addKeys(keys);
+		}
+
 		const choice = await chooseSaveLocation('encrypt', props.files);
 
 		if (choice.location) {
@@ -62,7 +96,7 @@ export function EncryptCard(props: {
 					credentials:
 						method === 'passphrase'
 							? { kind: 'passphrase', passphrase: passphrase! }
-							: { kind: 'public-keys', publicKeys }
+							: { kind: 'public-keys', publicKeys: keys }
 				})
 			);
 		} else if (choice.reason === 'unsupported') setError(strings.unsupported);
@@ -72,9 +106,9 @@ export function EncryptCard(props: {
 	return (
 		<Card>
 			<form onSubmit={submit}>
-				<Kicker>{strings.selection.encrypting(props.files.length)}</Kicker>
+				<Kicker heading>{strings.selection.encrypting(props.files.length)}</Kicker>
 				<FileLines files={props.files} />
-				<TextButton className="mt-3 text-neutral-500" onClick={props.onBack}>
+				<TextButton tone="muted" className="mt-3" onClick={props.onBack}>
 					{strings.selection.other}
 				</TextButton>
 
@@ -95,13 +129,25 @@ export function EncryptCard(props: {
 						{publicKeys.length > 0 && (
 							<ul className="mt-6 flex flex-wrap gap-2">
 								{publicKeys.map((key) => (
-									<li key={key}>
+									<li
+										key={key}
+										className="flex items-center gap-1 rounded-full bg-fg py-1 pr-1 pl-4 font-mono text-sm text-canvas"
+									>
+										{shortKey(key)}
 										<button
 											type="button"
+											aria-label={strings.encrypt.removeKey(shortKey(key))}
 											onClick={() => setPublicKeys((current) => current.filter((k) => k !== key))}
-											className="rounded-full border-2 border-black bg-black px-4 py-1.5 font-mono text-sm text-white dark:border-white dark:bg-white dark:text-black"
+											className="hit-area grid size-8 place-items-center rounded-full transition-colors outline-hidden hover:bg-canvas/20 focus-visible:bg-canvas focus-visible:text-fg"
 										>
-											{key.slice(0, 12)}…{key.slice(-4)} ×
+											<svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5">
+												<path
+													d="M4 4l8 8M12 4l-8 8"
+													stroke="currentColor"
+													strokeWidth="1.75"
+													strokeLinecap="round"
+												/>
+											</svg>
 										</button>
 									</li>
 								))}
@@ -116,17 +162,18 @@ export function EncryptCard(props: {
 								autoComplete: 'off',
 								className: 'font-mono text-base',
 								onChange: (e) => setDraft(e.target.value),
+								onPaste: (e) => {
+									if (draft.trim() === '') void addPasted(e.clipboardData.getData('text'));
+								},
 								onKeyDown: (e) => {
 									if (e.key === 'Enter') {
 										e.preventDefault();
-										void addPasted();
+										void addDraft();
 									}
 								}
 							}}
 							action={
-								<TextButton disabled={draft.trim() === ''} onClick={() => void addPasted()}>
-									{strings.encrypt.addKey}
-								</TextButton>
+								<TextButton onClick={() => void addDraft()}>{strings.encrypt.addKey}</TextButton>
 							}
 						/>
 						{mixesPqAndClassic(publicKeys) && (
@@ -139,8 +186,9 @@ export function EncryptCard(props: {
 				<Warnings mode="encrypt" files={props.files} />
 				<BigButton type="submit" disabled={!ready || props.disabled}>
 					{strings.encrypt.submit(props.files.length)}
+					<Arrow />
 				</BigButton>
-				<p className="mt-3 text-center text-xs text-neutral-400">
+				<p className="mt-3 text-center text-sm text-muted">
 					{whereToSave(props.files.length) === 'ask'
 						? strings.encrypt.savePicker(props.files.length)
 						: strings.encrypt.saveDownload}
