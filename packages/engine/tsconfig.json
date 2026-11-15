@@ -6,8 +6,10 @@
 	"include": ["src", "test", "bench"],
 	"exclude": [
 		"src/workers/*.worker.ts",
+		"src/workers/headers.ts",
 		"src/workers/pipeline.ts",
 		"src/workers/pool.ts",
+		"src/workers/source.ts",
 		"src/sinks/open-sink.ts",
 		"src/sinks/sw-route.ts",
 		"test/*.worker.ts"

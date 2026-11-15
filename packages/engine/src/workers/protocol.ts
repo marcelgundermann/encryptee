@@ -1,7 +1,7 @@
 import type { SerializedError } from '../errors.ts';
 import type { DecryptCredentials, EncryptCredentials } from '../format/header.ts';
 import type { Backend } from '../payload/cipher.ts';
-import type { BatchPosition } from '../payload/layout.ts';
+import type { BatchPosition, PayloadLayout } from '../payload/layout.ts';
 import type { SinkDescriptor, SinkResult } from '../sinks/sink.ts';
 
 /** How a job runs: its crypto workers, and how the coordinator cuts and pipelines each file. */
@@ -30,8 +30,25 @@ export interface FileTask {
 	operation: TaskOperation;
 }
 
+/** What a file needs before its payload: the layout, the payload key and, when sealing, the header. */
+export interface Prepared {
+	layout: PayloadLayout;
+	payloadKey: Uint8Array<ArrayBuffer>;
+	/** Header and payload nonce, written before the payload when sealing. */
+	prefix: Uint8Array<ArrayBuffer> | null;
+	outputSize: number;
+}
+
+/** Main thread → header or crypto worker, once: the port it serves the coordinator on. */
+export type WorkerConnect = { type: 'connect'; port: MessagePort };
+
 /** Main thread → coordinator, once, before anything else. */
-export type CoordinatorInit = { type: 'init'; pool: MessagePort[]; tuning: Tuning };
+export type CoordinatorInit = {
+	type: 'init';
+	pool: MessagePort[];
+	header: MessagePort;
+	tuning: Tuning;
+};
 
 /** Main thread → coordinator. */
 export type CoordinatorRequest =
@@ -51,8 +68,19 @@ export type CoordinatorEvent =
 	| { type: 'done'; id: number; result: SinkResult }
 	| { type: 'failed'; id: number; error: SerializedError };
 
-/** Main thread → crypto worker. */
-export type CryptoConnect = { type: 'connect'; port: MessagePort };
+/** Coordinator → header worker. */
+export type HeaderRequest = {
+	type: 'prepare';
+	request: number;
+	source: Source;
+	operation: TaskOperation;
+	batchChunks: number;
+};
+
+/** Header worker → coordinator. */
+export type HeaderResponse =
+	| { type: 'prepared'; request: number; prepared: Prepared }
+	| { type: 'failed'; request: number; error: SerializedError };
 
 /** Coordinator → crypto worker. */
 export type CryptoRequest =

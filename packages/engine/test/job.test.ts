@@ -347,6 +347,37 @@ describe('jobs', () => {
 		expect(result.files[0]!.outputSize).toBeNull();
 	});
 
+	test('a cancel while scrypt runs ends the job without waiting for scrypt', async () => {
+		// Production's work factor, timed through once, so the bound scales with the machine.
+		const credentials = { ...passphrase.encrypt, scryptLogN: 18 };
+
+		const options = (): JobOptions => ({
+			mode: 'encrypt',
+			credentials,
+			files: [file(randomBytes(10), 'a.txt')],
+			save: { kind: 'memory' }
+		});
+
+		const started = performance.now();
+		await startJob(options()).done;
+		const wholeJob = performance.now() - started;
+
+		const job = startJob(options());
+		let cancelledAt = 0;
+
+		const stop = job.subscribe(() => {
+			if (job.getSnapshot().files[0]!.status !== 'running') return;
+			stop();
+			setTimeout(() => {
+				cancelledAt = performance.now();
+				job.cancel();
+			});
+		});
+
+		expect((await job.done).status).toBe('cancelled');
+		expect(performance.now() - cancelledAt).toBeLessThan(wholeJob / 2);
+	});
+
 	test.runIf(globalThis.gc)('a job that ended no longer holds its credentials', async () => {
 		const { job, credentials } = startWatchedJob();
 		await job.done;

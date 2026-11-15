@@ -1,13 +1,13 @@
 import { EngineError, serializeError } from '../errors.ts';
 import { openBatch, sealBatch } from '../payload/batch.ts';
 import { createChunkCipher, type ChunkCipher } from '../payload/cipher.ts';
-import type { CryptoConnect, CryptoRequest, CryptoResponse } from './protocol.ts';
+import type { CryptoRequest, CryptoResponse, WorkerConnect } from './protocol.ts';
 
 declare const self: DedicatedWorkerGlobalScope;
 
 let cipher: ChunkCipher | null = null;
 
-self.onmessage = ({ data }: MessageEvent<CryptoConnect>) => {
+self.onmessage = ({ data }: MessageEvent<WorkerConnect>) => {
 	const port = data.port;
 
 	const reply = (message: CryptoResponse, transfer: Transferable[] = []) =>

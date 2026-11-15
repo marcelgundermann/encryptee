@@ -122,9 +122,9 @@ const SCRYPT_LABEL = new TextEncoder().encode('age-encryption.org/v1/scrypt');
 
 /**
  * The age scrypt recipient, byte-compatible with typage's (which isn't
- * exported). Synchronous like typage's: a cancel waits for the header either
- * way, and yielding would only slow scrypt down (a clamped `setTimeout` every
- * 10 ms where workers lack `scheduler.yield`).
+ * exported). Synchronous like typage's: it runs in the header worker, where
+ * it holds up nothing else, and yielding would only slow scrypt down (a
+ * clamped `setTimeout` every 10 ms where workers lack `scheduler.yield`).
  */
 class ScryptRecipient implements Recipient {
 	constructor(

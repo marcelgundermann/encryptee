@@ -1,10 +1,12 @@
 import { EngineError, serializeError } from '../errors.ts';
-import { prepare, runFileTask, type Prepared } from './pipeline.ts';
+import { HeaderQueue } from './headers.ts';
+import { runFileTask } from './pipeline.ts';
 import { CryptoPool } from './pool.ts';
 import type {
 	CoordinatorEvent,
 	CoordinatorInit,
 	CoordinatorRequest,
+	Prepared,
 	TaskOperation
 } from './protocol.ts';
 
@@ -14,6 +16,7 @@ const emit = (event: CoordinatorEvent) => self.postMessage(event);
 
 self.onmessage = ({ data: init }: MessageEvent<CoordinatorInit>) => {
 	const pool = new CryptoPool(init.pool);
+	const headers = new HeaderQueue(init.header);
 	const { tuning } = init;
 	const running = new Map<number, AbortController>();
 	/** Headers opened by `check`, kept for their file's `run`. */
@@ -24,7 +27,7 @@ self.onmessage = ({ data: init }: MessageEvent<CoordinatorInit>) => {
 			case 'check':
 				try {
 					const operation: TaskOperation = { mode: 'decrypt', credentials: data.credentials };
-					checked.set(data.id, await prepare(operation, data.source, tuning.batchChunks));
+					checked.set(data.id, await headers.prepare(operation, data.source, tuning.batchChunks));
 					emit({ type: 'checked', id: data.id });
 				} catch (error) {
 					emit({ type: 'failed', id: data.id, error: serializeError(error) });
@@ -41,7 +44,7 @@ self.onmessage = ({ data: init }: MessageEvent<CoordinatorInit>) => {
 				running.set(task.id, controller);
 
 				const preparation =
-					checked.get(task.id) ?? prepare(task.operation, task.source, tuning.batchChunks);
+					checked.get(task.id) ?? headers.prepare(task.operation, task.source, tuning.batchChunks);
 
 				checked.delete(task.id);
 

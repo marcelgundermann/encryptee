@@ -16,11 +16,11 @@ import type {
 	CoordinatorEvent,
 	CoordinatorInit,
 	CoordinatorRequest,
-	CryptoConnect,
 	FileTask,
 	Source,
 	TaskOperation,
-	Tuning
+	Tuning,
+	WorkerConnect
 } from './workers/protocol.ts';
 
 /** A real file, or a size-only stand-in that produces zeros (benchmarks). */
@@ -150,7 +150,7 @@ function jobTuning(overrides: Partial<Tuning> = {}): Tuning {
 	return { workers, batchChunks: mobile ? 16 : 64, window: 2 * workers, ...overrides };
 }
 
-/** One job's workers: a coordinator wired to its pool of crypto workers. */
+/** One job's workers: a coordinator wired to its header worker and its pool of crypto workers. */
 interface JobWorkers {
 	/** Opens file `index`'s header, which its `run` then doesn't open again. */
 	check(index: number, source: Source, credentials: DecryptCredentials): Promise<void>;
@@ -180,25 +180,41 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 	};
 
 	coordinator.onerror = onError;
-	const crypto: Worker[] = [];
-	const ports: MessagePort[] = [];
 
-	for (let i = 0; i < tuning.workers; i++) {
-		const worker = new Worker(new URL('./workers/crypto.worker.ts', import.meta.url), {
-			type: 'module',
-			name: 'encryptee-crypto'
-		});
-
+	/** Wires a worker that serves the coordinator, and returns the coordinator's port to it. */
+	const connect = (worker: Worker): MessagePort => {
 		worker.onerror = onError;
 		const channel = new MessageChannel();
-		worker.postMessage({ type: 'connect', port: channel.port1 } satisfies CryptoConnect, [
+		worker.postMessage({ type: 'connect', port: channel.port1 } satisfies WorkerConnect, [
 			channel.port1
 		]);
-		ports.push(channel.port2);
-		crypto.push(worker);
-	}
 
-	coordinator.postMessage({ type: 'init', pool: ports, tuning } satisfies CoordinatorInit, ports);
+		return channel.port2;
+	};
+
+	// scrypt runs here, so it never holds up the coordinator, and a cancel never waits for it.
+	const header = new Worker(new URL('./workers/header.worker.ts', import.meta.url), {
+		type: 'module',
+		name: 'encryptee-header'
+	});
+
+	const crypto = Array.from(
+		{ length: tuning.workers },
+		() =>
+			new Worker(new URL('./workers/crypto.worker.ts', import.meta.url), {
+				type: 'module',
+				name: 'encryptee-crypto'
+			})
+	);
+
+	const init: CoordinatorInit = {
+		type: 'init',
+		pool: crypto.map(connect),
+		header: connect(header),
+		tuning
+	};
+
+	coordinator.postMessage(init, [...init.pool, init.header]);
 
 	/**
 	 * Posts `request` about file `id` and hands that file's events to `onEvent`,
@@ -245,6 +261,7 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 			// The last request's handler shares a scope with that request, credentials and all.
 			coordinator.onmessage = null;
 			coordinator.terminate();
+			header.terminate();
 
 			for (const worker of crypto) worker.terminate();
 		}
