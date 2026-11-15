@@ -326,6 +326,38 @@ describe('jobs', () => {
 		]);
 	});
 
+	test('a cancel while scrypt seals the header never opens the output', async () => {
+		const job = startJob({
+			mode: 'encrypt',
+			// Production's work factor, so the cancel arrives while scrypt runs.
+			credentials: { ...passphrase.encrypt, scryptLogN: 18 },
+			files: [file(randomBytes(10), 'a.txt')],
+			save: { kind: 'memory' }
+		});
+
+		// A running file reaches the coordinator before this turn ends; the cancel comes after it.
+		const stop = job.subscribe(() => {
+			if (job.getSnapshot().files[0]!.status !== 'running') return;
+			stop();
+			setTimeout(job.cancel);
+		});
+
+		const result = await job.done;
+		expect(result.status).toBe('cancelled');
+		expect(result.files[0]!.outputSize).toBeNull();
+	});
+
+	test.runIf(globalThis.gc)('a job that ended no longer holds its credentials', async () => {
+		const { job, credentials } = startWatchedJob();
+		await job.done;
+		// Until the task that ended the job is over, the browser holds the handler it ran.
+		await new Promise((resolve) => setTimeout(resolve));
+		globalThis.gc!();
+		expect(credentials.deref()).toBeUndefined();
+		// Held through the collection, like the app holds a finished job on its screen.
+		expect(job.getSnapshot().status).toBe('done');
+	});
+
 	test('every change is a new snapshot, and progress only grows', async () => {
 		const job = startJob({
 			mode: 'encrypt',
@@ -429,3 +461,20 @@ describe('checkCredentials', () => {
 		}
 	});
 });
+
+/**
+ * Starts a job with credentials nothing else holds, and a weak reference
+ * that says whether they're still reachable.
+ */
+function startWatchedJob() {
+	const credentials = { ...passphrase.encrypt };
+
+	const job = startJob({
+		mode: 'encrypt',
+		credentials,
+		files: [file(randomBytes(10), 'a.txt')],
+		save: { kind: 'memory' }
+	});
+
+	return { job, credentials: new WeakRef(credentials) };
+}

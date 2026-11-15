@@ -129,7 +129,15 @@ export default defineConfig({
 			enabled: true,
 			headless: true,
 			provider: playwright(),
-			instances: browsers.map((browser) => ({ browser })),
+			// Chromium exposes gc(), so a test can check what a job lets go of.
+			instances: browsers.map((browser) =>
+				browser === 'chromium'
+					? {
+							browser,
+							provider: playwright({ launchOptions: { args: ['--js-flags=--expose-gc'] } })
+						}
+					: { browser }
+			),
 			commands: ageCommands
 		}
 	}

@@ -41,6 +41,8 @@ export async function runFileTask(
 		signal.throwIfAborted();
 		const backend = await pool.setKey(prepared.payloadKey, tuning.backend);
 		prepared.payloadKey.fill(0);
+		// A cancel sent while scrypt ran is only read while the workers take the key.
+		signal.throwIfAborted();
 
 		sink = await openSink(task.sink);
 		emit({ type: 'opened', id: task.id, outputSize: prepared.outputSize, backend });

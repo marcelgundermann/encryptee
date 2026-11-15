@@ -242,6 +242,8 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 		cancel: (index) =>
 			coordinator.postMessage({ type: 'cancel', id: index } satisfies CoordinatorRequest),
 		terminate() {
+			// The last request's handler shares a scope with that request, credentials and all.
+			coordinator.onmessage = null;
 			coordinator.terminate();
 
 			for (const worker of crypto) worker.terminate();
@@ -258,7 +260,7 @@ class RunningJob implements Job {
 	private current = -1;
 
 	constructor(
-		private readonly options: JobOptions,
+		options: JobOptions,
 		private readonly workers: JobWorkers
 	) {
 		this.snapshot = {
@@ -281,7 +283,8 @@ class RunningJob implements Job {
 			backend: null
 		};
 
-		this.done = this.run();
+		// Only `run` holds the files and credentials, so they go when the job ends.
+		this.done = this.run(options);
 	}
 
 	getSnapshot = (): JobSnapshot => this.snapshot;
@@ -298,13 +301,13 @@ class RunningJob implements Job {
 		this.workers.cancel(this.current);
 	};
 
-	private async run(): Promise<JobSnapshot> {
+	private async run(options: JobOptions): Promise<JobSnapshot> {
 		const guards = await acquireJobGuards();
 		let crash: SerializedError | null = null;
 
 		try {
-			for (let index = 0; index < this.options.files.length && !this.cancelled; index++) {
-				if ((await this.runFile(index)) === 'stop') break;
+			for (let index = 0; index < options.files.length && !this.cancelled; index++) {
+				if ((await this.runFile(options, index)) === 'stop') break;
 			}
 		} catch (cause) {
 			crash = serializeError(cause);
@@ -332,8 +335,8 @@ class RunningJob implements Job {
 		return this.snapshot;
 	}
 
-	private async runFile(index: number): Promise<'next' | 'stop'> {
-		const input = this.options.files[index]!;
+	private async runFile(options: JobOptions, index: number): Promise<'next' | 'stop'> {
+		const input = options.files[index]!;
 		const file = this.snapshot.files[index]!;
 		this.current = index;
 		this.updateFile(index, { status: 'running' });
@@ -341,7 +344,7 @@ class RunningJob implements Job {
 		let output: Output;
 
 		try {
-			output = await openOutput(this.options.save, file.outputName);
+			output = await openOutput(options.save, file.outputName);
 		} catch (cause) {
 			return this.failFile(index, doneBefore, saveError(cause));
 		}
@@ -363,9 +366,9 @@ class RunningJob implements Job {
 			source: sourceOf(input),
 			sink: output.sink,
 			operation:
-				this.options.mode === 'encrypt'
-					? { mode: 'encrypt', credentials: this.options.credentials }
-					: { mode: 'decrypt', credentials: this.options.credentials }
+				options.mode === 'encrypt'
+					? { mode: 'encrypt', credentials: options.credentials }
+					: { mode: 'decrypt', credentials: options.credentials }
 		};
 
 		let result: SinkResult;
