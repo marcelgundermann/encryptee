@@ -114,7 +114,7 @@ test.each(cases)('%s', async (_, bytes) => {
 
 	const file = snapshot.files[0]!;
 	const expected = expectation(vector);
-	expect(expected.codes).toContain(file.error?.code ?? null);
+	expect(expected.codes).toContain(file.status === 'failed' ? file.error.code : null);
 	expect(output ? await sha256Hex(output) : null).toBe(expected.sha256);
 	expect(expected.opened).toContain(file.outputSize !== null);
 });

@@ -113,7 +113,10 @@ describe('failures', () => {
 		const sealed = await encrypt(randomBytes(CHUNK), passphrase.encrypt);
 		const { snapshot, output } = await decrypt(sealed, { kind: 'passphrase', passphrase: 'wrong' });
 		expect(snapshot.status).toBe('failed');
-		expect(snapshot.files[0]!.error?.code).toBe('wrong-credentials');
+		expect(snapshot.files[0]).toMatchObject({
+			status: 'failed',
+			error: { code: 'wrong-credentials' }
+		});
 		expect(snapshot.files[0]!.outputSize).toBeNull();
 		expect(output).toBeNull();
 	});
@@ -131,7 +134,10 @@ describe('failures', () => {
 			privateKeys: [wrong.privateKey]
 		});
 
-		expect(snapshot.files[0]!.error?.code).toBe('wrong-credentials');
+		expect(snapshot.files[0]).toMatchObject({
+			status: 'failed',
+			error: { code: 'wrong-credentials' }
+		});
 		expect(snapshot.files[0]!.outputSize).toBeNull();
 	});
 
@@ -144,7 +150,7 @@ describe('failures', () => {
 
 		const { snapshot } = await decrypt(tampered, passphrase.decrypt);
 
-		expect(snapshot.files[0]!.error?.code).toBe('corrupted');
+		expect(snapshot.files[0]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
 		expect(snapshot.files[0]!.outputSize).toBeNull();
 	});
 
@@ -182,7 +188,7 @@ describe('failures', () => {
 		const { snapshot, output } = await decrypt(tamper(sealed.slice()), passphrase.decrypt);
 
 		expect(snapshot.status).toBe('failed');
-		expect(snapshot.files[0]!.error?.code).toBe('corrupted');
+		expect(snapshot.files[0]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
 		expect(output).toBeNull();
 	});
 
@@ -193,7 +199,7 @@ describe('failures', () => {
 	])('%s is refused as %s', async (_, code, contents) => {
 		const { snapshot } = await decrypt(new TextEncoder().encode(contents), passphrase.decrypt);
 
-		expect(snapshot.files[0]!.error?.code).toBe(code);
+		expect(snapshot.files[0]).toMatchObject({ status: 'failed', error: { code: code } });
 	});
 
 	test('an invalid public key fails the file', async () => {
@@ -204,7 +210,10 @@ describe('failures', () => {
 			save: { kind: 'memory' }
 		}).done;
 
-		expect(result.files[0]!.error?.code).toBe('invalid-public-key');
+		expect(result.files[0]).toMatchObject({
+			status: 'failed',
+			error: { code: 'invalid-public-key' }
+		});
 	});
 });
 
@@ -262,7 +271,6 @@ describe('jobs', () => {
 		const result = await job.done;
 		expect(result.status).toBe('cancelled');
 		expect(result.files[0]!.status).toBe('cancelled');
-		expect(result.files[0]!.output).toBeNull();
 	});
 
 	test('a cancel just after a file finishes cancels the files after it', async () => {
@@ -320,10 +328,7 @@ describe('jobs', () => {
 
 		const result = await job.done;
 		expect(result.status).toBe('cancelled');
-		expect(result.files.map((f) => [f.status, f.output])).toEqual([
-			['cancelled', null],
-			['cancelled', null]
-		]);
+		expect(result.files.map((f) => f.status)).toEqual(['cancelled', 'cancelled']);
 	});
 
 	test('a cancel while scrypt seals the header never opens the output', async () => {
@@ -424,7 +429,10 @@ describe('jobs', () => {
 						};
 
 			const [written] = (await startJob({ ...options, tuning: SMALL_BATCHES }).done).files;
-			expect(written!.output).toEqual({ kind: 'discarded', bytes: written!.outputSize });
+			expect(written).toMatchObject({
+				status: 'done',
+				output: { kind: 'discarded', bytes: written!.outputSize }
+			});
 		}
 	);
 });
@@ -485,11 +493,61 @@ describe('checkCredentials', () => {
 
 		expect(snapshot.status).toBe('done');
 
-		for (const [i, { output }] of snapshot.files.entries()) {
+		for (const [i, decrypted] of snapshot.files.entries()) {
+			const output = decrypted.status === 'done' ? decrypted.output : null;
 			expect(output?.kind === 'memory' && equalBytes(await output.blob.bytes(), plain[i]!)).toBe(
 				true
 			);
 		}
+	});
+
+	test('a check aborted while scrypt runs rejects as cancelled without waiting for scrypt', async () => {
+		// Production's work factor, timed through once, so the bound scales with the machine.
+		const sealed = await encrypt(randomBytes(10), { ...passphrase.encrypt, scryptLogN: 18 });
+		const files = [file(sealed, 'test.bin.age')];
+		const started = performance.now();
+		(await checkCredentials({ files, credentials: passphrase.decrypt })).discard();
+		const wholeCheck = performance.now() - started;
+
+		const controller = new AbortController();
+
+		const check = checkCredentials({
+			files,
+			credentials: passphrase.decrypt,
+			signal: controller.signal
+		});
+
+		await new Promise((resolve) => setTimeout(resolve));
+		const abortedAt = performance.now();
+		controller.abort();
+
+		await expect(check).rejects.toMatchObject({ code: 'cancelled' });
+		expect(performance.now() - abortedAt).toBeLessThan(wholeCheck / 2);
+	});
+
+	test('an abort after the check resolved leaves its job runnable', async () => {
+		const plain = randomBytes(CHUNK + 1);
+		const files = [file(await encrypt(plain, passphrase.encrypt), 'test.bin.age')];
+		const controller = new AbortController();
+
+		const checked = await checkCredentials({
+			files,
+			credentials: passphrase.decrypt,
+			signal: controller.signal
+		});
+
+		controller.abort();
+		const [decrypted] = (await checked.startJob({ kind: 'memory' }).done).files;
+		const output = decrypted?.status === 'done' ? decrypted.output : null;
+		expect(output?.kind === 'memory' && equalBytes(await output.blob.bytes(), plain)).toBe(true);
+	});
+
+	test('a discarded check starts no job', async () => {
+		const files = [file(await encrypt(randomBytes(10), passphrase.encrypt), 'test.bin.age')];
+		const checked = await checkCredentials({ files, credentials: passphrase.decrypt });
+		checked.discard();
+
+		expect(() => checked.startJob({ kind: 'memory' })).toThrow(/discarded/);
 	});
 });
 

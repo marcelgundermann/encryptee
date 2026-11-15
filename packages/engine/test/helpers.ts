@@ -86,8 +86,8 @@ export async function encrypt(
 
 	const [output] = result.files;
 
-	if (result.status !== 'done' || output?.output?.kind !== 'memory') {
-		throw new Error(`encrypt failed: ${JSON.stringify(output?.error)}`);
+	if (result.status !== 'done' || output?.status !== 'done' || output.output.kind !== 'memory') {
+		throw new Error(`encrypt failed: ${JSON.stringify(output)}`);
 	}
 
 	return output.output.blob.bytes();
@@ -106,7 +106,8 @@ export async function decrypt(
 		tuning
 	}).done;
 
-	const output = snapshot.files[0]?.output;
+	const [first] = snapshot.files;
+	const output = first?.status === 'done' ? first.output : null;
 
 	return { snapshot, output: output?.kind === 'memory' ? await output.blob.bytes() : null };
 }

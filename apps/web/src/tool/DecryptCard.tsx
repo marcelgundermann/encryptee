@@ -5,7 +5,7 @@ import {
 	type DecryptCredentials,
 	type Job
 } from '@encryptee/engine';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react';
 import { errorMessage, strings } from '../strings.ts';
 import { Warnings } from './Warnings.tsx';
 import {
@@ -22,6 +22,14 @@ import {
 } from './ui.tsx';
 import { useKeyFile } from './useKeyFile.tsx';
 
+/** Where the card's check of the credentials stands. */
+type Check =
+	| { status: 'idle'; error: string | null }
+	/** The first header opens with these credentials, in the job's workers: scrypt, for a passphrase. */
+	| { status: 'checking'; credentials: DecryptCredentials }
+	/** They opened it; the job waits for a save location. */
+	| { status: 'checked'; handle: CheckedCredentials };
+
 export function DecryptCard(props: {
 	files: File[];
 	unlock: 'passphrase' | 'private-key';
@@ -30,34 +38,11 @@ export function DecryptCard(props: {
 	onBack: () => void;
 }) {
 	const [passphrase, setPassphrase] = useState('');
-	const [checking, setChecking] = useState(false);
-	/** Credentials that opened the first header, waiting for a save location. */
-	const [checked, setChecked] = useState<CheckedCredentials | null>(null);
-	const [error, setError] = useState<string | null>(null);
-
-	const keyFile = useKeyFile(
-		'decrypt',
-		() => {
-			setError(null);
-			setChecked(null);
-		},
-		props.disabled
-	);
-
+	const [check, setCheck] = useState<Check>({ status: 'idle', error: null });
+	// New credentials make a new check: the one running or done goes.
+	const edited = () => setCheck({ status: 'idle', error: null });
+	const keyFile = useKeyFile('decrypt', edited, props.disabled);
 	const passphraseInput = useRef<HTMLInputElement>(null);
-
-	const mounted = useRef(false);
-
-	useEffect(() => {
-		mounted.current = true;
-
-		return () => {
-			mounted.current = false;
-		};
-	}, []);
-
-	// Stops the checked job's workers when it's replaced or the card goes away.
-	useEffect(() => () => checked?.discard(), [checked]);
 
 	const credentials: DecryptCredentials | null =
 		props.unlock === 'passphrase'
@@ -72,49 +57,55 @@ export function DecryptCard(props: {
 		try {
 			const choice = await chooseSaveLocation('decrypt', props.files);
 
-			// The check outlasted the click's user activation: keep it for one more click.
-			if (!choice.location && choice.reason === 'needs-gesture') return;
-
+			// The picker was dismissed, or the check outlasted the click's user
+			// activation: the check stays, for one more click.
 			if (choice.location) props.onStart(handle.startJob(choice.location));
 		} catch (cause) {
-			setError(errorMessage(cause));
+			setCheck({ status: 'idle', error: errorMessage(cause) });
 		}
-
-		setChecked(null);
 	};
 
-	// Open the first header (scrypt, in the job's worker) so a wrong passphrase
-	// fails here, before the save picker; the job reuses it.
-	const submit = async (event: FormEvent) => {
+	const checked = useEffectEvent((handle: CheckedCredentials) => {
+		setCheck({ status: 'checked', handle });
+		void start(handle);
+	});
+
+	const refused = useEffectEvent((cause: unknown) => {
+		setCheck({ status: 'idle', error: errorMessage(cause) });
+		passphraseInput.current?.focus();
+		passphraseInput.current?.select();
+	});
+
+	// The check holds the job's workers while it runs and once it's done, until
+	// it's replaced, the card goes, or the job starts with them. Leaving the
+	// check, with new credentials or Back, stops scrypt at once.
+	useEffect(() => {
+		if (check.status === 'checked') {
+			const { handle } = check;
+
+			return () => handle.discard();
+		}
+
+		if (check.status !== 'checking') return;
+		const controller = new AbortController();
+		const { signal } = controller;
+
+		checkCredentials({ files: props.files, credentials: check.credentials, signal }).then(
+			(handle) => (signal.aborted ? handle.discard() : checked(handle)),
+			(cause: unknown) => {
+				if (!signal.aborted) refused(cause);
+			}
+		);
+
+		return () => controller.abort();
+	}, [check, props.files]);
+
+	// Open the first header so a wrong passphrase fails here, before the save
+	// picker; the job reuses it.
+	const submit = (event: FormEvent) => {
 		event.preventDefault();
 
-		if (!credentials) return;
-		setChecked(null);
-		setChecking(true);
-		setError(null);
-		let handle: CheckedCredentials;
-
-		try {
-			handle = await checkCredentials({ files: props.files, credentials });
-		} catch (cause) {
-			setError(errorMessage(cause));
-			passphraseInput.current?.focus();
-			passphraseInput.current?.select();
-
-			return;
-		} finally {
-			setChecking(false);
-		}
-
-		// Back was pressed during the check: nothing will start this job.
-		if (!mounted.current) {
-			handle.discard();
-
-			return;
-		}
-
-		setChecked(handle);
-		await start(handle);
+		if (credentials) setCheck({ status: 'checking', credentials });
 	};
 
 	return (
@@ -146,8 +137,7 @@ export function DecryptCard(props: {
 							value: passphrase,
 							onChange: (e) => {
 								setPassphrase(e.target.value);
-								setError(null);
-								setChecked(null);
+								edited();
 							}
 						}}
 					/>
@@ -172,18 +162,21 @@ export function DecryptCard(props: {
 					</>
 				)}
 
-				{error && <Hint tone="error">{error}</Hint>}
+				{check.status === 'idle' && check.error && <Hint tone="error">{check.error}</Hint>}
 				<Warnings mode="decrypt" files={props.files} />
-				{checked && <Hint>{strings.decrypt.checked}</Hint>}
+				{check.status === 'checked' && <Hint>{strings.decrypt.checked}</Hint>}
 				{/* The same button either way, so it keeps focus for the second press. */}
-				{checked ? (
-					<BigButton disabled={props.disabled} onClick={() => void start(checked)}>
+				{check.status === 'checked' ? (
+					<BigButton disabled={props.disabled} onClick={() => void start(check.handle)}>
 						{strings.decrypt.chooseSave}
 						<Arrow />
 					</BigButton>
 				) : (
-					<BigButton type="submit" disabled={!credentials || checking || props.disabled}>
-						{checking ? (
+					<BigButton
+						type="submit"
+						disabled={!credentials || check.status === 'checking' || props.disabled}
+					>
+						{check.status === 'checking' ? (
 							strings.decrypt.checking
 						) : (
 							<>

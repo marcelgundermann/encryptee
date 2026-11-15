@@ -145,9 +145,10 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 	current = null;
 
 	if (result.status !== 'done') {
-		console.error(`${scenario} ${result.status}`, result.files[0]?.error);
-		$('status', HTMLElement).textContent =
-			`${result.status}: ${result.files[0]?.error?.message ?? ''}`;
+		const [first] = result.files;
+		const error = first?.status === 'failed' ? first.error : null;
+		console.error(`${scenario} ${result.status}`, error);
+		$('status', HTMLElement).textContent = `${result.status}: ${error?.message ?? ''}`;
 		stopped = true;
 
 		return;

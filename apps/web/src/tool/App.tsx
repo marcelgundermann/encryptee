@@ -1,5 +1,5 @@
 import type { Job } from '@encryptee/engine';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useReducer, useState } from 'react';
 import { navItemClass, SiteHeader } from '../SiteHeader.tsx';
 import { strings } from '../strings.ts';
 import { DecryptCard } from './DecryptCard.tsx';
@@ -8,7 +8,8 @@ import { EncryptCard } from './EncryptCard.tsx';
 import { useJobSnapshot } from './job.ts';
 import { JobScreen } from './JobScreen.tsx';
 import { KeysScreen } from './KeysScreen.tsx';
-import { classify, type Selection } from './selection.ts';
+import { classify } from './selection.ts';
+import { firstStep, nextStep, stepName } from './steps.ts';
 import { Card, Headline, Hint, TextButton } from './ui.tsx';
 import { buildDate, useUpdates } from './updates.ts';
 
@@ -17,28 +18,18 @@ import { buildDate, useUpdates } from './updates.ts';
  * per step, the mode inferred from the files' headers.
  */
 export function App() {
-	const [view, setView] = useState<'tool' | 'keys'>('tool');
-	const [selection, setSelection] = useState<Selection>({ kind: 'none' });
-	/** Counts the selections, so each one gets a fresh card. */
-	const [selections, setSelections] = useState(0);
-	const [job, setJob] = useState<Job | null>(null);
+	const [steps, dispatch] = useReducer(nextStep, firstStep);
+	const { view, step } = steps;
+	const job = step.kind === 'job' ? step.job : null;
 	const snapshot = useJobSnapshot(job);
 	const running = snapshot?.status === 'running';
 	const { safety, updateReady, applyUpdate } = useUpdates(running);
-	const latest = useRef<File[]>([]);
 
 	// A running job keeps the screen: files dropped or opened meanwhile are ignored.
 	const choose = async (files: File[]) => {
 		if (running || files.length === 0) return;
-		latest.current = files;
-		setJob(null);
-		setView('tool');
-		const chosen = await classify(files);
-
-		// A later choice replaced this one while it was read.
-		if (latest.current !== files) return;
-		setSelection(chosen);
-		setSelections((n) => n + 1);
+		dispatch({ type: 'chose', files });
+		dispatch({ type: 'classified', files, selection: await classify(files) });
 	};
 
 	const onLaunch = useEffectEvent(choose);
@@ -52,49 +43,47 @@ export function App() {
 		});
 	}, []);
 
-	const reset = () => {
-		setJob(null);
-		setSelection({ kind: 'none' });
-	};
+	const reset = () => dispatch({ type: 'reset' });
+	const start = (started: Job) => dispatch({ type: 'started', job: started });
 
-	const step = view === 'keys' ? 'keys' : job ? `job-${snapshot?.status}` : selection.kind;
+	const name = stepName(steps, snapshot?.status ?? null);
 	// The page load neither animates nor moves focus; a step change after it does.
-	const [shown, setShown] = useState({ step, changed: false });
+	const [shown, setShown] = useState({ name, changed: false });
 
-	if (shown.step !== step) setShown({ step, changed: true });
+	if (shown.name !== name) setShown({ name, changed: true });
 	// The drop surface and the running job sit centered; a form sits high and
 	// grows down, so nothing above the pointer moves when it changes height.
-	const centered = step === 'none' || step === 'job-running';
+	const centered = name === 'none' || name === 'job-running';
 
 	let content;
 
 	if (view === 'keys') content = <KeysScreen disabled={safety === 'unsafe'} />;
 	else if (job && snapshot)
 		content = <JobScreen snapshot={snapshot} onCancel={job.cancel} onReset={reset} />;
-	else if (selection.kind === 'encrypt')
+	else if (step.kind === 'encrypt')
 		content = (
 			<EncryptCard
-				files={selection.files}
+				files={step.files}
 				disabled={safety === 'unsafe'}
-				onStart={setJob}
+				onStart={start}
 				onBack={reset}
 			/>
 		);
-	else if (selection.kind === 'decrypt')
+	else if (step.kind === 'decrypt')
 		content = (
 			<DecryptCard
-				files={selection.files}
-				unlock={selection.unlock}
+				files={step.files}
+				unlock={step.unlock}
 				disabled={safety === 'unsafe'}
-				onStart={setJob}
+				onStart={start}
 				onBack={reset}
 			/>
 		);
-	else if (selection.kind === 'invalid')
+	else if (step.kind === 'invalid')
 		content = (
 			<Card>
-				<Headline>{strings.selection.unusable(selection.files.length)}</Headline>
-				<Hint tone="error">{selection.message}</Hint>
+				<Headline>{strings.selection.unusable(step.files.length)}</Headline>
+				<Hint tone="error">{step.message}</Hint>
 				<TextButton className="mt-6" onClick={reset}>
 					{strings.selection.other}
 				</TextButton>
@@ -104,17 +93,11 @@ export function App() {
 
 	return (
 		<div className="flex min-h-dvh flex-col">
-			<SiteHeader
-				onWordmarkClick={() => {
-					setView('tool');
-
-					if (!job) reset();
-				}}
-			>
+			<SiteHeader onWordmarkClick={() => dispatch({ type: 'home' })}>
 				<button
 					className={navItemClass}
 					aria-current={view === 'keys' ? 'page' : undefined}
-					onClick={() => setView(view === 'keys' ? 'tool' : 'keys')}
+					onClick={() => dispatch({ type: 'toggled-keys' })}
 				>
 					{strings.nav.keys}
 				</button>
@@ -139,13 +122,13 @@ export function App() {
 			>
 				<div
 					// Each selection gets a fresh card; the Keys screen and a job keep theirs.
-					key={view === 'keys' || job ? step : `${step} ${selections}`}
+					key={view === 'keys' || job ? name : `${name} ${steps.selections}`}
 					className={`flex w-full justify-center ${shown.changed ? 'motion-safe:animate-step-in' : ''}`}
 				>
 					{content}
 				</div>
 			</main>
-			{dragging && step !== 'none' && <DropOverlay />}
+			{dragging && name !== 'none' && <DropOverlay />}
 		</div>
 	);
 }

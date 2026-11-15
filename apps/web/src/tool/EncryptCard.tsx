@@ -40,6 +40,8 @@ export function EncryptCard(props: {
 	const [publicKeys, setPublicKeys] = useState<string[]>([]);
 	const [draft, setDraft] = useState('');
 	const [error, setError] = useState<string | null>(null);
+	/** From the click until the job starts: one click, one job. */
+	const [starting, setStarting] = useState(false);
 
 	// Keys still in the paste field count: they're added on submit.
 	const ready =
@@ -71,6 +73,7 @@ export function EncryptCard(props: {
 	// chooseSaveLocation: the save picker needs this click's user activation.
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
+		setStarting(true);
 
 		try {
 			let keys = publicKeys;
@@ -96,6 +99,8 @@ export function EncryptCard(props: {
 			);
 		} catch (cause) {
 			setError(errorMessage(cause));
+		} finally {
+			setStarting(false);
 		}
 	};
 
@@ -180,7 +185,7 @@ export function EncryptCard(props: {
 
 				{error && <Hint tone="error">{error}</Hint>}
 				<Warnings mode="encrypt" files={props.files} />
-				<BigButton type="submit" disabled={!ready || props.disabled}>
+				<BigButton type="submit" disabled={!ready || starting || props.disabled}>
 					{strings.encrypt.submit(props.files.length)}
 					<Arrow />
 				</BigButton>

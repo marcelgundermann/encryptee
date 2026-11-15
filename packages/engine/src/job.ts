@@ -9,9 +9,18 @@ import {
 import type { DecryptCredentials } from './format/header.ts';
 import { outputName } from './format/names.ts';
 import { acquireJobGuards } from './guards.ts';
-import type { Backend } from './payload/cipher.ts';
 import { openOutput, saveError, type SaveLocation } from './sinks/save-location.ts';
 import type { FileOutput, Output, SinkResult } from './sinks/sink.ts';
+import {
+	fileDone,
+	fileFailed,
+	fileOpened,
+	fileProgress,
+	fileStarted,
+	jobEnded,
+	startSnapshot,
+	type JobSnapshot
+} from './snapshot.ts';
 import type {
 	CoordinatorEvent,
 	CoordinatorInit,
@@ -32,36 +41,6 @@ export type JobOptions = TaskOperation & {
 	/** Overrides for benchmarks and tests. */
 	tuning?: Partial<Tuning>;
 };
-
-export type FileStatus = 'waiting' | 'running' | 'done' | 'failed' | 'cancelled';
-
-export interface JobFile {
-	name: string;
-	size: number;
-	outputName: string;
-	status: FileStatus;
-	/** Input bytes processed. */
-	bytesDone: number;
-	/** Set once the header checked out and the output was opened. */
-	outputSize: number | null;
-	output: FileOutput | null;
-	error: SerializedError | null;
-}
-
-export type JobStatus = 'running' | 'done' | 'failed' | 'cancelled';
-
-/** Immutable; a new object on every change, for `useSyncExternalStore`. */
-export interface JobSnapshot {
-	mode: 'encrypt' | 'decrypt';
-	status: JobStatus;
-	files: readonly JobFile[];
-	bytesTotal: number;
-	bytesDone: number;
-	startedAt: number;
-	/** When this snapshot was produced; with `startedAt` it gives the throughput. */
-	updatedAt: number;
-	backend: Backend | null;
-}
 
 export interface Job {
 	getSnapshot(): JobSnapshot;
@@ -99,39 +78,54 @@ export interface CheckedCredentials {
  * Opens the first file's header with `credentials` in a new decrypt job's
  * workers, so wrong credentials fail before the user picks where to save, and
  * the job doesn't run scrypt for that header a second time. Rejects with the
- * header's error: `wrong-credentials`, `not-encrypted`, `legacy-file`, …
+ * header's error: `wrong-credentials`, `not-encrypted`, `legacy-file`, … or,
+ * once `signal` aborts, at once with `cancelled`: the workers stop, scrypt and all.
  */
 export async function checkCredentials(options: {
 	files: JobInput[];
 	credentials: DecryptCredentials;
+	signal?: AbortSignal;
 	tuning?: Partial<Tuning>;
 }): Promise<CheckedCredentials> {
-	const { files, credentials } = options;
+	const { files, credentials, signal } = options;
 	const [first] = files;
 
 	if (!first) throw new EngineError('internal', 'nothing to check');
+
+	if (signal?.aborted) throw new EngineError('cancelled', 'cancelled');
 	const workers = spawnWorkers(jobTuning(options.tuning));
+	const stop = () => workers.terminate();
+	signal?.addEventListener('abort', stop, { once: true });
 
 	try {
 		await workers.check(0, sourceOf(first), credentials);
+
+		// An abort that came with the answer.
+		if (signal?.aborted) throw new EngineError('cancelled', 'cancelled');
 	} catch (error) {
 		workers.terminate();
 		throw error;
+	} finally {
+		// From here the workers belong to the job the check starts, which an abort mustn't stop.
+		signal?.removeEventListener('abort', stop);
 	}
 
-	let taken = false;
+	let state: 'checked' | 'started' | 'discarded' = 'checked';
 
 	return {
 		startJob(save) {
-			if (taken) throw new EngineError('internal', 'a check starts one job');
+			if (state === 'started') throw new EngineError('internal', 'a check starts one job');
+
+			if (state === 'discarded')
+				throw new EngineError('internal', 'a discarded check starts no job');
 			assertSaveFits(save, files.length);
-			taken = true;
+			state = 'started';
 
 			return new RunningJob({ mode: 'decrypt', credentials, files, save }, workers);
 		},
 		discard() {
-			if (taken) return;
-			taken = true;
+			if (state !== 'checked') return;
+			state = 'discarded';
 			workers.terminate();
 		}
 	};
@@ -164,19 +158,39 @@ interface JobWorkers {
 	terminate(): void;
 }
 
+/** Where a job's one request to its coordinator stands. */
+type RequestSlot =
+	| { status: 'idle' }
+	| { status: 'waiting'; reject: (error: EngineError) => void }
+	| { status: 'failed'; error: EngineError }
+	| { status: 'terminated' };
+
 function spawnWorkers(tuning: Tuning): JobWorkers {
 	const coordinator = new Worker(new URL('./workers/coordinator.worker.ts', import.meta.url), {
 		type: 'module',
 		name: 'encryptee-coordinator'
 	});
 
-	/** Set once a worker failed, e.g. to load: the request waiting, and every later one, fail with it. */
-	let failure: EngineError | null = null;
-	let rejectWaiting: ((error: EngineError) => void) | null = null;
+	/**
+	 * The coordinator answers one request at a time. A worker that fails, e.g.
+	 * to load, fails the request waiting and every later one; `terminate` fails
+	 * the one waiting as cancelled. Only `reject` is kept: a closure made with
+	 * the request would hold its credentials.
+	 */
+	let slot: RequestSlot = { status: 'idle' };
+
+	/** Moves the slot to `next`, rejecting the request that waited with `error`. */
+	const settle = (next: RequestSlot, error: EngineError) => {
+		const previous = slot;
+		slot = next;
+
+		if (previous.status === 'waiting') previous.reject(error);
+	};
 
 	const onError = (event: ErrorEvent) => {
-		failure ??= new EngineError('internal', event.message || 'a worker failed');
-		rejectWaiting?.(failure);
+		if (slot.status === 'failed' || slot.status === 'terminated') return;
+		const error = new EngineError('internal', event.message || 'a worker failed');
+		settle({ status: 'failed', error }, error);
 	};
 
 	coordinator.onerror = onError;
@@ -227,19 +241,35 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 		onEvent: (event: CoordinatorEvent, resolve: (value: T) => void) => void
 	) =>
 		new Promise<T>((resolve, reject) => {
-			if (failure) {
-				reject(failure);
+			switch (slot.status) {
+				case 'failed':
+					reject(slot.error);
 
-				return;
+					return;
+				case 'terminated':
+					reject(new EngineError('cancelled', 'the job’s workers were stopped'));
+
+					return;
+				case 'waiting':
+					reject(new EngineError('internal', 'a request while another waits'));
+
+					return;
+				case 'idle':
+					slot = { status: 'waiting', reject };
 			}
-
-			rejectWaiting = reject;
 
 			coordinator.onmessage = ({ data }: MessageEvent<CoordinatorEvent>) => {
 				if (data.id !== id) return;
 
-				if (data.type === 'failed') reject(deserializeError(data.error));
-				else onEvent(data, resolve);
+				if (data.type === 'failed') {
+					slot = { status: 'idle' };
+					reject(deserializeError(data.error));
+				} else {
+					onEvent(data, (value) => {
+						slot = { status: 'idle' };
+						resolve(value);
+					});
+				}
 			};
 
 			coordinator.postMessage(request, transfer);
@@ -264,6 +294,7 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 			header.terminate();
 
 			for (const worker of crypto) worker.terminate();
+			settle({ status: 'terminated' }, new EngineError('cancelled', 'cancelled'));
 		}
 	};
 }
@@ -280,25 +311,15 @@ class RunningJob implements Job {
 		options: JobOptions,
 		private readonly workers: JobWorkers
 	) {
-		this.snapshot = {
-			mode: options.mode,
-			status: 'running',
-			files: options.files.map((file) => ({
-				name: file.name,
-				size: file.size,
-				outputName: outputName(options.mode, file.name),
-				status: 'waiting',
-				bytesDone: 0,
-				outputSize: null,
-				output: null,
-				error: null
+		this.snapshot = startSnapshot(
+			options.mode,
+			options.files.map(({ name, size }) => ({
+				name,
+				size,
+				outputName: outputName(options.mode, name)
 			})),
-			bytesTotal: options.files.reduce((sum, file) => sum + file.size, 0),
-			bytesDone: 0,
-			startedAt: Date.now(),
-			updatedAt: Date.now(),
-			backend: null
-		};
+			Date.now()
+		);
 
 		// Only `run` holds the files and credentials, so they go when the job ends.
 		this.done = this.run(options);
@@ -333,21 +354,7 @@ class RunningJob implements Job {
 			this.workers.terminate();
 		}
 
-		// What the loop didn't finish: a file a crash interrupted fails with it,
-		// and the files it never started are cancelled.
-		const files = this.snapshot.files.map((file): JobFile => {
-			if (file.status === 'running') return { ...file, status: 'failed', error: crash };
-
-			return file.status === 'waiting' ? { ...file, status: 'cancelled' } : file;
-		});
-
-		const status: JobStatus = files.every((file) => file.status === 'done')
-			? 'done'
-			: this.cancelled
-				? 'cancelled'
-				: 'failed';
-
-		this.update({ files, status });
+		this.set(jobEnded(this.snapshot, crash, this.cancelled));
 
 		return this.snapshot;
 	}
@@ -356,14 +363,13 @@ class RunningJob implements Job {
 		const input = options.files[index]!;
 		const file = this.snapshot.files[index]!;
 		this.current = index;
-		this.updateFile(index, { status: 'running' });
-		const doneBefore = this.snapshot.bytesDone;
+		this.set(fileStarted(this.snapshot, index));
 		let output: Output;
 
 		try {
 			output = await openOutput(options.save, file.outputName);
 		} catch (cause) {
-			return this.failFile(index, doneBefore, saveError(cause));
+			return this.failFile(index, saveError(cause));
 		}
 
 		/** Set when the output failed while the coordinator was still writing to it. */
@@ -372,7 +378,7 @@ class RunningJob implements Job {
 		const fail = (error: SerializedError) => {
 			output.release();
 
-			return this.failFile(index, doneBefore, saveFailure ?? error);
+			return this.failFile(index, saveFailure ?? error);
 		};
 
 		// A cancel before the coordinator has the file never reaches it.
@@ -393,11 +399,9 @@ class RunningJob implements Job {
 		try {
 			result = await this.workers.run(task, output.transfer, (event) => {
 				if (event.type === 'progress') {
-					this.updateFile(index, { bytesDone: event.bytes });
-					this.update({ bytesDone: doneBefore + event.bytes });
+					this.set(fileProgress(this.snapshot, index, event.bytes));
 				} else if (event.type === 'opened') {
-					this.updateFile(index, { outputSize: event.outputSize });
-					this.update({ backend: event.backend });
+					this.set(fileOpened(this.snapshot, index, event.outputSize, event.backend));
 
 					try {
 						output.opened(event.outputSize);
@@ -420,35 +424,23 @@ class RunningJob implements Job {
 			return fail(saveError(cause));
 		}
 
-		this.updateFile(index, { status: 'done', output: delivered, bytesDone: file.size });
-		this.update({ bytesDone: doneBefore + file.size });
+		this.set(fileDone(this.snapshot, index, delivered));
 
 		return 'next';
 	}
 
 	/** Marks the file failed, or cancelled, and says whether the rest are still worth trying. */
-	private failFile(index: number, doneBefore: number, error: SerializedError): 'next' | 'stop' {
+	private failFile(index: number, error: SerializedError): 'next' | 'stop' {
 		const cancelled = error.code === 'cancelled';
 		// The user's Cancel, or the browser's cancel of a streamed download.
 		this.cancelled ||= cancelled;
-
-		this.updateFile(index, {
-			status: cancelled ? 'cancelled' : 'failed',
-			error: cancelled ? null : error
-		});
-		this.update({ bytesDone: doneBefore + this.snapshot.files[index]!.size });
+		this.set(fileFailed(this.snapshot, index, error));
 
 		return cancelled || !FILE_LOCAL_ERRORS.has(error.code) ? 'stop' : 'next';
 	}
 
-	private updateFile(index: number, patch: Partial<JobFile>): void {
-		const files = this.snapshot.files.slice();
-		files[index] = { ...files[index]!, ...patch };
-		this.update({ files });
-	}
-
-	private update(patch: Partial<JobSnapshot>): void {
-		this.snapshot = { ...this.snapshot, ...patch, updatedAt: Date.now() };
+	private set(snapshot: JobSnapshot): void {
+		this.snapshot = { ...snapshot, updatedAt: Date.now() };
 
 		for (const listener of this.listeners) listener();
 	}

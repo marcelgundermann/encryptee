@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
@@ -24,6 +24,15 @@ export async function checkSafety(): Promise<Safety> {
 	}
 }
 
+/**
+ * The safety after a check answered `checked`. A check that couldn't answer
+ * never unlocks a build found unsafe: offline, the hourly or tab-switch check
+ * would otherwise re-enable a revoked build.
+ */
+export function nextSafety(current: Safety, checked: Safety): Safety {
+	return checked === 'unknown' && current === 'unsafe' ? 'unsafe' : checked;
+}
+
 export const buildDate = new Date(__BUILD_NUMBER__ * 1000).toLocaleDateString();
 
 /**
@@ -31,7 +40,7 @@ export const buildDate = new Date(__BUILD_NUMBER__ * 1000).toLocaleDateString();
  * runs: swapping code mid-job could break a 50 GB run.
  */
 export function useUpdates(jobRunning: boolean) {
-	const [safety, setSafety] = useState<Safety>('unknown');
+	const [safety, checked] = useReducer(nextSafety, 'unknown');
 
 	const {
 		needRefresh: [needRefresh],
@@ -42,7 +51,7 @@ export function useUpdates(jobRunning: boolean) {
 
 			const check = () => {
 				if (navigator.onLine && !registration.installing) void registration.update();
-				void checkSafety().then(setSafety);
+				void checkSafety().then(checked);
 			};
 
 			setInterval(check, UPDATE_CHECK_MS);
@@ -53,7 +62,7 @@ export function useUpdates(jobRunning: boolean) {
 	});
 
 	useEffect(() => {
-		void checkSafety().then(setSafety);
+		void checkSafety().then(checked);
 	}, []);
 
 	return {

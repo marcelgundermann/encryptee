@@ -84,7 +84,7 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 	const total = snapshot.files.length;
 	const done = snapshot.files.filter((file) => file.status === 'done');
 	const failed = snapshot.files.filter((file) => file.status === 'failed');
-	const downloaded = done.some((file) => file.output?.kind === 'downloaded');
+	const downloaded = done.some((file) => file.output.kind === 'downloaded');
 	// Failures first, so they're never behind the "and N more" line.
 	const listed = snapshot.files.toSorted((a, b) => order[a.status] - order[b.status]);
 	const shown = shownFiles(listed);
@@ -132,9 +132,9 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 			{failed.length > 0 && (
 				<>
 					{total === 1 ? (
-						<p className="mt-3 text-lg">{strings.errors[failed[0]!.error!.code]}</p>
+						<p className="mt-3 text-lg">{strings.errors[failed[0]!.error.code]}</p>
 					) : null}
-					{failed.some((file) => file.error?.code === 'corrupted') && (
+					{failed.some((file) => file.error.code === 'corrupted') && (
 						<Hint>{strings.failed.integrityHint}</Hint>
 					)}
 				</>
@@ -147,7 +147,7 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 							<span className={file.status === 'failed' ? 'text-danger' : 'text-muted'}>
 								{file.status === 'done'
 									? strings.done.file
-									: file.error
+									: file.status === 'failed'
 										? strings.errors[file.error.code]
 										: strings.failed.cancelled}
 							</span>

@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vite-plus/test';
 import securityJson from '../../public/security.json?raw';
-import { checkSafety } from './updates.ts';
+import { checkSafety, nextSafety } from './updates.ts';
 
 /** Answers every `fetch` with `body`, as `/security.json` would. */
 function serve(body: string): void {
@@ -53,4 +53,13 @@ test('an answer that isn’t JSON, like a captive portal’s page, leaves it unk
 	serve('<!doctype html><title>Sign in to Wi-Fi</title>');
 
 	expect(await checkSafety()).toBe('unknown');
+});
+
+test.each([
+	['unsafe', 'unknown', 'unsafe'],
+	['ok', 'unknown', 'unknown'],
+	['unknown', 'unsafe', 'unsafe'],
+	['unsafe', 'ok', 'ok']
+] as const)('a build found %s, then checked as %s, is %s', (current, checked, safety) => {
+	expect(nextSafety(current, checked)).toBe(safety);
 });

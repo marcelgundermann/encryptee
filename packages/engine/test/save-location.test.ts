@@ -76,7 +76,7 @@ describe('save location failures', () => {
 
 			expect(result.status).toBe('failed');
 			expect(result.files.map((f) => f.status)).toEqual(['failed', 'cancelled']);
-			expect(result.files[0]!.error?.code).toBe('save-failed');
+			expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'save-failed' } });
 		}
 	);
 });
@@ -95,7 +95,10 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		}).done;
 
 		expect(result.status).toBe('done');
-		expect(result.files.map((f) => f.output)).toEqual([{ kind: 'saved' }, { kind: 'saved' }]);
+		expect(result.files).toMatchObject([
+			{ status: 'done', output: { kind: 'saved' } },
+			{ status: 'done', output: { kind: 'saved' } }
+		]);
 		expect(await names(directory)).toEqual(['a (1).txt.age', 'a.txt.age', 'b.txt.age']);
 
 		const kept = await readFile(await directory.getFileHandle('a.txt.age'));
@@ -120,7 +123,7 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		}).done;
 
 		expect(result.files.map((f) => f.status)).toEqual(['done', 'failed']);
-		expect(result.files[1]!.error?.code).toBe('corrupted');
+		expect(result.files[1]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
 		expect(await names(directory)).toEqual(['a.txt', 'other.txt']);
 	});
 
@@ -135,7 +138,7 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 			save: { kind: 'file', handle }
 		}).done;
 
-		expect(result.files[0]!.error?.code).toBe('corrupted');
+		expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
 		expect(new TextDecoder().decode(await readFile(handle))).toBe('previous');
 	});
 });
@@ -153,7 +156,7 @@ describe.skipIf(!opfs)('staging in OPFS', () => {
 			save: { kind: 'opfs' }
 		}).done;
 
-		expect(result.files[0]!.output).toEqual({ kind: 'downloaded' });
+		expect(result.files[0]).toMatchObject({ status: 'done', output: { kind: 'downloaded' } });
 		const staged = (await names(staging)).find((name) => !before.includes(name));
 		const sealed = await readFile(await staging.getFileHandle(staged!));
 		expect(equalBytes((await decrypt(sealed, passphrase.decrypt)).output!, plain)).toBe(true);

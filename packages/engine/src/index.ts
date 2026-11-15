@@ -1,16 +1,9 @@
 // The engine's public surface. The UI never touches workers, chunks or formats.
 export { checkCredentials, startJob } from './job.ts';
 
-export type {
-	CheckedCredentials,
-	FileStatus,
-	Job,
-	JobFile,
-	JobInput,
-	JobOptions,
-	JobSnapshot,
-	JobStatus
-} from './job.ts';
+export type { CheckedCredentials, Job, JobInput, JobOptions } from './job.ts';
+
+export type { FileStatus, JobFile, JobSnapshot, JobStatus } from './snapshot.ts';
 
 export { chooseSaveLocation, whereToSave } from './sinks/save-location.ts';
 

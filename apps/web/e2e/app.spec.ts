@@ -46,6 +46,21 @@ async function dropFile(page: Page, name: string, buffer: Buffer): Promise<void>
 		.setInputFiles({ name, mimeType: 'application/octet-stream', buffer });
 }
 
+/** Drops a file on the window, as dragging it in from the desktop does, onto whatever step is shown. */
+async function dropOnWindow(page: Page, name: string, buffer: Buffer): Promise<void> {
+	const dataTransfer = await page.evaluateHandle(
+		({ fileName, bytes }) => {
+			const transfer = new DataTransfer();
+			transfer.items.add(new File([new Uint8Array(bytes)], fileName));
+
+			return transfer;
+		},
+		{ fileName: name, bytes: [...buffer] }
+	);
+
+	await page.dispatchEvent('body', 'drop', { dataTransfer });
+}
+
 /** Encrypts with the generated passphrase, then decrypts with it. */
 async function roundTrip(page: Page, plain: Buffer): Promise<Buffer> {
 	await dropFile(page, 'photo.jpg', plain);
@@ -229,4 +244,107 @@ test('a public key pasted but not added is still encrypted to', async ({ page })
 	await submit.click();
 	const sealed = await readFile(await (await encrypted).path());
 	expect(sealed.toString('latin1')).toContain('\n-> X25519 ');
+});
+
+test('files dropped on a finished job never bring back the card before it', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'a.txt', randomBytes(1000));
+	const encrypted = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+	const sealed = await readFile(await (await encrypted).path());
+	await expect(page.getByRole('heading', { name: '1 file encrypted.' })).toBeVisible();
+
+	// Every heading the page shows from here on, however briefly.
+	const headings = await page.evaluateHandle(() => {
+		const seen: string[] = [];
+
+		new MutationObserver(() => {
+			for (const heading of document.querySelectorAll('h1')) seen.push(heading.textContent);
+		}).observe(document.body, { childList: true, subtree: true });
+
+		return seen;
+	});
+
+	await dropOnWindow(page, 'a.txt.age', sealed);
+	await expect(page.getByRole('heading', { name: 'Encrypted with a passphrase.' })).toBeVisible();
+	expect(await headings.jsonValue()).not.toContain('Encrypting 1 file');
+});
+
+test('a file that isn’t a key file leaves no key loaded', async ({ page }) => {
+	await openTool(page);
+	await page.getByRole('button', { name: 'Keys' }).click();
+	await page.getByRole('button', { name: 'Create my key' }).click();
+	await page.getByRole('checkbox', { name: 'Protect it with a passphrase' }).uncheck();
+	const savedKey = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Save key file' }).click();
+	const keyDownload = await savedKey;
+	const keyFile = await readFile(await keyDownload.path());
+
+	await page.getByRole('button', { name: 'encryptee' }).click();
+	const header = `age-encryption.org/v1\n-> X25519 ${randomBase64(32)}\n${randomBase64(32)}\n--- ${randomBase64(32)}\n`;
+	await dropFile(page, 'notes.txt.age', Buffer.concat([Buffer.from(header), randomBytes(1000)]));
+	const chooseKeyFile = page.locator('input[type=file][aria-label="Choose your key file"]');
+	await chooseKeyFile.setInputFiles({
+		name: keyDownload.suggestedFilename(),
+		mimeType: 'text/plain',
+		buffer: keyFile
+	});
+	await expect(page.getByText(`Key loaded from ${keyDownload.suggestedFilename()}`)).toBeVisible();
+
+	await chooseKeyFile.setInputFiles({
+		name: 'notes.txt',
+		mimeType: 'text/plain',
+		buffer: Buffer.from('not a key')
+	});
+	await expect(page.getByText('That isn’t a valid key file.')).toBeVisible();
+	await expect(page.getByText(/^Key loaded from/)).toBeHidden();
+	await expect(page.getByRole('button', { name: 'Decrypt', exact: true })).toBeDisabled();
+});
+
+test('a double-click on Encrypt starts one job', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'notes.txt', randomBytes(1000));
+	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
+	// Checking the pasted key starts the key tools' worker, which gives the second click time to land.
+	await page
+		.locator('#encrypt-paste')
+		.fill('age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p');
+	let downloads = 0;
+	page.on('download', () => downloads++);
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).dblclick();
+	await expect(page.getByRole('heading', { name: '1 file encrypted.' })).toBeVisible();
+	// A second job would download its copy right after the first.
+	await page.waitForTimeout(1000);
+	expect(downloads).toBe(1);
+});
+
+test('a passphrase changed while it’s checked stops the check, which never saves', async ({
+	page
+}) => {
+	await openTool(page);
+	await dropFile(page, 'a.txt', randomBytes(1000));
+	await page.getByRole('button', { name: 'Use my own' }).click();
+	await page.locator('#encrypt-own').fill('right');
+	await page.locator('#encrypt-repeat').fill('right');
+	const encrypted = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+	const sealed = await readFile(await (await encrypted).path());
+
+	await page.getByRole('button', { name: 'Do another' }).click();
+	await dropFile(page, 'a.txt.age', sealed);
+	await page.locator('#decrypt-passphrase').fill('right');
+	let downloads = 0;
+	page.on('download', () => downloads++);
+	await page.getByRole('button', { name: 'Decrypt', exact: true }).click();
+	// scrypt at full strength takes far longer than a keystroke.
+	await page.locator('#decrypt-passphrase').press('x');
+	await expect(page.getByRole('button', { name: 'Decrypt', exact: true })).toBeEnabled();
+	await page.waitForTimeout(2000);
+	await expect(page.getByText('That matches. Now choose where to save.')).toBeHidden();
+	expect(downloads).toBe(0);
+
+	await page.locator('#decrypt-passphrase').press('Backspace');
+	const decrypted = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Decrypt', exact: true }).click();
+	expect((await decrypted).suggestedFilename()).toBe('a.txt');
 });

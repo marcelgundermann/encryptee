@@ -5,15 +5,22 @@ import { Hint, LineField, StableLabel, TextButton, touchScreen } from './ui.tsx'
 
 type Keys = Extract<KeyFileContents, { protected: false }>;
 
-interface Picked {
-	file: File;
-	keys: Keys | null;
-}
+/** Where the key file chosen last stands. */
+type KeyFile =
+	| { status: 'none' }
+	| { status: 'reading'; file: File }
+	/** Protected: it waits for its passphrase. `error` says why the last one didn't open it. */
+	| { status: 'locked'; file: File; error: string | null }
+	| { status: 'unlocking'; file: File }
+	| { status: 'loaded'; file: File; keys: Keys }
+	/** It couldn't be read as a key file, so no key is loaded. */
+	| { status: 'failed'; error: string };
 
 export interface KeyFileReader {
 	choose(): void;
-	/** The last key file that read: its keys, or `null` while it waits for its passphrase. */
+	/** The key file chosen last, unless it failed: its keys once it's read and unlocked. */
 	picked: { name: string; keys: Keys | null } | null;
+	/** A key file is being read or unlocked. */
 	reading: boolean;
 	/** The hidden file input, the passphrase field a protected key file needs, and why reading failed. */
 	field: ReactNode;
@@ -21,8 +28,9 @@ export interface KeyFileReader {
 
 /**
  * Reads the key file the user chooses, asking for its passphrase if it's
- * protected. `onChange` gets `null` as a file starts to read, and its keys
- * once they're read. The screen renders its own button for
+ * protected. A file chosen later replaces one still being read, and a file
+ * that fails leaves no key loaded. `onChange` gets `null` as a file starts to
+ * read, and its keys once they're read. The screen renders its own button for
  * `choose`, and `field`. The passphrase field's id is `${id}-key-passphrase`,
  * which the e2e tests use. While `disabled` (a build /security.json marks
  * unsafe), it opens no key file.
@@ -33,31 +41,38 @@ export function useKeyFile(
 	disabled: boolean
 ): KeyFileReader {
 	const input = useRef<HTMLInputElement>(null);
-	const [picked, setPicked] = useState<Picked | null>(null);
+	const [keyFile, setKeyFile] = useState<KeyFile>({ status: 'none' });
 	const [passphrase, setPassphrase] = useState('');
-	const [reading, setReading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	/** The file the latest read is for. */
+	const latest = useRef<File | null>(null);
 
+	/** Reads `file`, unlocking it with `pass` if it's given. */
 	const read = async (file: File, pass?: string) => {
-		setReading(true);
-		setError(null);
+		latest.current = file;
+		setKeyFile(pass === undefined ? { status: 'reading', file } : { status: 'unlocking', file });
 		onChange(null);
+		let next: KeyFile;
 
 		try {
 			const contents = await readKeyFile(await file.bytes(), pass);
-			const keys = contents.protected ? null : contents;
-			setPicked({ file, keys });
 
-			if (keys) onChange(keys);
+			next = contents.protected
+				? { status: 'locked', file, error: null }
+				: { status: 'loaded', file, keys: contents };
 		} catch (cause) {
-			setError(errorMessage(cause));
-		} finally {
-			setReading(false);
+			const error = errorMessage(cause);
+			next = pass === undefined ? { status: 'failed', error } : { status: 'locked', file, error };
 		}
+
+		// A file chosen later replaced this one while it was read.
+		if (latest.current !== file) return;
+		setKeyFile(next);
+
+		if (next.status === 'loaded') onChange(next.keys);
 	};
 
 	const unlock = () => {
-		if (picked && !reading && !disabled) void read(picked.file, passphrase);
+		if (keyFile.status === 'locked' && !disabled) void read(keyFile.file, passphrase);
 	};
 
 	const field = (
@@ -72,10 +87,13 @@ export function useKeyFile(
 					const file = event.currentTarget.files?.[0];
 					event.currentTarget.value = '';
 
-					if (file) await read(file);
+					if (!file) return;
+					// A passphrase belongs to its key file.
+					setPassphrase('');
+					await read(file);
 				}}
 			/>
-			{picked && !picked.keys && (
+			{(keyFile.status === 'locked' || keyFile.status === 'unlocking') && (
 				<LineField
 					id={`${id}-key-passphrase`}
 					label={strings.keyFile.passphrase}
@@ -96,20 +114,24 @@ export function useKeyFile(
 						<TextButton disabled={disabled} onClick={unlock}>
 							<StableLabel
 								labels={[strings.keyFile.apply, strings.keyFile.checking]}
-								shown={reading ? 1 : 0}
+								shown={keyFile.status === 'unlocking' ? 1 : 0}
 							/>
 						</TextButton>
 					}
 				/>
 			)}
-			{error && <Hint tone="error">{error}</Hint>}
+			{(keyFile.status === 'locked' || keyFile.status === 'failed') && keyFile.error && (
+				<Hint tone="error">{keyFile.error}</Hint>
+			)}
 		</>
 	);
 
+	const file = keyFile.status === 'none' || keyFile.status === 'failed' ? null : keyFile.file;
+
 	return {
 		choose: () => input.current?.click(),
-		picked: picked && { name: picked.file.name, keys: picked.keys },
-		reading,
+		picked: file && { name: file.name, keys: keyFile.status === 'loaded' ? keyFile.keys : null },
+		reading: keyFile.status === 'reading' || keyFile.status === 'unlocking',
 		field
 	};
 }
