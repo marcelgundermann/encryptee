@@ -181,6 +181,41 @@ test('public keys: create a key, encrypt to it, decrypt with the key file', asyn
 	expect(output.equals(plain)).toBe(true);
 });
 
+/** Unpadded base64 of random bytes, as in an age header. */
+const randomBase64 = (size: number) => randomBytes(size).toString('base64').replace(/=+$/, '');
+
+/**
+ * Opens the tool with /security.json marking this build unsafe, as raising
+ * `minSafeBuild` past it does. Routed before the first load, while no service
+ * worker stands between the page and the route.
+ */
+async function openRevokedTool(page: Page): Promise<void> {
+	await page.route('**/security.json', (route) =>
+		route.fulfill({ json: { minSafeBuild: Number.MAX_SAFE_INTEGER } })
+	);
+	await page.addInitScript(hidePickers);
+	await page.goto('/');
+	await expect(page.getByText(/^This version has a known problem\./)).toBeVisible();
+}
+
+test('on a build marked unsafe, the Keys screen can’t create or open a key', async ({ page }) => {
+	await openRevokedTool(page);
+	await page.getByRole('button', { name: 'Keys' }).click();
+	await expect(page.getByRole('button', { name: 'Create my key' })).toBeDisabled();
+	await expect(
+		page.getByRole('button', { name: 'Already have a key file? Open it' })
+	).toBeDisabled();
+});
+
+test('on a build marked unsafe, the Decrypt card can’t open a key file', async ({ page }) => {
+	await openRevokedTool(page);
+	// Only the header decides how a file unlocks: an X25519 stanza asks for a key file.
+	const header = `age-encryption.org/v1\n-> X25519 ${randomBase64(32)}\n${randomBase64(32)}\n--- ${randomBase64(32)}\n`;
+	await dropFile(page, 'notes.txt.age', Buffer.concat([Buffer.from(header), randomBytes(1000)]));
+	await expect(page.getByRole('heading', { name: 'Encrypted to a public key.' })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Choose your key file/ })).toBeDisabled();
+});
+
 test('a public key pasted but not added is still encrypted to', async ({ page }) => {
 	await openTool(page);
 	await dropFile(page, 'notes.txt', randomBytes(1000));

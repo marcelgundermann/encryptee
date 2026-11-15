@@ -68,7 +68,7 @@ export function App() {
 
 	let content;
 
-	if (view === 'keys') content = <KeysScreen />;
+	if (view === 'keys') content = <KeysScreen disabled={safety === 'unsafe'} />;
 	else if (job && snapshot)
 		content = <JobScreen snapshot={snapshot} onCancel={job.cancel} onReset={reset} />;
 	else if (selection.kind === 'encrypt')

@@ -35,10 +35,14 @@ export function DecryptCard(props: {
 	const [checked, setChecked] = useState<CheckedCredentials | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	const keyFile = useKeyFile('decrypt', () => {
-		setError(null);
-		setChecked(null);
-	});
+	const keyFile = useKeyFile(
+		'decrypt',
+		() => {
+			setError(null);
+			setChecked(null);
+		},
+		props.disabled
+	);
 
 	const passphraseInput = useRef<HTMLInputElement>(null);
 
@@ -151,8 +155,9 @@ export function DecryptCard(props: {
 					<>
 						<button
 							type="button"
+							disabled={props.disabled}
 							onClick={keyFile.choose}
-							className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg"
+							className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							<span className="min-w-0 truncate">
 								{keyFile.picked?.name ?? strings.keyFile.choose}

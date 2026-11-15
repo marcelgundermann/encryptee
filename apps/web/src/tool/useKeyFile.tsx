@@ -24,9 +24,14 @@ export interface KeyFileReader {
  * protected. `onChange` gets `null` as a file starts to read, and its keys
  * once they're read. The screen renders its own button for
  * `choose`, and `field`. The passphrase field's id is `${id}-key-passphrase`,
- * which the e2e tests use.
+ * which the e2e tests use. While `disabled` (a build /security.json marks
+ * unsafe), it opens no key file.
  */
-export function useKeyFile(id: string, onChange: (keys: Keys | null) => void): KeyFileReader {
+export function useKeyFile(
+	id: string,
+	onChange: (keys: Keys | null) => void,
+	disabled: boolean
+): KeyFileReader {
 	const input = useRef<HTMLInputElement>(null);
 	const [picked, setPicked] = useState<Picked | null>(null);
 	const [passphrase, setPassphrase] = useState('');
@@ -52,7 +57,7 @@ export function useKeyFile(id: string, onChange: (keys: Keys | null) => void): K
 	};
 
 	const unlock = () => {
-		if (picked && !reading) void read(picked.file, passphrase);
+		if (picked && !reading && !disabled) void read(picked.file, passphrase);
 	};
 
 	const field = (
@@ -61,6 +66,7 @@ export function useKeyFile(id: string, onChange: (keys: Keys | null) => void): K
 				ref={input}
 				type="file"
 				hidden
+				disabled={disabled}
 				aria-label={strings.keyFile.choose}
 				onChange={async (event) => {
 					const file = event.currentTarget.files?.[0];
@@ -87,7 +93,7 @@ export function useKeyFile(id: string, onChange: (keys: Keys | null) => void): K
 						}
 					}}
 					action={
-						<TextButton onClick={unlock}>
+						<TextButton disabled={disabled} onClick={unlock}>
 							<StableLabel
 								labels={[strings.keyFile.apply, strings.keyFile.checking]}
 								shown={reading ? 1 : 0}

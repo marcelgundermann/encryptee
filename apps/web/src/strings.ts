@@ -128,7 +128,7 @@ export const strings = {
 	update: {
 		ready: 'A new version is ready.',
 		reload: 'Update',
-		unsafe: 'This version has a known problem. Update before encrypting or decrypting.',
+		unsafe: 'This version has a known problem. Update before encrypting, decrypting or using keys.',
 		offline: (date: string) => `Offline · version from ${date}`
 	},
 	errors: {
