@@ -7,19 +7,23 @@ export interface KeyPair {
 	privateKey: string;
 }
 
-export function publicKeyType(publicKey: string): KeyType | 'other' {
-	if (publicKey.startsWith('age1pq1')) return 'pq';
-
-	if (publicKey.startsWith('age1tag') || !publicKey.startsWith('age1')) return 'other';
-
-	return 'x25519';
+/**
+ * ML-KEM-768 + X25519 (`age1pq1…`) and ML-KEM-768 + P-256 tag (`age1tagpq1…`).
+ * Bech32 data never contains `1`, so no other key can start with either prefix.
+ */
+function isPostQuantum(publicKey: string): boolean {
+	return publicKey.startsWith('age1pq1') || publicKey.startsWith('age1tagpq1');
 }
 
-/** age's guidance: mixing post-quantum and classic recipients loses PQ protection. */
+/**
+ * age's guidance: mixing post-quantum and classic recipients loses PQ protection.
+ * Every other public key `validatePublicKeys` accepts is classic: X25519 (`age1…`,
+ * including the rare one whose data starts with `tag`) and P-256 tag (`age1tag1…`).
+ */
 export function mixesPqAndClassic(publicKeys: string[]): boolean {
-	const types = new Set(publicKeys.map(publicKeyType));
+	const postQuantum = publicKeys.filter(isPostQuantum).length;
 
-	return types.has('pq') && types.has('x25519');
+	return postQuantum > 0 && postQuantum < publicKeys.length;
 }
 
 /** An age identity file, as written by `age-keygen`. */
