@@ -25,9 +25,9 @@ catalog:
   react-dom: 19.3.1
   tailwindcss: 4.3.5
   typescript: 7.0.2
-  vite: npm:@voidzero-dev/vite-plus-core@1.6.0
+  vite: npm:@voidzero-dev/vite-plus-core@8.3.8000
   vite-plugin-pwa: 2.0.0
-  vite-plus: 1.6.0
+  vite-plus: 1.7.0
   vitest: 5.1.0
   workbox-precaching: 7.4.1
   workbox-window: 7.4.1
