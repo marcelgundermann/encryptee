@@ -139,7 +139,7 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 		const s = job.getSnapshot();
 		$('status', HTMLElement).textContent =
 			`${scenario} · ${options.tuning?.backend} · ${options.tuning?.workers} workers · ` +
-			`${options.tuning?.batchChunks} chunks: ${((100 * s.bytesDone) / s.bytesTotal).toFixed(1)}%`;
+			`${options.tuning?.batchChunks} chunks: ${((100 * s.workDone) / s.workTotal).toFixed(1)}%`;
 	});
 	const result = await job.done;
 	current = null;

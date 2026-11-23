@@ -2,7 +2,7 @@ import { serializeError } from '../errors.ts';
 import type { ReadRange } from '../format/age.ts';
 import { batchRange, type PayloadLayout } from '../payload/layout.ts';
 import { openSink } from '../sinks/open-sink.ts';
-import type { ByteSink, SinkResult } from '../sinks/sink.ts';
+import { checksFirst, type ByteSink, type SinkResult } from '../sinks/sink.ts';
 import type { CryptoPool } from './pool.ts';
 import type { CoordinatorEvent, FileTask, Prepared, Tuning } from './protocol.ts';
 import { reader } from './source.ts';
@@ -12,8 +12,10 @@ const PROGRESS_INTERVAL_MS = 100;
 /**
  * Runs one file task inside the coordinator: header, then a sliding window of
  * batches through the crypto pool, written to the sink strictly in order.
- * Nothing reaches the sink before the header has been verified. `preparation`
- * is the header a `check` already opened, or the one the header worker prepares.
+ * Nothing reaches the sink before the header has been verified, nor, for a
+ * file `checksFirst`, before every chunk has: a first pass opens them all and
+ * keeps nothing. `preparation` is the header a `check` already opened, or the
+ * one the header worker prepares.
  */
 export async function runFileTask(
 	task: FileTask,
@@ -34,14 +36,20 @@ export async function runFileTask(
 		// A cancel that came while the workers took the key.
 		signal.throwIfAborted();
 
-		sink = await openSink(task.sink);
+		const pump = (write: ByteSink['write']) =>
+			pumpBatches(task, prepared.layout, tuning.window, read, pool, write, emit, signal);
+
+		if (checksFirst(task.operation.mode, task.sink.kind)) await pump(async () => {});
+
+		const opened = await openSink(task.sink);
+		sink = opened;
 		emit({ type: 'opened', id: task.id, outputSize: prepared.outputSize, backend });
 
-		if (prepared.prefix) await untilAborted(sink.write(prepared.prefix), signal);
-		await pumpBatches(task, prepared.layout, tuning.window, read, pool, sink, emit, signal);
+		if (prepared.prefix) await untilAborted(opened.write(prepared.prefix), signal);
+		await pump((chunk) => opened.write(chunk));
 		signal.throwIfAborted();
 
-		return await sink.close();
+		return await opened.close();
 	} catch (error) {
 		const reason: unknown = signal.aborted ? signal.reason : error;
 		await sink?.abort(serializeError(reason));
@@ -57,7 +65,7 @@ async function pumpBatches(
 	window: number,
 	read: ReadRange,
 	pool: CryptoPool,
-	sink: ByteSink,
+	write: ByteSink['write'],
 	emit: (event: CoordinatorEvent) => void,
 	signal: AbortSignal
 ): Promise<void> {
@@ -78,7 +86,7 @@ async function pumpBatches(
 		while (nextToStart < layout.batches && nextToStart < next + window) start(nextToStart++);
 		const output = await untilAborted(inFlight.get(next)!, signal);
 		inFlight.delete(next);
-		await untilAborted(sink.write(output), signal);
+		await untilAborted(write(output), signal);
 
 		const range = batchRange(layout, next);
 		bytesDone += range.end - range.start;

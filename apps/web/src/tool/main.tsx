@@ -8,3 +8,7 @@ createRoot(document.getElementById('root')!).render(
 		<App />
 	</StrictMode>
 );
+
+// Keeps the tool working offline and streams downloads. A new version takes
+// over once every Encryptee tab has closed. The dev server has none.
+if (import.meta.env.PROD) void navigator.serviceWorker?.register('/sw.js');

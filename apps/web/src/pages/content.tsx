@@ -70,8 +70,12 @@ export function Security() {
 			<H2>The code you run</H2>
 			<P>
 				Encryptee loads no third-party scripts and has no analytics. A strict Content Security
-				Policy only allows code from encryptee.io itself. Updates are never applied while a file is
-				being encrypted or decrypted.
+				Policy only allows code from encryptee.io itself. The source code is open, under the MIT
+				license, on{' '}
+				<a className="underline" href="https://github.com/marcelgundermann/encryptee">
+					GitHub
+				</a>
+				.
 			</P>
 		</>
 	);
@@ -108,9 +112,9 @@ export function Faq() {
 			</P>
 			<H2>Is there a size limit?</H2>
 			<P>
-				Not in Chrome and Edge on a computer, where files of 50 GB and more work. Firefox and Safari
-				save through a download, which is reliable up to a smaller size; Encryptee tells you when a
-				file is above it.
+				Not in Chrome and Edge on a computer, which write straight to the file you choose. Firefox
+				and Safari save through a download, which is reliable up to a smaller size; Encryptee tells
+				you when a file is above it.
 			</P>
 			<H2>Do you see my files or passphrases?</H2>
 			<P>No. Nothing you encrypt, and no passphrase or key, ever leaves your device.</P>

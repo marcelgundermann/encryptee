@@ -61,9 +61,12 @@ export type CoordinatorRequest =
 export type CoordinatorEvent =
 	/** The header of a `check` opened with its credentials. */
 	| { type: 'checked'; id: number }
-	/** The header checked out and the sink is open; from here on bytes reach the sink. */
+	/**
+	 * The header checked out, and every chunk did for a file `checksFirst`, and
+	 * the sink is open; from here on bytes reach the sink.
+	 */
 	| { type: 'opened'; id: number; outputSize: number; backend: Backend }
-	/** Input bytes processed so far, throttled. */
+	/** Input bytes processed so far, throttled; from zero again once a file checked first opens. */
 	| { type: 'progress'; id: number; bytes: number }
 	| { type: 'done'; id: number; result: SinkResult }
 	| { type: 'failed'; id: number; error: SerializedError };

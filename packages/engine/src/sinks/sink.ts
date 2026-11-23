@@ -20,6 +20,16 @@ export type SinkDescriptor =
 	| { kind: 'memory' }
 	| { kind: 'discard' };
 
+/**
+ * Whether a file is checked whole before its output opens. A streamed download
+ * starts as the output opens and can't be taken back, so a decrypt into one
+ * reads the file twice: once to check every chunk, then to save it. The other
+ * outputs show nothing before they close.
+ */
+export function checksFirst(mode: 'encrypt' | 'decrypt', output: SinkDescriptor['kind']): boolean {
+	return mode === 'decrypt' && output === 'sw-download';
+}
+
 /** What a finished sink hands back to the main thread. */
 export type SinkResult =
 	| { kind: 'saved' }

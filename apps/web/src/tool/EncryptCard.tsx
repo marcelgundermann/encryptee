@@ -31,7 +31,6 @@ const shortKey = (key: string) => `${key.slice(0, 12)}…${key.slice(-4)}`;
 
 export function EncryptCard(props: {
 	files: File[];
-	disabled: boolean;
 	onStart: (job: Job) => void;
 	onBack: () => void;
 }) {
@@ -185,7 +184,7 @@ export function EncryptCard(props: {
 
 				{error && <Hint tone="error">{error}</Hint>}
 				<Warnings mode="encrypt" files={props.files} />
-				<BigButton type="submit" disabled={!ready || starting || props.disabled}>
+				<BigButton type="submit" disabled={!ready || starting}>
 					{strings.encrypt.submit(props.files.length)}
 					<Arrow />
 				</BigButton>

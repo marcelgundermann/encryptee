@@ -5,6 +5,9 @@ import type { Page } from '../pages.ts';
 
 const files = (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`;
 
+/** Where legacy files open. The tool links it where a message names it. */
+export const V1_SITE = 'v1.encryptee.io';
+
 export const strings = {
 	wordmark: 'encryptee',
 	nav: {
@@ -74,9 +77,10 @@ export const strings = {
 	},
 	job: {
 		progress: 'Progress',
-		progressText: (percent: number, done: string, total: string) =>
-			`${percent}%, ${done} of ${total}`,
+		progressText: (percent: number, step: string) => `${percent}%, ${step}`,
 		preparing: 'Preparing…',
+		checking: 'Checking the file…',
+		decrypting: 'Decrypting…',
 		of: (done: string, total: string) => `${done} of ${total}`,
 		rate: (rate: string) => `${rate}/s`,
 		left: (time: string) => `about ${time} left`,
@@ -125,16 +129,10 @@ export const strings = {
 		copyKey: 'Copy public key',
 		copied: 'Copied'
 	},
-	update: {
-		ready: 'A new version is ready.',
-		reload: 'Update',
-		unsafe: 'This version has a known problem. Update before encrypting, decrypting or using keys.',
-		offline: (date: string) => `Offline · version from ${date}`
-	},
 	errors: {
 		'wrong-credentials': 'That doesn’t match. Check the passphrase or key file.',
 		'not-encrypted': 'This isn’t an encrypted file.',
-		'legacy-file': 'This file is from the old Encryptee. Open it at v1.encryptee.io.',
+		'legacy-file': `This file is from the old Encryptee. Open it at ${V1_SITE}.`,
 		armored: 'Armored age files (-----BEGIN AGE ENCRYPTED FILE-----) aren’t supported yet.',
 		corrupted: 'This file was changed or is incomplete. Nothing was saved.',
 		'invalid-public-key': 'That isn’t a valid public key.',

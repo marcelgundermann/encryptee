@@ -5,9 +5,12 @@ import { firstStep, nextStep, stepName, type StepEvent, type Steps } from './ste
 const snapshot: JobSnapshot = {
 	mode: 'encrypt',
 	status: 'running',
+	checksFirst: false,
 	files: [],
 	bytesTotal: 0,
 	bytesDone: 0,
+	workTotal: 0,
+	workDone: 0,
 	startedAt: 0,
 	updatedAt: 0,
 	backend: null

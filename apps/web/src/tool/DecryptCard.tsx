@@ -33,7 +33,6 @@ type Check =
 export function DecryptCard(props: {
 	files: File[];
 	unlock: 'passphrase' | 'private-key';
-	disabled: boolean;
 	onStart: (job: Job) => void;
 	onBack: () => void;
 }) {
@@ -41,7 +40,7 @@ export function DecryptCard(props: {
 	const [check, setCheck] = useState<Check>({ status: 'idle', error: null });
 	// New credentials make a new check: the one running or done goes.
 	const edited = () => setCheck({ status: 'idle', error: null });
-	const keyFile = useKeyFile('decrypt', edited, props.disabled);
+	const keyFile = useKeyFile('decrypt', edited);
 	const passphraseInput = useRef<HTMLInputElement>(null);
 
 	const credentials: DecryptCredentials | null =
@@ -145,12 +144,15 @@ export function DecryptCard(props: {
 					<>
 						<button
 							type="button"
-							disabled={props.disabled}
 							onClick={keyFile.choose}
-							className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg disabled:cursor-not-allowed disabled:opacity-50"
+							className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg"
 						>
 							<span className="min-w-0 truncate">
-								{keyFile.picked?.name ?? strings.keyFile.choose}
+								{keyFile.picked ? (
+									<span translate="no">{keyFile.picked.name}</span>
+								) : (
+									strings.keyFile.choose
+								)}
 							</span>
 							<span className="shrink-0 text-sm text-muted">
 								{keyFile.picked?.keys
@@ -167,15 +169,12 @@ export function DecryptCard(props: {
 				{check.status === 'checked' && <Hint>{strings.decrypt.checked}</Hint>}
 				{/* The same button either way, so it keeps focus for the second press. */}
 				{check.status === 'checked' ? (
-					<BigButton disabled={props.disabled} onClick={() => void start(check.handle)}>
+					<BigButton onClick={() => void start(check.handle)}>
 						{strings.decrypt.chooseSave}
 						<Arrow />
 					</BigButton>
 				) : (
-					<BigButton
-						type="submit"
-						disabled={!credentials || check.status === 'checking' || props.disabled}
-					>
+					<BigButton type="submit" disabled={!credentials || check.status === 'checking'}>
 						{check.status === 'checking' ? (
 							strings.decrypt.checking
 						) : (

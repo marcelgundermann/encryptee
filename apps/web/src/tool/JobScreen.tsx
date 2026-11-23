@@ -1,4 +1,4 @@
-import type { JobSnapshot } from '@encryptee/engine';
+import type { JobFile, JobSnapshot } from '@encryptee/engine';
 import { formatBytes, formatDuration, strings } from '../strings.ts';
 import { BigButton, Card, Headline, Hint, OutlineButton, shownFiles, StepHeading } from './ui.tsx';
 
@@ -20,13 +20,18 @@ export function JobScreen({
 }
 
 function Running({ snapshot, onCancel }: { snapshot: JobSnapshot; onCancel: () => void }) {
-	const { bytesDone, bytesTotal } = snapshot;
-	const fraction = bytesTotal === 0 ? 0 : bytesDone / bytesTotal;
+	const { workDone, workTotal } = snapshot;
+	const fraction = workTotal === 0 ? 0 : workDone / workTotal;
 	const percent = Math.floor(100 * fraction);
-	const current = snapshot.files.find((file) => file.status === 'running') ?? snapshot.files[0]!;
+
+	const current =
+		snapshot.files.find((file) => file.status === 'checking' || file.status === 'running') ??
+		snapshot.files[0]!;
+
 	const seconds = (snapshot.updatedAt - snapshot.startedAt) / 1000;
-	const rate = seconds > 1 && bytesDone > 0 ? bytesDone / seconds : null;
+	const rate = seconds > 1 && workDone > 0 ? workDone / seconds : null;
 	const count = snapshot.files.length;
+	const step = stepLine(snapshot, current);
 
 	// No live region: at ~10 updates a second it would talk over everything.
 	// The progress bar carries the numbers for anyone who asks.
@@ -38,11 +43,7 @@ function Running({ snapshot, onCancel }: { snapshot: JobSnapshot; onCancel: () =
 				max={100}
 				value={percent}
 				aria-label={strings.job.progress}
-				aria-valuetext={strings.job.progressText(
-					percent,
-					formatBytes(bytesDone),
-					formatBytes(bytesTotal)
-				)}
+				aria-valuetext={strings.job.progressText(percent, step)}
 			/>
 			<p
 				aria-hidden="true"
@@ -59,15 +60,12 @@ function Running({ snapshot, onCancel }: { snapshot: JobSnapshot; onCancel: () =
 			</div>
 			<div className="mt-4 flex flex-wrap justify-between gap-x-6 gap-y-2 text-sm text-muted tabular-nums">
 				<span className="min-w-0 truncate">
-					{current.outputName} ·{' '}
-					{bytesDone === 0
-						? strings.job.preparing
-						: strings.job.of(formatBytes(bytesDone), formatBytes(bytesTotal))}
+					<span translate="no">{current.outputName}</span> · {step}
 				</span>
 				{rate && (
 					<span>
 						{strings.job.rate(formatBytes(rate))} ·{' '}
-						{strings.job.left(formatDuration((bytesTotal - bytesDone) / rate))}
+						{strings.job.left(formatDuration((workTotal - workDone) / rate))}
 					</span>
 				)}
 			</div>
@@ -78,7 +76,29 @@ function Running({ snapshot, onCancel }: { snapshot: JobSnapshot; onCancel: () =
 	);
 }
 
-const order = { failed: 0, cancelled: 1, running: 1, waiting: 1, done: 2 } as const;
+/**
+ * The step `current` is on, where a job has two, and how far that step has got
+ * through the job's files, in their real sizes.
+ */
+function stepLine(snapshot: JobSnapshot, current: JobFile): string {
+	const { bytesDone, bytesTotal } = snapshot;
+
+	const bytes =
+		bytesDone === 0 ? null : strings.job.of(formatBytes(bytesDone), formatBytes(bytesTotal));
+
+	const step =
+		current.status === 'checking'
+			? strings.job.checking
+			: current.status === 'running' && snapshot.checksFirst
+				? strings.job.decrypting
+				: null;
+
+	if (!step) return bytes ?? strings.job.preparing;
+
+	return bytes ? `${step} ${bytes}` : step;
+}
+
+const order = { failed: 0, cancelled: 1, checking: 1, running: 1, waiting: 1, done: 2 } as const;
 
 function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () => void }) {
 	const total = snapshot.files.length;
@@ -122,7 +142,10 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 				<p className="mt-3 break-words text-muted">
 					{total === 1 ? (
 						<>
-							<span className="text-fg">{done[0]!.outputName}</span> · {savedTo}
+							<span className="text-fg" translate="no">
+								{done[0]!.outputName}
+							</span>{' '}
+							· {savedTo}
 						</>
 					) : (
 						savedTo
@@ -143,7 +166,9 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 				<ul className="mt-6 space-y-1 text-sm">
 					{shown.map((file, i) => (
 						<li key={`${i}-${file.name}`} className="flex justify-between gap-4">
-							<span className="truncate">{file.outputName}</span>
+							<span className="truncate" translate="no">
+								{file.outputName}
+							</span>
 							<span className={file.status === 'failed' ? 'text-danger' : 'text-muted'}>
 								{file.status === 'done'
 									? strings.done.file

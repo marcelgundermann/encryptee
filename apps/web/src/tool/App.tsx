@@ -10,8 +10,7 @@ import { JobScreen } from './JobScreen.tsx';
 import { KeysScreen } from './KeysScreen.tsx';
 import { classify } from './selection.ts';
 import { firstStep, nextStep, stepName } from './steps.ts';
-import { Card, Headline, Hint, TextButton } from './ui.tsx';
-import { buildDate, useUpdates } from './updates.ts';
+import { Card, Headline, Hint, Message, TextButton } from './ui.tsx';
 
 /**
  * The tool, in the "Drop" design (prototype variant A): one surface, one card
@@ -23,7 +22,6 @@ export function App() {
 	const job = step.kind === 'job' ? step.job : null;
 	const snapshot = useJobSnapshot(job);
 	const running = snapshot?.status === 'running';
-	const { safety, updateReady, applyUpdate } = useUpdates(running);
 
 	// A running job keeps the screen: files dropped or opened meanwhile are ignored.
 	const choose = async (files: File[]) => {
@@ -57,33 +55,22 @@ export function App() {
 
 	let content;
 
-	if (view === 'keys') content = <KeysScreen disabled={safety === 'unsafe'} />;
+	if (view === 'keys') content = <KeysScreen />;
 	else if (job && snapshot)
 		content = <JobScreen snapshot={snapshot} onCancel={job.cancel} onReset={reset} />;
 	else if (step.kind === 'encrypt')
-		content = (
-			<EncryptCard
-				files={step.files}
-				disabled={safety === 'unsafe'}
-				onStart={start}
-				onBack={reset}
-			/>
-		);
+		content = <EncryptCard files={step.files} onStart={start} onBack={reset} />;
 	else if (step.kind === 'decrypt')
 		content = (
-			<DecryptCard
-				files={step.files}
-				unlock={step.unlock}
-				disabled={safety === 'unsafe'}
-				onStart={start}
-				onBack={reset}
-			/>
+			<DecryptCard files={step.files} unlock={step.unlock} onStart={start} onBack={reset} />
 		);
 	else if (step.kind === 'invalid')
 		content = (
 			<Card>
 				<Headline>{strings.selection.unusable(step.files.length)}</Headline>
-				<Hint tone="error">{step.message}</Hint>
+				<Hint tone="error">
+					<Message text={step.message} />
+				</Hint>
 				<TextButton className="mt-6" onClick={reset}>
 					{strings.selection.other}
 				</TextButton>
@@ -102,20 +89,6 @@ export function App() {
 					{strings.nav.keys}
 				</button>
 			</SiteHeader>
-
-			{/* Always mounted: a live region only announces what changes inside it. */}
-			<div className="px-6 text-center text-sm" aria-live="polite">
-				{updateReady && (
-					<p>
-						{strings.update.ready}{' '}
-						<TextButton onClick={applyUpdate}>{strings.update.reload}</TextButton>
-					</p>
-				)}
-				{safety === 'unsafe' && <Hint tone="error">{strings.update.unsafe}</Hint>}
-				{safety === 'unknown' && !navigator.onLine && (
-					<p className="text-muted">{strings.update.offline(buildDate)}</p>
-				)}
-			</div>
 
 			<main
 				className={`flex flex-1 justify-center px-6 pb-24 ${centered ? 'items-center pt-8' : 'items-start pt-[12vh]'}`}

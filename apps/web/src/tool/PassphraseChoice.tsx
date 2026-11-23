@@ -77,6 +77,8 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 								ref={output}
 								id={`${id}-generated`}
 								aria-labelledby={`${id}-generated-label`}
+								// Page translation can run in the cloud; the passphrase never leaves the device.
+								translate="no"
 								className="min-w-0 flex-1 font-mono text-lg break-words select-all"
 							>
 								{generated}

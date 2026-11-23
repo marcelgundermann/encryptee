@@ -10,7 +10,7 @@ import type { DecryptCredentials } from './format/header.ts';
 import { outputName } from './format/names.ts';
 import { acquireJobGuards } from './guards.ts';
 import { openOutput, saveError, type SaveLocation } from './sinks/save-location.ts';
-import type { FileOutput, Output, SinkResult } from './sinks/sink.ts';
+import { checksFirst, type FileOutput, type Output, type SinkResult } from './sinks/sink.ts';
 import {
 	fileDone,
 	fileFailed,
@@ -318,7 +318,8 @@ class RunningJob implements Job {
 				size,
 				outputName: outputName(options.mode, name)
 			})),
-			Date.now()
+			Date.now(),
+			checksFirst(options.mode, options.save.kind)
 		);
 
 		// Only `run` holds the files and credentials, so they go when the job ends.

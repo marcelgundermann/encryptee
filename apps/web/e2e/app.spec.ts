@@ -100,6 +100,30 @@ test('content pages and the 404 page render without CSP violations', async ({ pa
 	expect(violations).toEqual([]);
 });
 
+/** What `_headers` sends with every response. Weakening one is a change to this list too. */
+const SECURITY_HEADERS = {
+	'content-security-policy':
+		"default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types default",
+	'strict-transport-security': 'max-age=31536000; includeSubDomains',
+	'referrer-policy': 'no-referrer',
+	'x-content-type-options': 'nosniff',
+	'x-frame-options': 'DENY',
+	'permissions-policy':
+		'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()'
+};
+
+test('the tool, a content page and the 404 page get the security headers', async ({ request }) => {
+	for (const [path, status] of [
+		['/', 200],
+		['/faq/', 200],
+		['/no-such-page/', 404]
+	] as const) {
+		const response = await request.get(path);
+		expect(response.status(), path).toBe(status);
+		expect(response.headers(), path).toMatchObject(SECURITY_HEADERS);
+	}
+});
+
 test('encrypt and decrypt round trip through the service-worker download', async ({ page }) => {
 	const violations = watchCsp(page);
 	await openTool(page);
@@ -132,6 +156,21 @@ test.describe('without a service worker', () => {
 	});
 });
 
+test('the generated passphrase is left out of page translation', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'a.txt', randomBytes(1000));
+	await expect(page.locator('#encrypt-generated')).toHaveAttribute('translate', 'no');
+});
+
+test('a legacy file links to v1.encryptee.io, where it opens', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'report.pdf.cre', Buffer.from(`encryptee.io${'x'.repeat(100)}`));
+	await expect(page.getByRole('link', { name: 'v1.encryptee.io' })).toHaveAttribute(
+		'href',
+		'https://v1.encryptee.io'
+	);
+});
+
 test('a wrong passphrase is rejected on the card, before anything is saved', async ({ page }) => {
 	await openTool(page);
 	await dropFile(page, 'a.txt', randomBytes(1000));
@@ -153,6 +192,33 @@ test('a wrong passphrase is rejected on the card, before anything is saved', asy
 		{ timeout: 30_000 }
 	);
 	await expect(page.getByRole('heading', { name: 'Encrypted with a passphrase.' })).toBeVisible();
+	expect(downloads).toBe(0);
+});
+
+test('a changed file, decrypted through the service-worker download, downloads nothing', async ({
+	page
+}) => {
+	await openTool(page);
+	// Several batches, so a download that started would still be streaming when the last one fails.
+	await dropFile(page, 'video.mp4', randomBytes(16 * 1024 * 1024 + 5));
+	const passphrase = (await page.locator('#encrypt-generated').textContent())!;
+	const encrypted = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+	const sealed = await readFile(await (await encrypted).path());
+	sealed[sealed.length - 1]! ^= 1;
+
+	await page.getByRole('button', { name: 'Do another' }).click();
+	await dropFile(page, 'video.mp4.age', sealed);
+	await page.locator('#decrypt-passphrase').fill(passphrase);
+	let downloads = 0;
+	page.on('download', () => downloads++);
+	await page.getByRole('button', { name: 'Decrypt', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Couldn’t decrypt.' })).toBeVisible();
+	await expect(
+		page.getByRole('paragraph').filter({ hasText: 'This file was changed or is incomplete.' })
+	).toBeVisible();
+	// A download the job started would have been announced by now.
+	await page.waitForTimeout(1000);
 	expect(downloads).toBe(0);
 });
 
@@ -198,38 +264,6 @@ test('public keys: create a key, encrypt to it, decrypt with the key file', asyn
 
 /** Unpadded base64 of random bytes, as in an age header. */
 const randomBase64 = (size: number) => randomBytes(size).toString('base64').replace(/=+$/, '');
-
-/**
- * Opens the tool with /security.json marking this build unsafe, as raising
- * `minSafeBuild` past it does. Routed before the first load, while no service
- * worker stands between the page and the route.
- */
-async function openRevokedTool(page: Page): Promise<void> {
-	await page.route('**/security.json', (route) =>
-		route.fulfill({ json: { minSafeBuild: Number.MAX_SAFE_INTEGER } })
-	);
-	await page.addInitScript(hidePickers);
-	await page.goto('/');
-	await expect(page.getByText(/^This version has a known problem\./)).toBeVisible();
-}
-
-test('on a build marked unsafe, the Keys screen can’t create or open a key', async ({ page }) => {
-	await openRevokedTool(page);
-	await page.getByRole('button', { name: 'Keys' }).click();
-	await expect(page.getByRole('button', { name: 'Create my key' })).toBeDisabled();
-	await expect(
-		page.getByRole('button', { name: 'Already have a key file? Open it' })
-	).toBeDisabled();
-});
-
-test('on a build marked unsafe, the Decrypt card can’t open a key file', async ({ page }) => {
-	await openRevokedTool(page);
-	// Only the header decides how a file unlocks: an X25519 stanza asks for a key file.
-	const header = `age-encryption.org/v1\n-> X25519 ${randomBase64(32)}\n${randomBase64(32)}\n--- ${randomBase64(32)}\n`;
-	await dropFile(page, 'notes.txt.age', Buffer.concat([Buffer.from(header), randomBytes(1000)]));
-	await expect(page.getByRole('heading', { name: 'Encrypted to a public key.' })).toBeVisible();
-	await expect(page.getByRole('button', { name: /^Choose your key file/ })).toBeDisabled();
-});
 
 test('a public key pasted but not added is still encrypted to', async ({ page }) => {
 	await openTool(page);

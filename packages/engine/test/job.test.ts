@@ -14,6 +14,7 @@ import {
 	CHUNK,
 	SMALL_BATCHES,
 	TEST_LOG_N,
+	concat,
 	decrypt,
 	encrypt,
 	equalBytes,
@@ -190,6 +191,67 @@ describe('failures', () => {
 		expect(snapshot.status).toBe('failed');
 		expect(snapshot.files[0]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
 		expect(output).toBeNull();
+	});
+
+	// Nothing controls the test page, so a download that started would fail as `save-failed`.
+	test.each([
+		['the last byte flipped', (b: Uint8Array<ArrayBuffer>) => ((b[b.length - 1]! ^= 1), b)],
+		[
+			'the final chunk removed',
+			(b: Uint8Array<ArrayBuffer>) => b.slice(0, b.length - SEALED_CHUNK_SIZE)
+		],
+		['32 bytes appended', (b: Uint8Array<ArrayBuffer>) => concat([b, randomBytes(32)])]
+	])(
+		'a file with %s, decrypted to a streamed download, fails as corrupted before the download starts',
+		async (_, tamper) => {
+			const sealed = await encrypt(randomBytes(4 * CHUNK), passphrase.encrypt);
+
+			const result = await startJob({
+				mode: 'decrypt',
+				credentials: passphrase.decrypt,
+				files: [file(tamper(sealed.slice()), 'test.bin.age')],
+				save: { kind: 'sw-download' },
+				tuning: SMALL_BATCHES
+			}).done;
+
+			expect(result.files[0]).toMatchObject({
+				status: 'failed',
+				error: { code: 'corrupted' },
+				outputSize: null
+			});
+		}
+	);
+
+	test('a sound file, decrypted to a streamed download, is checked whole before the download starts', async () => {
+		const sealed = await encrypt(randomBytes(4 * CHUNK), passphrase.encrypt);
+
+		const job = startJob({
+			mode: 'decrypt',
+			credentials: passphrase.decrypt,
+			files: [file(sealed, 'test.bin.age')],
+			save: { kind: 'sw-download' },
+			tuning: SMALL_BATCHES
+		});
+
+		const seen: string[] = [];
+		let readWhenOpened: number | null = null;
+
+		job.subscribe(() => {
+			const snapshot = job.getSnapshot();
+			const { status } = snapshot.files[0]!;
+
+			if (seen.at(-1) === status) return;
+			seen.push(status);
+
+			if (status === 'running') readWhenOpened = snapshot.workDone;
+		});
+
+		const result = await job.done;
+
+		expect(seen).toEqual(['checking', 'running', 'failed']);
+		expect(readWhenOpened).toBe(sealed.length);
+		// Nothing controls the test page, so the download itself fails to start.
+		expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'save-failed' } });
 	});
 
 	test.each([
@@ -407,7 +469,7 @@ describe('jobs', () => {
 		const final = await job.done;
 		expect(final.status).toBe('done');
 		expect(new Set(seen).size).toBe(seen.length);
-		const done = seen.map((s) => s.bytesDone);
+		const done = seen.map((s) => s.workDone);
 		expect(done).toEqual(done.toSorted((a, b) => a - b));
 	});
 

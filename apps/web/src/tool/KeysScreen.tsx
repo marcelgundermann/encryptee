@@ -28,8 +28,7 @@ type Stage =
 
 type Pending = 'create' | 'save';
 
-/** `disabled` (a build /security.json marks unsafe) stops creating, saving and opening key files. */
-export function KeysScreen(props: { disabled: boolean }) {
+export function KeysScreen() {
 	const [stage, setStage] = useState<Stage>({ kind: 'start' });
 	const [type, setType] = useState<KeyType>('pq');
 	const [protect, setProtect] = useState(true);
@@ -38,16 +37,11 @@ export function KeysScreen(props: { disabled: boolean }) {
 	const [pending, setPending] = useState<Pending | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	const keyFile = useKeyFile(
-		'keys',
-		(keys) => {
-			setError(null);
+	const keyFile = useKeyFile('keys', (keys) => {
+		setError(null);
 
-			if (keys)
-				setStage({ kind: 'show', publicKey: keys.publicKeys[0]!, pair: null, savedAs: null });
-		},
-		props.disabled
-	);
+		if (keys) setStage({ kind: 'show', publicKey: keys.publicKeys[0]!, pair: null, savedAs: null });
+	});
 
 	const create = async () => {
 		setPending('create');
@@ -93,18 +87,10 @@ export function KeysScreen(props: { disabled: boolean }) {
 						]}
 					/>
 					<Hint>{strings.keys.typeHint}</Hint>
-					<BigButton
-						disabled={props.disabled || pending !== null || keyFile.reading}
-						onClick={() => void create()}
-					>
+					<BigButton disabled={pending !== null || keyFile.reading} onClick={() => void create()}>
 						{pending === 'create' ? strings.keys.creating : strings.keys.create}
 					</BigButton>
-					<TextButton
-						tone="muted"
-						className="mt-4"
-						disabled={props.disabled}
-						onClick={keyFile.choose}
-					>
+					<TextButton tone="muted" className="mt-4" onClick={keyFile.choose}>
 						{strings.keys.openExisting}
 					</TextButton>
 					{keyFile.field}
@@ -125,7 +111,7 @@ export function KeysScreen(props: { disabled: boolean }) {
 					</label>
 					{protect && passphraseField}
 					<BigButton
-						disabled={props.disabled || (protect && passphrase === null) || pending !== null}
+						disabled={(protect && passphrase === null) || pending !== null}
 						onClick={() => void save(stage.pair)}
 					>
 						{pending === 'save' ? strings.keys.saving : strings.keys.save}
@@ -138,7 +124,6 @@ export function KeysScreen(props: { disabled: boolean }) {
 				<ShowKey
 					stage={stage}
 					pending={pending}
-					disabled={props.disabled}
 					onSave={save}
 					onRestart={() => setStage({ kind: 'start' })}
 				/>
@@ -152,7 +137,6 @@ export function KeysScreen(props: { disabled: boolean }) {
 function ShowKey(props: {
 	stage: Extract<Stage, { kind: 'show' }>;
 	pending: Pending | null;
-	disabled: boolean;
 	onSave: (pair: KeyPair) => Promise<void>;
 	onRestart: () => void;
 }) {
@@ -177,7 +161,7 @@ function ShowKey(props: {
 				{pair && (
 					<TextButton
 						tone="muted"
-						disabled={props.disabled || props.pending !== null}
+						disabled={props.pending !== null}
 						onClick={() => void props.onSave(pair)}
 					>
 						{props.pending === 'save' ? strings.keys.saving : strings.keys.saveAgain}

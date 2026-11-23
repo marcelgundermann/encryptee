@@ -12,14 +12,11 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-	if (handleDownloadMessage(event)) return;
-
-	// Sent by the page only when the user accepts an update and no job runs.
-	if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting();
+	handleDownloadMessage(event);
 });
 
 // Take control on first install so the first visit can already stream
-// downloads. Later versions only activate after the user accepts an update.
+// downloads. A later version waits until every Encryptee tab has closed.
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
 cleanupOutdatedCaches();
