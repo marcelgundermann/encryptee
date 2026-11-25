@@ -1,0 +1,96 @@
+/**
+ * Service-worker side of the streaming download sink. The app's `sw.ts` wires
+ * `handleDownloadMessage` and `handleDownloadFetch` into its listeners. The
+ * service worker never runs crypto; it only relays bytes from the coordinator
+ * into a streaming `Response`.
+ */
+import { DOWNLOAD_ROUTE, type DownloadControlMessage } from './sw-protocol.ts';
+import { createPortStream } from './sw-stream.ts';
+
+/** The service worker's other routes leave this path to `handleDownloadFetch`. */
+export { DOWNLOAD_ROUTE };
+
+/**
+ * A download the page announced and the browser hasn't fetched yet. Its stream
+ * starts with the fetch, so nothing is written to a download that never comes.
+ */
+interface PendingDownload {
+	name: string;
+	size: number;
+	port: MessagePort;
+}
+
+const downloads = new Map<string, PendingDownload>();
+const arrivals = new Map<string, () => void>();
+
+/** Returns true if the message was a download control message. */
+export function handleDownloadMessage(event: ExtendableMessageEvent): boolean {
+	// Only this app's own pages message its service worker, and every branch
+	// below checks `type` before reading anything else.
+	const data: DownloadControlMessage | undefined = event.data;
+
+	if (data?.type === 'encryptee-keepalive') return true;
+
+	if (data?.type !== 'encryptee-download') return false;
+	downloads.set(data.id, { name: data.name, size: data.size, port: data.port });
+	arrivals.get(data.id)?.();
+
+	return true;
+}
+
+/** Returns true if the fetch was for the download route and has been answered. */
+export function handleDownloadFetch(event: FetchEvent): boolean {
+	const url = new URL(event.request.url);
+
+	if (url.origin !== location.origin || !url.pathname.startsWith(DOWNLOAD_ROUTE)) return false;
+	const id = url.pathname.slice(DOWNLOAD_ROUTE.length);
+	const download = downloads.get(id);
+
+	if (download) {
+		// Resolve respondWith immediately: iPadOS kills a pending one after ~70 s.
+		event.respondWith(downloadResponse(id, download));
+	} else {
+		// The control message may still be in flight; wait briefly for it.
+		event.respondWith(
+			new Promise<Response>((resolve) => {
+				const timer = setTimeout(() => {
+					arrivals.delete(id);
+					resolve(new Response('Download not found', { status: 404 }));
+				}, 5000);
+
+				arrivals.set(id, () => {
+					clearTimeout(timer);
+					arrivals.delete(id);
+					resolve(downloadResponse(id, downloads.get(id)!));
+				});
+			})
+		);
+	}
+
+	return true;
+}
+
+function downloadResponse(id: string, download: PendingDownload): Response {
+	downloads.delete(id);
+
+	return new Response(createPortStream(download.port), {
+		headers: {
+			'Content-Type': 'application/octet-stream',
+			// Exact length: iOS truncates downloads without one.
+			'Content-Length': String(download.size),
+			'Content-Disposition': contentDisposition(download.name),
+			'Cache-Control': 'no-store',
+			'X-Content-Type-Options': 'nosniff'
+		}
+	});
+}
+
+function contentDisposition(name: string): string {
+	// The characters `encodeURIComponent` leaves that `filename*` doesn't allow (RFC 8187).
+	const encoded = encodeURIComponent(name).replace(
+		/['()*]/g,
+		(char) => `%${char.charCodeAt(0).toString(16)}`
+	);
+
+	return `attachment; filename*=UTF-8''${encoded}`;
+}

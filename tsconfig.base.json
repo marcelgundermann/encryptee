@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		// The browser floor's, and Vite reads `target` for class fields, so it stays set.
+		// ES2025 is above the floor: Firefox 133 has no Promise.try or RegExp.escape, and Safari 18.2
+		// no iterator helpers.
+		"target": "es2024",
+		"lib": ["es2024", "esnext.array", "esnext.typedarrays", "dom"],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"exactOptionalPropertyTypes": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"allowUnreachableCode": false,
+		"verbatimModuleSyntax": true,
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"types": []
+	}
+}
