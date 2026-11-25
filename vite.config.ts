@@ -19,7 +19,8 @@ export default defineConfig({
 		trailingComma: 'none',
 		printWidth: 100,
 		ignorePatterns: [
-			'pnpm-lock.yaml'
+			'pnpm-lock.yaml',
+			'apps/web/src/routeTree.gen.ts'
 		]
 	},
 	// No type-aware rules or typeCheck: tsgolint reads only each package's
@@ -78,6 +79,7 @@ export default defineConfig({
 		},
 		ignorePatterns: [
 			'**/dist/**',
+			'apps/web/src/routeTree.gen.ts',
 			'.worktrees/**',
 			'**/node_modules/**'
 		]

@@ -5,7 +5,6 @@ import type { Selection } from './selection.ts';
 type Step = Selection | { kind: 'job'; job: Job };
 
 export interface Steps {
-	view: 'tool' | 'keys';
 	step: Step;
 	/** Files whose headers are being read; their selection replaces the step when it's ready. */
 	reading: File[] | null;
@@ -21,11 +20,9 @@ export type StepEvent =
 	/** Back, "Choose other files" or "Do another". */
 	| { type: 'reset' }
 	/** The wordmark. */
-	| { type: 'home' }
-	| { type: 'toggled-keys' };
+	| { type: 'home' };
 
 export const firstStep: Steps = {
-	view: 'tool',
 	step: { kind: 'none' },
 	reading: null,
 	selections: 0
@@ -44,7 +41,6 @@ export function nextStep(steps: Steps, event: StepEvent): Steps {
 			if (event.files !== steps.reading) return steps;
 
 			return {
-				view: 'tool',
 				step: event.selection,
 				reading: null,
 				selections: steps.selections + 1
@@ -56,21 +52,16 @@ export function nextStep(steps: Steps, event: StepEvent): Steps {
 		case 'home':
 			return {
 				...steps,
-				view: 'tool',
 				step: steps.step.kind === 'job' ? steps.step : { kind: 'none' },
 				reading: null
 			};
-		case 'toggled-keys':
-			return { ...steps, view: steps.view === 'keys' ? 'tool' : 'keys' };
 	}
 }
 
 /**
- * The step's name, for the layout and the card's key: `keys`, a job's
- * `job-<status>`, or the selection's kind.
+ * The step's name, for the layout and the card's key: a job's `job-<status>`,
+ * or the selection's kind.
  */
 export function stepName(steps: Steps, jobStatus: JobStatus | null): string {
-	if (steps.view === 'keys') return 'keys';
-
 	return steps.step.kind === 'job' ? `job-${jobStatus}` : steps.step.kind;
 }

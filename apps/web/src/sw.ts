@@ -1,6 +1,11 @@
 /// <reference lib="webworker" />
-import { handleDownloadFetch, handleDownloadMessage } from '@encryptee/engine/sw';
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
+import { DOWNLOAD_ROUTE, handleDownloadFetch, handleDownloadMessage } from '@encryptee/engine/sw';
+import {
+	cleanupOutdatedCaches,
+	createHandlerBoundToURL,
+	precacheAndRoute
+} from 'workbox-precaching';
+import { NavigationRoute, registerRoute } from 'workbox-routing';
 
 declare const self: ServiceWorkerGlobalScope & {
 	__WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -22,3 +27,11 @@ self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim(
 cleanupOutdatedCaches();
 
 precacheAndRoute(self.__WB_MANIFEST, { cleanURLs: true, directoryIndex: 'index.html' });
+
+// Every other page is the app too, which routes it, so content pages open offline. A
+// download is a navigation in a hidden iframe, answered by the download route alone.
+registerRoute(
+	new NavigationRoute(createHandlerBoundToURL('index.html'), {
+		denylist: [new RegExp(`^${DOWNLOAD_ROUTE}`)]
+	})
+);

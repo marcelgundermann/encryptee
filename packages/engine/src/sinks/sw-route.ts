@@ -7,6 +7,9 @@
 import { DOWNLOAD_ROUTE, type DownloadControlMessage } from './sw-protocol.ts';
 import { createPortStream } from './sw-stream.ts';
 
+/** The service worker's other routes leave this path to `handleDownloadFetch`. */
+export { DOWNLOAD_ROUTE };
+
 interface PendingDownload {
 	name: string;
 	size: number;

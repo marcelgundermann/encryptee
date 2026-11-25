@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { PAGES } from '../pages.ts';
+
+/** The content pages' addresses. */
+const PAGES = ['/how-it-works', '/security', '/faq'];
 
 /**
  * Native pickers can't be automated, so these tests hide them and exercise
@@ -88,16 +90,43 @@ async function roundTrip(page: Page, plain: Buffer): Promise<Buffer> {
 	return readFile(await decryptedDownload.path());
 }
 
-test('content pages and the 404 page render without CSP violations', async ({ page }) => {
+test('content pages and the not-found page render without CSP violations', async ({ page }) => {
 	const violations = watchCsp(page);
 
-	// A path that doesn't exist gets 404.html, through `not_found_handling`.
-	for (const path of [...PAGES.map((name) => `/${name}/`), '/no-such-page/']) {
+	// A path that doesn't exist gets the app, through `not_found_handling`, which routes it.
+	for (const path of [...PAGES, '/no-such-page']) {
 		await page.goto(path);
 		await expect(page.locator('h1')).toBeVisible();
 	}
 
 	expect(violations).toEqual([]);
+});
+
+test('a header link opens a content page without reloading the document', async ({ page }) => {
+	await page.goto('/');
+	// Gone if the document reloads; React renders only inside #root.
+	await page.evaluate(() => (document.documentElement.dataset.loaded = 'once'));
+	await page.getByRole('link', { name: 'FAQ' }).click();
+	await expect(page.getByRole('heading', { name: 'Frequently asked questions' })).toBeVisible();
+	await expect(page.locator('html')).toHaveAttribute('data-loaded', 'once');
+});
+
+for (const [path, title] of [
+	['/', 'Encryptee · Encrypt files in your browser'],
+	['/faq', 'Encryptee FAQ'],
+	['/faq/more', 'Page not found · Encryptee']
+] as const) {
+	test(`the document’s title names the page at ${path}`, async ({ page }) => {
+		await page.goto(path);
+		await expect(page.locator('main')).toBeVisible();
+		await expect(page).toHaveTitle(title);
+	});
+}
+
+test('an old address with a trailing slash still opens its page', async ({ page }) => {
+	await page.goto('/faq/');
+	await expect(page.getByRole('heading', { name: 'Frequently asked questions' })).toBeVisible();
+	await expect(page).toHaveURL(/\/faq$/);
 });
 
 /** What `_headers` sends with every response. Weakening one is a change to this list too. */
@@ -112,14 +141,12 @@ const SECURITY_HEADERS = {
 		'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()'
 };
 
-test('the tool, a content page and the 404 page get the security headers', async ({ request }) => {
-	for (const [path, status] of [
-		['/', 200],
-		['/faq/', 200],
-		['/no-such-page/', 404]
-	] as const) {
+test('the tool, a content page and the not-found page get the security headers', async ({
+	request
+}) => {
+	for (const path of ['/', '/faq', '/no-such-page']) {
 		const response = await request.get(path);
-		expect(response.status(), path).toBe(status);
+		expect(response.status(), path).toBe(200);
 		expect(response.headers(), path).toMatchObject(SECURITY_HEADERS);
 	}
 });
@@ -140,6 +167,13 @@ test('works offline once installed', async ({ page, context }) => {
 	await waitForServiceWorker(page);
 	const plain = randomBytes(200_000);
 	expect((await roundTrip(page, plain)).equals(plain)).toBe(true);
+});
+
+test('content pages open offline once installed', async ({ page, context }) => {
+	await openTool(page);
+	await context.setOffline(true);
+	await page.goto('/faq');
+	await expect(page.getByRole('heading', { name: 'Frequently asked questions' })).toBeVisible();
 });
 
 test.describe('without a service worker', () => {
@@ -234,7 +268,7 @@ test('public keys: create a key, encrypt to it, decrypt with the key file', asyn
 	const keyFile = await readFile(await keyDownload.path());
 	const publicKey = (await page.getByText(/^age1pq1/).textContent())!;
 
-	await page.getByRole('button', { name: 'encryptee' }).click();
+	await page.getByRole('button', { name: 'Close' }).click();
 	const plain = randomBytes(300_000);
 	await dropFile(page, 'notes.txt', plain);
 	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
@@ -314,7 +348,7 @@ test('a file that isn’t a key file leaves no key loaded', async ({ page }) => 
 	const keyDownload = await savedKey;
 	const keyFile = await readFile(await keyDownload.path());
 
-	await page.getByRole('button', { name: 'encryptee' }).click();
+	await page.getByRole('button', { name: 'Close' }).click();
 	const header = `age-encryption.org/v1\n-> X25519 ${randomBase64(32)}\n${randomBase64(32)}\n--- ${randomBase64(32)}\n`;
 	await dropFile(page, 'notes.txt.age', Buffer.concat([Buffer.from(header), randomBytes(1000)]));
 	const chooseKeyFile = page.locator('input[type=file][aria-label="Choose your key file"]');

@@ -1,10 +1,9 @@
-import { resolve } from 'node:path';
 import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 import { VitePWA } from 'vite-plugin-pwa';
-import { PAGES } from './pages.ts';
 
 export default defineConfig({
 	// Cached by Vite+ (`vp run`). e2e stays a package.json script, never cached:
@@ -17,6 +16,8 @@ export default defineConfig({
 		}
 	},
 	plugins: lazyPlugins(() => [
+		// Writes src/routeTree.gen.ts from src/routes/. It must come before react().
+		tanstackRouter({ target: 'react' }),
 		react(),
 		babel({ presets: [reactCompilerPreset()] }),
 		tailwindcss(),
@@ -51,15 +52,6 @@ export default defineConfig({
 	]),
 	worker: { format: 'es' },
 	build: {
-		target: 'baseline-widely-available',
-		rolldownOptions: {
-			input: {
-				tool: resolve(import.meta.dirname, 'index.html'),
-				notFound: resolve(import.meta.dirname, '404.html'),
-				...Object.fromEntries(
-					PAGES.map((page) => [page, resolve(import.meta.dirname, page, 'index.html')])
-				)
-			}
-		}
+		target: 'baseline-widely-available'
 	}
 });

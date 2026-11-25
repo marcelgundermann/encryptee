@@ -1,15 +1,16 @@
+import { Outlet } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { SiteHeader } from '../SiteHeader.tsx';
 
 /**
  * Shell for the content pages, in the same "Drop" look as the tool.
  */
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout() {
 	return (
 		<div className="flex min-h-dvh flex-col">
 			<SiteHeader />
 			<main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-12 pb-24 text-lg [&_a]:underline [&_a]:underline-offset-2">
-				{children}
+				<Outlet />
 			</main>
 			<footer className="mx-auto w-full max-w-2xl px-6 py-8 text-sm text-muted">
 				Files encrypted with the old Encryptee (<code>.cre</code>) open at{' '}

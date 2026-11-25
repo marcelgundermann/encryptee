@@ -10,9 +10,11 @@
 	},
 	"dependencies": {
 		"@encryptee/engine": "workspace:*",
+		"@tanstack/react-router": "catalog:",
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"workbox-precaching": "catalog:",
+		"workbox-routing": "catalog:",
 		"workbox-window": "catalog:"
 	},
 	"devDependencies": {
@@ -20,6 +22,7 @@
 		"@playwright/test": "catalog:",
 		"@rolldown/plugin-babel": "catalog:",
 		"@tailwindcss/vite": "catalog:",
+		"@tanstack/router-plugin": "catalog:",
 		"@types/babel__core": "catalog:",
 		"@types/node": "catalog:",
 		"@types/react": "catalog:",

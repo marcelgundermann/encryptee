@@ -71,15 +71,7 @@ test('the wordmark keeps a job on screen, and clears a card', () => {
 	expect(run(chose(files), classified(files), { type: 'home' }).step).toEqual({ kind: 'none' });
 });
 
-test('files chosen on the Keys screen return to the tool once they’re read', () => {
-	const keys = run({ type: 'toggled-keys' }, chose(files));
-
-	expect(keys.view).toBe('keys');
-	expect(nextStep(keys, classified(files)).view).toBe('tool');
-});
-
 test.each<[string, Steps, JobSnapshot['status'] | null]>([
-	['keys', run({ type: 'toggled-keys' }), null],
 	['none', firstStep, null],
 	['encrypt', run(chose(files), classified(files)), null],
 	['job-running', run(chose(files), classified(files), { type: 'started', job }), 'running'],

@@ -1,5 +1,5 @@
 import { generateKeyPair, saveKeyFile, type KeyPair, type KeyType } from '@encryptee/engine';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { errorMessage, strings } from '../strings.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
 import {
@@ -28,7 +28,7 @@ type Stage =
 
 type Pending = 'create' | 'save';
 
-export function KeysScreen() {
+function KeysScreen() {
 	const [stage, setStage] = useState<Stage>({ kind: 'start' });
 	const [type, setType] = useState<KeyType>('pq');
 	const [protect, setProtect] = useState(true);
@@ -172,5 +172,36 @@ function ShowKey(props: {
 				</TextButton>
 			</div>
 		</>
+	);
+}
+
+/**
+ * The Keys screen over the tool, in a modal dialog that the header's Keys
+ * button opens. Esc or Close closes it, and a key pair not saved yet goes with it.
+ */
+export function KeysDialog({ onClose }: { onClose: () => void }) {
+	const dialog = useRef<HTMLDialogElement>(null);
+
+	useEffect(() => {
+		const element = dialog.current;
+
+		// Strict Mode runs this twice on the same element in development.
+		if (element && !element.open) element.showModal();
+	}, []);
+
+	return (
+		<dialog
+			ref={dialog}
+			aria-label={strings.nav.keys}
+			onClose={onClose}
+			className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-3xl bg-canvas p-8 text-fg shadow-2xl ring-1 ring-line backdrop:bg-black/40 motion-safe:animate-step-in motion-safe:backdrop:animate-fade-in sm:p-12"
+		>
+			<div className="mb-4 flex justify-end">
+				<TextButton tone="muted" onClick={() => dialog.current?.close()}>
+					{strings.keys.close}
+				</TextButton>
+			</div>
+			<KeysScreen />
+		</dialog>
 	);
 }

@@ -1,5 +1,4 @@
 import { EngineError, type EngineErrorCode, type PreflightWarning } from '@encryptee/engine';
-import type { Page } from '../pages.ts';
 
 /** All UI copy lives here. */
 
@@ -10,12 +9,21 @@ export const V1_SITE = 'v1.encryptee.io';
 
 export const strings = {
 	wordmark: 'encryptee',
+	/** The document's title on each route. `index.html` repeats the tool's, for link previews. */
+	titles: {
+		tool: 'Encryptee · Encrypt files in your browser',
+		howItWorks: 'How Encryptee works',
+		security: 'Encryptee security',
+		faq: 'Encryptee FAQ',
+		notFound: 'Page not found · Encryptee'
+	},
+	/** The header's items: the Keys button and a link to each content page. */
 	nav: {
 		keys: 'Keys',
-		'how-it-works': 'How it works',
-		security: 'Security',
-		faq: 'FAQ'
-	} satisfies Record<Page | 'keys', string>,
+		'/how-it-works': 'How it works',
+		'/security': 'Security',
+		'/faq': 'FAQ'
+	},
 	drop: {
 		title: 'Drop files.',
 		titleTouch: 'Choose files.',
@@ -127,7 +135,8 @@ export const strings = {
 			'Your private key is in the key file. Encryptee never keeps it; if you lose the file, files sent to this key can’t be opened.',
 		publicKey: 'Public key · share freely',
 		copyKey: 'Copy public key',
-		copied: 'Copied'
+		copied: 'Copied',
+		close: 'Close'
 	},
 	errors: {
 		'wrong-credentials': 'That doesn’t match. Check the passphrase or key file.',

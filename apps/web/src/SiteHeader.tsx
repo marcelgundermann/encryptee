@@ -1,9 +1,13 @@
+import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { PAGES } from '../pages.ts';
 import { strings } from './strings.ts';
+
+/** The content pages the header links to, in its order. */
+const PAGES = ['/how-it-works', '/security', '/faq'] as const;
 
 const wordmarkClass = 'hit-area focus-ring font-semibold tracking-tight';
 
+/** The router marks the link to the page that shows with `aria-current="page"`. */
 export const navItemClass =
 	'hit-area focus-ring transition-colors hover:text-fg aria-[current=page]:text-fg';
 
@@ -26,22 +30,21 @@ export function SiteHeader({
 					{strings.wordmark}
 				</button>
 			) : (
-				<a href="/" className={wordmarkClass}>
+				<Link to="/" className={wordmarkClass}>
 					{strings.wordmark}
-				</a>
+				</Link>
 			)}
 			<nav className="flex gap-5 text-muted">
 				{children}
 				{PAGES.map((page) => (
-					<a
+					<Link
 						key={page}
-						href={`/${page}/`}
-						aria-current={location.pathname === `/${page}/` ? 'page' : undefined}
+						to={page}
 						// With the tool's own items there's no room for Security on a phone.
-						className={`${navItemClass} ${children && page === 'security' ? 'hidden sm:inline' : ''}`}
+						className={`${navItemClass} ${children && page === '/security' ? 'hidden sm:inline' : ''}`}
 					>
 						{strings.nav[page]}
-					</a>
+					</Link>
 				))}
 			</nav>
 		</header>

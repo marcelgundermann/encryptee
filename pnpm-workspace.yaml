@@ -9,6 +9,8 @@ catalog:
   '@playwright/test': 1.65.1
   '@rolldown/plugin-babel': 0.3.1
   '@tailwindcss/vite': 4.3.5
+  '@tanstack/react-router': 1.170.46
+  '@tanstack/router-plugin': 1.169.0
   '@types/babel__core': 7.20.5
   '@types/node': 26.6.6
   '@types/react': 19.3.0
@@ -30,6 +32,7 @@ catalog:
   vite-plus: 1.7.0
   vitest: 5.1.0
   workbox-precaching: 7.4.1
+  workbox-routing: 7.4.1
   workbox-window: 7.4.1
   wrangler: 4.162.0
 
