@@ -18,7 +18,8 @@ declare const self: DedicatedWorkerGlobalScope;
 /**
  * Seals and opens the coordinator's headers, one at a time, in the order it
  * asks. scrypt blocks only this worker, so the coordinator goes on writing the
- * files before; one at a time keeps scrypt's 256 MiB from running twice.
+ * files before. How many of these run, and so how many times scrypt's 256 MiB
+ * are there at once, is the job's tuning.
  */
 self.onmessage = ({ data }: MessageEvent<WorkerConnect>) => {
 	const { port } = data;

@@ -1,5 +1,5 @@
 import { EngineError, serializeError } from '../errors.ts';
-import { HeaderQueue } from './headers.ts';
+import { HeaderPool } from './headers.ts';
 import { runFileTask } from './pipeline.ts';
 import { CryptoPool } from './pool.ts';
 import type {
@@ -7,6 +7,7 @@ import type {
 	CoordinatorInit,
 	CoordinatorRequest,
 	Prepared,
+	Source,
 	TaskOperation
 } from './protocol.ts';
 
@@ -16,22 +17,33 @@ const emit = (event: CoordinatorEvent) => self.postMessage(event);
 
 self.onmessage = ({ data: init }: MessageEvent<CoordinatorInit>) => {
 	const pool = new CryptoPool(init.pool);
-	const headers = new HeaderQueue(init.header);
+	const headers = new HeaderPool(init.headers);
 	const { tuning } = init;
 	const running = new Map<number, AbortController>();
-	/** Headers opened by `check`, kept for their file's `run`. */
-	const checked = new Map<number, Prepared>();
+	/** Headers asked for ahead of their file's `run`, by `check` or `prepare`. */
+	const prepared = new Map<number, Promise<Prepared>>();
+
+	const prepare = (id: number, operation: TaskOperation, source: Source) => {
+		const header = headers.prepare(operation, source, tuning.batchChunks);
+		header.catch(() => {}); // Its check or run reports it; until then it's nobody's.
+		prepared.set(id, header);
+
+		return header;
+	};
 
 	self.onmessage = async ({ data }: MessageEvent<CoordinatorRequest>) => {
 		switch (data.type) {
 			case 'check':
 				try {
-					const operation: TaskOperation = { mode: 'decrypt', credentials: data.credentials };
-					checked.set(data.id, await headers.prepare(operation, data.source, tuning.batchChunks));
+					await prepare(data.id, { mode: 'decrypt', credentials: data.credentials }, data.source);
 					emit({ type: 'checked', id: data.id });
 				} catch (error) {
 					emit({ type: 'failed', id: data.id, error: serializeError(error) });
 				}
+
+				return;
+			case 'prepare':
+				void prepare(data.id, data.operation, data.source);
 
 				return;
 			case 'cancel':
@@ -43,10 +55,9 @@ self.onmessage = ({ data: init }: MessageEvent<CoordinatorInit>) => {
 				const controller = new AbortController();
 				running.set(task.id, controller);
 
-				const preparation =
-					checked.get(task.id) ?? headers.prepare(task.operation, task.source, tuning.batchChunks);
+				const preparation = prepared.get(task.id) ?? prepare(task.id, task.operation, task.source);
 
-				checked.delete(task.id);
+				prepared.delete(task.id);
 
 				try {
 					const { signal } = controller;

@@ -14,12 +14,11 @@ const PROGRESS_INTERVAL_MS = 100;
  * batches through the crypto pool, written to the sink strictly in order.
  * Nothing reaches the sink before the header has been verified, nor, for a
  * file `checksFirst`, before every chunk has: a first pass opens them all and
- * keeps nothing. `preparation` is the header a `check` already opened, or the
- * one the header worker prepares.
+ * keeps nothing. `preparation` is the file's header, from a header worker.
  */
 export async function runFileTask(
 	task: FileTask,
-	preparation: Prepared | Promise<Prepared>,
+	preparation: Promise<Prepared>,
 	pool: CryptoPool,
 	tuning: Tuning,
 	emit: (event: CoordinatorEvent) => void,
@@ -30,7 +29,7 @@ export async function runFileTask(
 
 	try {
 		// scrypt runs in the header worker, so a cancel needn't wait for it.
-		const prepared = await untilAborted(Promise.resolve(preparation), signal);
+		const prepared = await untilAborted(preparation, signal);
 		const backend = await pool.setKey(prepared.payloadKey, tuning.backend);
 		prepared.payloadKey.fill(0);
 		// A cancel that came while the workers took the key.

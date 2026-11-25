@@ -22,6 +22,7 @@ import {
 	startSnapshot,
 	type JobSnapshot
 } from './snapshot.ts';
+import { jobTuning } from './tuning.ts';
 import type {
 	CoordinatorEvent,
 	CoordinatorInit,
@@ -64,7 +65,7 @@ const FILE_LOCAL_ERRORS = new Set<EngineErrorCode>([
 export function startJob(options: JobOptions): Job {
 	assertSaveFits(options.save, options.files.length);
 
-	return new RunningJob(options, spawnWorkers(jobTuning(options.tuning)));
+	return new RunningJob(options, spawnWorkers(jobTuning(detectCapabilities(), options)));
 }
 
 /** A decrypt job whose first header opened, waiting for its save location. */
@@ -94,7 +95,7 @@ export async function checkCredentials(options: {
 	if (!first) throw new EngineError('internal', 'nothing to check');
 
 	if (signal?.aborted) throw new EngineError('cancelled', 'cancelled');
-	const workers = spawnWorkers(jobTuning(options.tuning));
+	const workers = spawnWorkers(jobTuning(detectCapabilities(), options));
 	const stop = () => workers.terminate();
 	signal?.addEventListener('abort', stop, { once: true });
 
@@ -138,17 +139,14 @@ function assertSaveFits(save: SaveLocation, fileCount: number): void {
 	}
 }
 
-function jobTuning(overrides: Partial<Tuning> = {}): Tuning {
-	const { cores, mobile } = detectCapabilities();
-	const workers = overrides.workers ?? Math.min(8, Math.max(1, cores - 1));
-
-	return { workers, batchChunks: mobile ? 16 : 64, window: 2 * workers, ...overrides };
-}
-
-/** One job's workers: a coordinator wired to its header worker and its pool of crypto workers. */
+/** One job's workers: a coordinator wired to its header workers and its pool of crypto workers. */
 interface JobWorkers {
+	/** For how many files ahead a header is worth preparing: one for each header worker. */
+	readonly ahead: number;
 	/** Opens file `index`'s header, which its `run` then doesn't open again. */
 	check(index: number, source: Source, credentials: DecryptCredentials): Promise<void>;
+	/** Prepares file `index`'s header for its `run`, which fails with what's wrong with it. */
+	prepare(index: number, source: Source, operation: TaskOperation): void;
 	/** Runs `task`, handing its events to `onEvent`; rejects with the file's failure. */
 	run(
 		task: FileTask,
@@ -208,10 +206,14 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 	};
 
 	// scrypt runs here, so it never holds up the coordinator, and a cancel never waits for it.
-	const header = new Worker(new URL('./workers/header.worker.ts', import.meta.url), {
-		type: 'module',
-		name: 'encryptee-header'
-	});
+	const headers = Array.from(
+		{ length: tuning.headerWorkers },
+		() =>
+			new Worker(new URL('./workers/header.worker.ts', import.meta.url), {
+				type: 'module',
+				name: 'encryptee-header'
+			})
+	);
 
 	const crypto = Array.from(
 		{ length: tuning.workers },
@@ -225,11 +227,11 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 	const init: CoordinatorInit = {
 		type: 'init',
 		pool: crypto.map(connect),
-		header: connect(header),
+		headers: headers.map(connect),
 		tuning
 	};
 
-	coordinator.postMessage(init, [...init.pool, init.header]);
+	coordinator.postMessage(init, [...init.pool, ...init.headers]);
 
 	/**
 	 * Posts `request` about file `id` and hands that file's events to `onEvent`,
@@ -277,10 +279,18 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 		});
 
 	return {
+		ahead: headers.length,
 		check: (index, source, credentials) =>
 			send<void>({ type: 'check', id: index, source, credentials }, [], index, (event, resolve) => {
 				if (event.type === 'checked') resolve();
 			}),
+		prepare: (index, source, operation) =>
+			coordinator.postMessage({
+				type: 'prepare',
+				id: index,
+				source,
+				operation
+			} satisfies CoordinatorRequest),
 		run: (task, transfer, onEvent) =>
 			send<SinkResult>({ type: 'run', task }, transfer, task.id, (event, resolve) => {
 				if (event.type === 'done') resolve(event.result);
@@ -292,9 +302,8 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 			// The last request's handler shares a scope with that request, credentials and all.
 			coordinator.onmessage = null;
 			coordinator.terminate();
-			header.terminate();
 
-			for (const worker of crypto) worker.terminate();
+			for (const worker of [...headers, ...crypto]) worker.terminate();
 			settle({ status: 'terminated' }, new EngineError('cancelled', 'cancelled'));
 		}
 	};
@@ -307,6 +316,8 @@ class RunningJob implements Job {
 	private cancelled = false;
 	/** The index of the file that runs, or ran last. */
 	private current = -1;
+	/** The index after the last file whose header was asked for. */
+	private prepared = 0;
 
 	constructor(
 		options: JobOptions,
@@ -390,16 +401,13 @@ class RunningJob implements Job {
 			id: index,
 			source: sourceOf(input),
 			sink: output.sink,
-			operation:
-				options.mode === 'encrypt'
-					? { mode: 'encrypt', credentials: options.credentials }
-					: { mode: 'decrypt', credentials: options.credentials }
+			operation: operationOf(options)
 		};
 
 		let result: SinkResult;
 
 		try {
-			result = await this.workers.run(task, output.transfer, (event) => {
+			const run = this.workers.run(task, output.transfer, (event) => {
 				if (event.type === 'progress') {
 					this.set(fileProgress(this.snapshot, index, event.bytes));
 				} else if (event.type === 'opened') {
@@ -413,6 +421,9 @@ class RunningJob implements Job {
 					}
 				}
 			});
+
+			this.prepareAhead(options, index);
+			result = await run;
 		} catch (cause) {
 			return fail(serializeError(cause));
 		}
@@ -431,6 +442,16 @@ class RunningJob implements Job {
 		return 'next';
 	}
 
+	/** Asks for the headers of the files after `index`, so they're ready when those start. */
+	private prepareAhead(options: JobOptions, index: number): void {
+		const end = Math.min(options.files.length, index + 1 + this.workers.ahead);
+
+		for (let next = Math.max(this.prepared, index + 1); next < end; next++)
+			this.workers.prepare(next, sourceOf(options.files[next]!), operationOf(options));
+
+		this.prepared = end;
+	}
+
 	/** Marks the file failed, or cancelled, and says whether the rest are still worth trying. */
 	private failFile(index: number, error: SerializedError): 'next' | 'stop' {
 		const cancelled = error.code === 'cancelled';
@@ -446,6 +467,12 @@ class RunningJob implements Job {
 
 		for (const listener of this.listeners) listener();
 	}
+}
+
+function operationOf(options: TaskOperation): TaskOperation {
+	return options.mode === 'encrypt'
+		? { mode: 'encrypt', credentials: options.credentials }
+		: { mode: 'decrypt', credentials: options.credentials };
 }
 
 function sourceOf(input: JobInput): Source {

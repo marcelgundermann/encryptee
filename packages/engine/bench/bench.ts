@@ -15,6 +15,7 @@ import { nativeChaChaAvailable, type Backend } from '../src/payload/cipher.ts';
  */
 const SCENARIOS = [
 	'encrypt-discard',
+	'encrypt-many',
 	'encrypt-opfs',
 	'decrypt-opfs',
 	'encrypt-picker',
@@ -29,10 +30,15 @@ interface Row {
 	backend: Backend | null;
 	workers: number;
 	batchChunks: number;
+	headerWorkers: number;
+	files: number;
 	gib: number;
 	seconds: number;
 	mibps: number;
 }
+
+/** The size of each file of `encrypt-many`, where scrypt takes far longer than the payload. */
+const SMALL_FILE = 1024 ** 2;
 
 /** The element with `id` in bench/index.html, checked to be a `type`. */
 function $<T extends HTMLElement>(id: string, type: new () => T): T {
@@ -94,37 +100,41 @@ $('form', HTMLFormElement).addEventListener('submit', async (event) => {
 		save = { kind: 'file', handle: await opfsFile() };
 	}
 
+	if (scenario === 'decrypt-opfs' && !encrypted) {
+		$('status', HTMLElement).textContent = 'Run "Encrypt synthetic → OPFS" first.';
+
+		return;
+	}
+
+	const count = scenario === 'encrypt-many' ? Number($('files', HTMLInputElement).value) : 1;
+
+	const synthetic = (name: string): JobInput => ({
+		name,
+		size: scenario === 'encrypt-many' ? SMALL_FILE : size,
+		synthetic: true
+	});
+
+	const real = picked ?? (scenario === 'decrypt-opfs' ? encrypted : null);
+
+	const files = real
+		? [real]
+		: Array.from({ length: count }, (_, i) => synthetic(`synthetic ${i}`));
+
 	for (const backend of backends) {
 		for (const workers of list('workers').map(Number)) {
 			for (const batchChunks of list('batches').map(Number)) {
-				if (stopped) return;
+				for (const headerWorkers of list('headers').map(Number)) {
+					if (stopped) return;
 
-				const input: JobInput = picked ??
-					(scenario === 'decrypt-opfs' ? encrypted : null) ?? {
-						name: 'synthetic',
-						size,
-						synthetic: true
-					};
-
-				if (scenario === 'decrypt-opfs' && !encrypted) {
-					$('status', HTMLElement).textContent = 'Run "Encrypt synthetic → OPFS" first.';
-
-					return;
+					await runOne(scenario, {
+						...(scenario.startsWith('decrypt')
+							? { mode: 'decrypt', credentials: { kind: 'passphrase', passphrase } }
+							: { mode: 'encrypt', credentials: { kind: 'passphrase', passphrase } }),
+						files,
+						save,
+						tuning: { workers, batchChunks, headerWorkers, backend }
+					});
 				}
-
-				const options: JobOptions = {
-					...(scenario.startsWith('decrypt')
-						? { mode: 'decrypt' as const, credentials: { kind: 'passphrase' as const, passphrase } }
-						: {
-								mode: 'encrypt' as const,
-								credentials: { kind: 'passphrase' as const, passphrase }
-							}),
-					files: [input],
-					save,
-					tuning: { workers, batchChunks, backend }
-				};
-
-				await runOne(scenario, options);
 			}
 		}
 	}
@@ -140,7 +150,7 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 		const s = job.getSnapshot();
 		$('status', HTMLElement).textContent =
 			`${scenario} · ${options.tuning?.backend} · ${options.tuning?.workers} workers · ` +
-			`${options.tuning?.batchChunks} chunks: ${((100 * s.workDone) / s.workTotal).toFixed(1)}%`;
+			`${options.tuning?.batchChunks} chunks · ${options.tuning?.headerWorkers} header workers: ${((100 * s.workDone) / s.workTotal).toFixed(1)}%`;
 	});
 	const result = await job.done;
 	current = null;
@@ -164,6 +174,8 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 		backend: result.backend,
 		workers: options.tuning!.workers!,
 		batchChunks: options.tuning!.batchChunks!,
+		headerWorkers: options.tuning!.headerWorkers!,
+		files: result.files.length,
 		gib: result.bytesTotal / 1024 ** 3,
 		seconds,
 		mibps: result.bytesTotal / 1024 ** 2 / seconds
@@ -186,6 +198,8 @@ const cells = (r: Row): string[] => [
 	r.backend ?? '',
 	String(r.workers),
 	String(r.batchChunks),
+	String(r.headerWorkers),
+	String(r.files),
 	r.gib.toFixed(2),
 	r.seconds.toFixed(1),
 	r.mibps.toFixed(0)
@@ -206,8 +220,8 @@ function render(): void {
 		})
 	);
 	$('markdown', HTMLElement).textContent = [
-		'| Scenario | Browser | Backend | Workers | Batch | GiB | Seconds | MiB/s |',
-		'|---|---|---|---|---|---|---|---|',
+		'| Scenario | Browser | Backend | Workers | Batch | Headers | Files | GiB | Seconds | MiB/s |',
+		'|---|---|---|---|---|---|---|---|---|---|',
 		...rows.map((r) => `| ${cells(r).join(' | ')} |`)
 	].join('\n');
 }

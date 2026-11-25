@@ -57,6 +57,9 @@
 				<label for="scenario">Scenario</label>
 				<select id="scenario">
 					<option value="encrypt-discard">Encrypt synthetic → discard (crypto only)</option>
+					<option value="encrypt-many">
+						Encrypt many 1 MiB synthetic files → discard (scrypt)
+					</option>
 					<option value="encrypt-opfs">Encrypt synthetic → OPFS (crypto + disk write)</option>
 					<option value="decrypt-opfs">
 						Decrypt that OPFS file → discard (disk read + crypto)
@@ -70,10 +73,14 @@
 				</select>
 				<label for="size">Synthetic size (GiB)</label>
 				<input id="size" value="1" inputmode="decimal" />
+				<label for="files">Files (many small files)</label>
+				<input id="files" value="24" inputmode="numeric" />
 				<label for="workers">Workers</label>
 				<input id="workers" value="1,2,4,8" />
 				<label for="batches">Batch chunks (64 KiB each)</label>
 				<input id="batches" value="16,64,256" />
+				<label for="headers">Header workers</label>
+				<input id="headers" value="1" />
 				<label for="backends">Backends</label>
 				<input id="backends" value="noble,webcrypto" />
 				<label for="passphrase">Passphrase (decrypt)</label>
@@ -90,6 +97,8 @@
 					<th>Backend</th>
 					<th>Workers</th>
 					<th>Batch</th>
+					<th>Headers</th>
+					<th>Files</th>
 					<th>GiB</th>
 					<th>Seconds</th>
 					<th>MiB/s</th>

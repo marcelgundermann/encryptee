@@ -1,5 +1,5 @@
 import { Decrypter, Encrypter } from 'age-encryption';
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { server } from 'vitest/browser';
 import {
 	checkCredentials,
@@ -10,6 +10,7 @@ import {
 } from '../src/index.ts';
 import { SEALED_CHUNK_SIZE } from '../src/format/age.ts';
 import { nativeChaChaAvailable } from '../src/payload/cipher.ts';
+import type { CoordinatorInit, CoordinatorRequest } from '../src/workers/protocol.ts';
 import {
 	CHUNK,
 	SMALL_BATCHES,
@@ -22,6 +23,10 @@ import {
 	passphrase,
 	randomBytes
 } from './helpers.ts';
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
 
 describe('round trips through the worker pipeline', () => {
 	test.each([0, 1, CHUNK, 5 * CHUNK + 3, 3 * 1024 * 1024 + 17])(
@@ -307,6 +312,48 @@ describe('jobs', () => {
 		expect(result.status).toBe('failed');
 		expect(result.files.map((f) => f.status)).toEqual(['failed', 'done']);
 		expect(result.files[1]!.outputName).toBe('good.txt');
+	});
+
+	test('as a file starts, the headers of the files after it are asked for', async () => {
+		const requests = recordRequests();
+
+		const result = await startJob({
+			mode: 'encrypt',
+			credentials: passphrase.encrypt,
+			files: Array.from({ length: 4 }, (_, i) => file(randomBytes(10), `${i}.txt`)),
+			save: { kind: 'memory' },
+			tuning: { ...SMALL_BATCHES, headerWorkers: 2 }
+		}).done;
+
+		expect(result.status).toBe('done');
+		expect(requests).toEqual([
+			'run 0',
+			'prepare 1',
+			'prepare 2',
+			'run 1',
+			'prepare 3',
+			'run 2',
+			'run 3'
+		]);
+	});
+
+	test('a header prepared ahead that fails fails its own file, and no other', async () => {
+		const good = await encrypt(randomBytes(100), passphrase.encrypt);
+
+		const result = await startJob({
+			mode: 'decrypt',
+			credentials: passphrase.decrypt,
+			files: [
+				file(good, '0.txt.age'),
+				file(randomBytes(100), '1.txt.age'),
+				file(good, '2.txt.age')
+			],
+			save: { kind: 'memory' },
+			tuning: { ...SMALL_BATCHES, headerWorkers: 2 }
+		}).done;
+
+		expect(result.files.map((f) => f.status)).toEqual(['done', 'failed', 'done']);
+		expect(result.files[1]).toMatchObject({ error: { code: 'not-encrypted' } });
 	});
 
 	test('cancel stops the job and discards the output', async () => {
@@ -611,6 +658,26 @@ describe('checkCredentials', () => {
 		expect(() => checked.startJob({ kind: 'memory' })).toThrow(/discarded/);
 	});
 });
+
+/** The requests a job's coordinator gets from here on, as `<type> <file's index>`. */
+function recordRequests(): string[] {
+	const requests: string[] = [];
+
+	class RecordedWorker extends Worker {
+		override postMessage(
+			message: CoordinatorInit | CoordinatorRequest,
+			options: Transferable[] | StructuredSerializeOptions = []
+		) {
+			if (message.type === 'run') requests.push(`run ${message.task.id}`);
+			else if (message.type === 'prepare') requests.push(`prepare ${message.id}`);
+			super.postMessage(message, Array.isArray(options) ? { transfer: options } : options);
+		}
+	}
+
+	vi.stubGlobal('Worker', RecordedWorker);
+
+	return requests;
+}
 
 /**
  * Starts a job with credentials nothing else holds, and a weak reference

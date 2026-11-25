@@ -11,6 +11,8 @@ export interface Tuning {
 	batchChunks: number;
 	/** Batches read, in flight or awaiting their turn to be written. */
 	window: number;
+	/** How many headers are prepared at once, and for how many files ahead. */
+	headerWorkers: number;
 	/** The payload cipher; unset, native where the browser has it. */
 	backend?: Backend;
 }
@@ -46,7 +48,7 @@ export type WorkerConnect = { type: 'connect'; port: MessagePort };
 export type CoordinatorInit = {
 	type: 'init';
 	pool: MessagePort[];
-	header: MessagePort;
+	headers: MessagePort[];
 	tuning: Tuning;
 };
 
@@ -54,6 +56,8 @@ export type CoordinatorInit = {
 export type CoordinatorRequest =
 	/** Opens file `id`'s header ahead of its `run`, which then doesn't open it again. */
 	| { type: 'check'; id: number; source: Source; credentials: DecryptCredentials }
+	/** Prepares file `id`'s header ahead of its `run`, which fails with what's wrong with it. No answer. */
+	| { type: 'prepare'; id: number; source: Source; operation: TaskOperation }
 	| { type: 'run'; task: FileTask }
 	| { type: 'cancel'; id: number };
 
