@@ -24,7 +24,7 @@ jobs:
     name: Lint, format, typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Pinned to v1.22.0 by commit: setup-vp's v1 tag no longer moves.
       - uses: voidzero-dev/setup-vp@0072dab61af1caed438a55cb90c8d6dc0dfa09ce
         with:
@@ -53,7 +53,7 @@ jobs:
     name: Engine tests (Chromium, Firefox, WebKit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: voidzero-dev/setup-vp@0072dab61af1caed438a55cb90c8d6dc0dfa09ce
         with:
           node-version-file: .node-version
@@ -71,7 +71,7 @@ jobs:
     name: E2E (Chromium, Firefox, WebKit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: voidzero-dev/setup-vp@0072dab61af1caed438a55cb90c8d6dc0dfa09ce
         with:
           node-version-file: .node-version
@@ -93,7 +93,7 @@ jobs:
         with:
           path: node_modules/.vite/task-cache
           key: ${{ steps.vite-task-cache.outputs.cache-primary-key }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-traces

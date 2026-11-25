@@ -6,7 +6,7 @@ import {
 	whereToSave,
 	type Job
 } from '@encryptee/engine';
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { errorMessage, strings } from '#/strings.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
 import { Warnings } from './Warnings.tsx';
@@ -70,7 +70,7 @@ export function EncryptCard(props: {
 
 	// Only the paste field's check, one worker round trip, comes before
 	// chooseSaveLocation: the save picker needs this click's user activation.
-	const submit = async (event: FormEvent) => {
+	const submit = async (event: SubmitEvent) => {
 		event.preventDefault();
 		setStarting(true);
 

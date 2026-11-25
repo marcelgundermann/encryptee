@@ -5,7 +5,7 @@ import {
 	type DecryptCredentials,
 	type Job
 } from '@encryptee/engine';
-import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type SubmitEvent } from 'react';
 import { errorMessage, strings } from '#/strings.ts';
 import { Warnings } from './Warnings.tsx';
 import {
@@ -101,7 +101,7 @@ export function DecryptCard(props: {
 
 	// Open the first header so a wrong passphrase fails here, before the save
 	// picker; the job reuses it.
-	const submit = (event: FormEvent) => {
+	const submit = (event: SubmitEvent) => {
 		event.preventDefault();
 
 		if (credentials) setCheck({ status: 'checking', credentials });

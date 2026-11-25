@@ -32,7 +32,7 @@ export default defineConfig({
 			strategies: 'injectManifest',
 			srcDir: 'src',
 			filename: 'sw.ts',
-			injectRegister: null,
+			injectRegister: false,
 			manifest: {
 				name: 'Encryptee',
 				short_name: 'Encryptee',
