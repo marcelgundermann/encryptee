@@ -54,6 +54,8 @@ class FsaSink implements ByteSink {
 		await this.writable.write(chunk);
 	}
 
+	async drain(): Promise<void> {}
+
 	async close(): Promise<SinkResult> {
 		await this.writable.close();
 
@@ -82,6 +84,8 @@ class MemorySink implements ByteSink {
 		this.parts.push(chunk);
 	}
 
+	async drain(): Promise<void> {}
+
 	async close(): Promise<SinkResult> {
 		return { kind: 'memory', blob: new Blob(this.parts) };
 	}
@@ -97,6 +101,8 @@ class DiscardSink implements ByteSink {
 	async write(chunk: Uint8Array<ArrayBuffer>): Promise<void> {
 		this.bytes += chunk.length;
 	}
+
+	async drain(): Promise<void> {}
 
 	async close(): Promise<SinkResult> {
 		return { kind: 'discarded', bytes: this.bytes };

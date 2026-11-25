@@ -10,10 +10,14 @@ import { createPortStream } from './sw-stream.ts';
 /** The service worker's other routes leave this path to `handleDownloadFetch`. */
 export { DOWNLOAD_ROUTE };
 
+/**
+ * A download the page announced and the browser hasn't fetched yet. Its stream
+ * starts with the fetch, so nothing is written to a download that never comes.
+ */
 interface PendingDownload {
 	name: string;
 	size: number;
-	stream: ReadableStream<Uint8Array>;
+	port: MessagePort;
 }
 
 const downloads = new Map<string, PendingDownload>();
@@ -28,11 +32,7 @@ export function handleDownloadMessage(event: ExtendableMessageEvent): boolean {
 	if (data?.type === 'encryptee-keepalive') return true;
 
 	if (data?.type !== 'encryptee-download') return false;
-	downloads.set(data.id, {
-		name: data.name,
-		size: data.size,
-		stream: createPortStream(data.port)
-	});
+	downloads.set(data.id, { name: data.name, size: data.size, port: data.port });
 	arrivals.get(data.id)?.();
 
 	return true;
@@ -73,7 +73,7 @@ export function handleDownloadFetch(event: FetchEvent): boolean {
 function downloadResponse(id: string, download: PendingDownload): Response {
 	downloads.delete(id);
 
-	return new Response(download.stream, {
+	return new Response(createPortStream(download.port), {
 		headers: {
 			'Content-Type': 'application/octet-stream',
 			// Exact length: iOS truncates downloads without one.

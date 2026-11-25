@@ -4,11 +4,11 @@ import { SwDownloadSink, createPortStream } from '../src/sinks/sw-stream.ts';
 import { concat, sha256Hex } from './helpers.ts';
 
 /** Both ends of one download's port: the coordinator writes, the service worker reads. */
-function download() {
+function download(startWithin?: number) {
 	const channel = new MessageChannel();
 
 	return {
-		sink: new SwDownloadSink(channel.port1),
+		sink: new SwDownloadSink(channel.port1, startWithin),
 		reader: createPortStream(channel.port2).getReader()
 	};
 }
@@ -28,6 +28,7 @@ test('delivers the bytes in order, in messages no larger than Safari accepts', a
 	const input = Uint8Array.from({ length: 3 * SW_MAX_MESSAGE_BYTES + 17 }, (_, i) => i % 251);
 	const received = readAll(reader);
 	await sink.write(input);
+	await sink.drain();
 	await sink.close();
 	const chunks = await received;
 
@@ -53,6 +54,48 @@ test('a write waits for credit until the reader drains', async () => {
 	expect(written).toBe(false);
 	await reader.read();
 	await write;
+});
+
+test('a download has taken its bytes only once the browser has read the last one', async () => {
+	const { sink, reader } = download();
+	await sink.write(new Uint8Array(3 * SW_MAX_MESSAGE_BYTES));
+	let drained = false;
+	const drain = sink.drain().then(() => (drained = true));
+
+	await tick();
+	expect(drained).toBe(false);
+	await readAll(reader);
+	await drain;
+});
+
+test('an empty download is taken once the browser has read its end', async () => {
+	const { sink, reader } = download();
+	const drain = sink.drain();
+	expect(await readAll(reader)).toEqual([]);
+	await drain;
+});
+
+test('cancelling a download whose bytes are all written but not read fails it as cancelled', async () => {
+	const { sink, reader } = download();
+	await sink.write(new Uint8Array(3 * SW_MAX_MESSAGE_BYTES));
+	const drain = sink.drain();
+	await reader.cancel();
+	await expect(drain).rejects.toMatchObject({ code: 'cancelled' });
+});
+
+test('a download the browser never fetches fails the save', async () => {
+	const sink = new SwDownloadSink(new MessageChannel().port1, 10);
+
+	await expect(sink.write(new Uint8Array(1))).rejects.toMatchObject({ code: 'save-failed' });
+});
+
+test('a download the browser fetched in time may take as long as it likes', async () => {
+	const { sink, reader } = download(10);
+	await tick();
+	await sink.write(new Uint8Array(1));
+	const drain = sink.drain();
+	expect(await readAll(reader)).toHaveLength(1);
+	await drain;
 });
 
 test('cancelling the download in the browser fails the waiting write as cancelled', async () => {

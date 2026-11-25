@@ -192,6 +192,23 @@ test('a streamed download keeps a name with accents, quotes and parentheses', as
 	expect((await encrypted).suggestedFilename().normalize('NFC')).toBe("Müller's (1).txt.age");
 });
 
+test('a download the browser never fetches is a failed save, never a saved file', async ({
+	page
+}) => {
+	await openTool(page);
+	// The hidden iframe never navigates, so the browser never asks for the download.
+	await page.evaluate(() =>
+		Object.defineProperty(HTMLIFrameElement.prototype, 'src', { set() {} })
+	);
+	await dropFile(page, 'a.txt', randomBytes(1000));
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+	// The browser gets 30 seconds to fetch it.
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Couldn’t encrypt.', {
+		timeout: 60_000
+	});
+	await expect(page.getByRole('paragraph').filter({ hasText: 'Saving failed.' })).toBeVisible();
+});
+
 test('works offline once installed', async ({ page, context }) => {
 	await openTool(page);
 	await context.setOffline(true);

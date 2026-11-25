@@ -38,6 +38,11 @@ export type FileOutput = SinkResult | { kind: 'downloaded' };
 export interface ByteSink {
 	/** Resolves when the sink can take more; callers await it for backpressure. */
 	write(chunk: Uint8Array<ArrayBuffer>): Promise<void>;
+	/**
+	 * Resolves once the output has taken every byte written; nothing is written
+	 * after it. Until then a cancel can still discard the output.
+	 */
+	drain(): Promise<void>;
 	close(): Promise<SinkResult>;
 	/** Discards everything written so far. Never throws. */
 	abort(reason: SerializedError): Promise<void>;

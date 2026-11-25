@@ -47,6 +47,7 @@ export async function runFileTask(
 
 		if (prepared.prefix) await untilAborted(opened.write(prepared.prefix), signal);
 		await pump((chunk) => opened.write(chunk));
+		await untilAborted(opened.drain(), signal);
 		signal.throwIfAborted();
 
 		return await opened.close();

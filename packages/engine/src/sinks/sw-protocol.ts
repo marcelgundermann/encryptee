@@ -25,5 +25,7 @@ export type DownloadPortMessage =
 	| { type: 'end' }
 	| { type: 'abort'; message: string }
 	| { type: 'credit'; credits: number }
+	/** The browser has read every chunk, and the stream's end. */
+	| { type: 'taken' }
 	/** The user cancelled the download in the browser UI. */
 	| { type: 'cancelled' };
