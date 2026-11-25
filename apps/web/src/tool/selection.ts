@@ -19,11 +19,7 @@ export async function classify(files: File[]): Promise<Selection> {
 		return invalid(errorMessage(cause));
 	}
 
-	const unusable = new Set(infos.map((info) => (info.kind === 'unusable' ? info.reason : null)));
-
-	for (const reason of ['legacy-file', 'armored'] satisfies Array<'legacy-file' | 'armored'>) {
-		if (unusable.has(reason)) return invalid(strings.errors[reason]);
-	}
+	if (infos.some((info) => info.kind === 'armored')) return invalid(strings.errors.armored);
 
 	const encrypted = infos.filter((info) => info.kind === 'encrypted');
 

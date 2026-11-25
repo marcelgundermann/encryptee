@@ -142,17 +142,14 @@ function ShowKey(props: {
 }) {
 	const { publicKey, pair, savedAs } = props.stage;
 	const { isCopied, copy } = useCopy();
-	const box = useRef<HTMLParagraphElement>(null);
 
 	return (
 		<>
 			<Headline>{strings.keys.title}</Headline>
 			{savedAs && <Hint>{strings.keys.savedTo(savedAs)}</Hint>}
-			<MonoBox ref={box} label={strings.keys.publicKey}>
-				{publicKey}
-			</MonoBox>
+			<MonoBox label={strings.keys.publicKey}>{publicKey}</MonoBox>
 			<div className="mt-4 grid">
-				<OutlineButton onClick={() => void copy(publicKey, box.current)}>
+				<OutlineButton onClick={() => void copy(publicKey)}>
 					{isCopied(publicKey) ? strings.keys.copied : strings.keys.copyKey}
 				</OutlineButton>
 			</div>
@@ -183,10 +180,7 @@ export function KeysDialog({ onClose }: { onClose: () => void }) {
 	const dialog = useRef<HTMLDialogElement>(null);
 
 	useEffect(() => {
-		const element = dialog.current;
-
-		// Strict Mode runs this twice on the same element in development.
-		if (element && !element.open) element.showModal();
+		dialog.current?.showModal();
 	}, []);
 
 	return (

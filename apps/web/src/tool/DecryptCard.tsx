@@ -165,7 +165,7 @@ export function DecryptCard(props: {
 				)}
 
 				{check.status === 'idle' && check.error && <Hint tone="error">{check.error}</Hint>}
-				<Warnings mode="decrypt" files={props.files} />
+				<Warnings files={props.files} />
 				{check.status === 'checked' && <Hint>{strings.decrypt.checked}</Hint>}
 				{/* The same button either way, so it keeps focus for the second press. */}
 				{check.status === 'checked' ? (

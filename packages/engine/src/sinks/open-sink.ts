@@ -1,6 +1,6 @@
-import { EngineError, type SerializedError } from '../errors.ts';
+import type { SerializedError } from '../errors.ts';
 import { numberedName } from '../format/names.ts';
-import { OPFS_STAGING_DIR, type ByteSink, type SinkDescriptor, type SinkResult } from './sink.ts';
+import type { ByteSink, SinkDescriptor, SinkResult } from './sink.ts';
 import { SwDownloadSink } from './sw-stream.ts';
 
 declare global {
@@ -24,8 +24,6 @@ export async function openSink(descriptor: SinkDescriptor): Promise<ByteSink> {
 
 		case 'sw-download':
 			return new SwDownloadSink(descriptor.port);
-		case 'opfs':
-			return OpfsSink.open(descriptor.name);
 		case 'memory':
 			return new MemorySink();
 		case 'discard':
@@ -74,47 +72,6 @@ class FsaSink implements ByteSink {
 			// never a file that had content before (abort kept that intact).
 			await this.handle.remove?.().catch(() => {});
 		}
-	}
-}
-
-class OpfsSink implements ByteSink {
-	private position = 0;
-
-	private constructor(
-		private readonly directory: FileSystemDirectoryHandle,
-		private readonly name: string,
-		private readonly access: FileSystemSyncAccessHandle
-	) {}
-
-	static async open(name: string): Promise<OpfsSink> {
-		const root = await navigator.storage.getDirectory();
-		const directory = await root.getDirectoryHandle(OPFS_STAGING_DIR, { create: true });
-		const handle = await directory.getFileHandle(name, { create: true });
-		const access = await handle.createSyncAccessHandle();
-
-		return new OpfsSink(directory, name, access);
-	}
-
-	async write(chunk: Uint8Array<ArrayBuffer>): Promise<void> {
-		const written = this.access.write(chunk, { at: this.position });
-
-		if (written !== chunk.length) throw new EngineError('storage-full', 'short write to OPFS');
-		this.position += written;
-	}
-
-	async close(): Promise<SinkResult> {
-		this.access.flush();
-		this.access.close();
-
-		return { kind: 'saved' };
-	}
-
-	async abort(): Promise<void> {
-		try {
-			this.access.close();
-		} catch {}
-
-		await this.directory.removeEntry(this.name).catch(() => {});
 	}
 }
 

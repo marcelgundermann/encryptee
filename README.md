@@ -4,8 +4,7 @@ Encrypt and decrypt files in the browser, entirely on your device. Encrypted fil
 [age](https://age-encryption.org) files: the `age` command-line tool opens what Encryptee writes,
 and Encryptee opens what `age` writes.
 
-Use it at <https://encryptee.io>. Legacy files (`.cre`, from Encryptee v1) open at
-<https://v1.encryptee.io>, which stays online.
+Use it at <https://encryptee.io>.
 
 ## Features
 
@@ -39,9 +38,9 @@ get no fallbacks.
   pickers, so the output streams through Encryptee's service worker into an ordinary download.
 - Every browser on iPhone and iPad uses Safari's engine and has Safari's limits. iPhones stuck on
   iOS 16 or 17 (iPhone 8 and X) can't run Encryptee.
-- When no service worker controls the page, the output is staged in the browser's private storage
-  (OPFS) and downloaded from there. That needs room for two copies of the result, and a private
-  window may refuse it, in which case Encryptee says the browser can't save this way.
+- A download needs Encryptee's service worker in control of the page. Right after a hard reload, on a
+  first visit until it's installed, or in a private window of Firefox before 140, it isn't, and
+  Encryptee asks you to reload.
 - Chrome 155+ encrypts with its native ChaCha20-Poly1305. Other browsers use
   [noble-ciphers](https://github.com/paulmillr/noble-ciphers), about three times slower per worker.
 - Other Chromium browsers (Brave, Opera, Vivaldi, …) aren't tested. They should work as far as they
@@ -61,8 +60,6 @@ use doesn't grow with the file. What limits a file is where it's saved.
   the job. Both limits are provisional until the download paths are measured.
 - **iPhone and iPad:** from 1 GiB, Encryptee asks you to keep it open and in front, and to check
   there's enough free space.
-- **OPFS staging:** Encryptee says the result needs room twice, and warns when the browser's storage
-  estimate says it may not fit.
 
 Tested so far:
 
@@ -103,7 +100,7 @@ Not supported:
 - Armored (PEM) files.
 - Plugins and SSH keys.
 - Tag public keys (`age1tag1…`, `age1tagpq1…`), which aren't tested.
-- Legacy files (`.cre`): open them at [v1.encryptee.io](https://v1.encryptee.io).
+- `.cre` files, from Encryptee v1. Encryptee takes one for a plaintext file.
 
 To decrypt without Encryptee, install [age](https://github.com/FiloSottile/age) 1.3 or newer (older
 releases lack post-quantum keys):

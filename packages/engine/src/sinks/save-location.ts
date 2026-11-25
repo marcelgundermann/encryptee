@@ -1,7 +1,6 @@
 import { detectCapabilities, type Capabilities } from '../capabilities.ts';
 import { EngineError, serializeError, type SerializedError } from '../errors.ts';
 import { outputName } from '../format/names.ts';
-import { stagedOutput } from './opfs-staging.ts';
 import type { Output, SinkDescriptor } from './sink.ts';
 import { streamedOutput } from './sw-download.ts';
 
@@ -13,8 +12,6 @@ export type SaveLocation =
 	| { kind: 'directory'; handle: FileSystemDirectoryHandle }
 	/** The browser's downloads, streamed through the service worker. */
 	| { kind: 'sw-download' }
-	/** The browser's downloads, staged in the origin private file system first. */
-	| { kind: 'opfs' }
 	/** Collected into a Blob (tests). */
 	| { kind: 'memory' }
 	/** Dropped after counting (benchmarks). */
@@ -33,8 +30,6 @@ export interface SaveEnvironment {
 	capabilities: Capabilities;
 	showSaveFilePicker(suggestedName: string): Promise<FileSystemFileHandle>;
 	showDirectoryPicker(): Promise<FileSystemDirectoryHandle>;
-	/** Whether OPFS opens at all; WebKit's private sessions have the API but refuse it. */
-	opfsOpens(): Promise<boolean>;
 }
 
 /**
@@ -50,17 +45,13 @@ const SIZE_LIMITS: Record<Capabilities['browser'], number | null> = {
 
 /** How a browser saves a job, decided by its capabilities and the number of files. */
 interface SaveRoute {
-	kind: 'file' | 'directory' | 'sw-download' | 'opfs';
+	kind: 'file' | 'directory' | 'sw-download';
 	plan: SavePlan;
 	/** Largest input it's trusted with; `null` for no limit. */
 	sizeLimit: number | null;
 }
 
-/**
- * Native pickers on Chromium, which write straight to disk, else a streamed
- * download, else OPFS staging, which every browser has (whether it opens is
- * checked when choosing).
- */
+/** Native pickers on Chromium, which write straight to disk, else a streamed download. */
 export function saveRoute(capabilities: Capabilities, fileCount: number): SaveRoute {
 	if (fileCount === 1 && capabilities.savePicker)
 		return { kind: 'file', plan: 'ask', sizeLimit: null };
@@ -69,7 +60,7 @@ export function saveRoute(capabilities: Capabilities, fileCount: number): SaveRo
 		return { kind: 'directory', plan: 'ask', sizeLimit: null };
 
 	return {
-		kind: capabilities.serviceWorkerDownload ? 'sw-download' : 'opfs',
+		kind: 'sw-download',
 		plan: 'downloads',
 		sizeLimit: SIZE_LIMITS[capabilities.browser]
 	};
@@ -85,7 +76,8 @@ export function whereToSave(fileCount: number): SavePlan {
  * one. Call it straight from the click handler, before awaiting anything: the
  * pickers need the click's user activation, and once it has expired the
  * choice is `needs-gesture`, so ask for another click. Rejects with
- * `unsupported` where OPFS won't open, and `save-failed` if a picker breaks.
+ * `unsupported` if a download is the only way to save and no service worker
+ * controls the page to stream it, and `save-failed` if a picker breaks.
  */
 export function chooseSaveLocation(
 	mode: 'encrypt' | 'decrypt',
@@ -112,13 +104,11 @@ export async function chooseSaveLocationIn(
 				handle: await environment.showDirectoryPicker()
 			}));
 		case 'sw-download':
-			return { location: { kind: 'sw-download' } };
-		case 'opfs':
-			if (!(await environment.opfsOpens())) {
-				throw new EngineError('unsupported', 'the origin private file system does not open');
+			if (!environment.capabilities.serviceWorkerDownload) {
+				throw new EngineError('unsupported', 'no service worker controls this page');
 			}
 
-			return { location: { kind: 'opfs' } };
+			return { location: { kind: 'sw-download' } };
 	}
 }
 
@@ -143,12 +133,7 @@ function browserEnvironment(): SaveEnvironment {
 	return {
 		capabilities: detectCapabilities(),
 		showSaveFilePicker: (suggestedName) => window.showSaveFilePicker({ suggestedName }),
-		showDirectoryPicker: () => window.showDirectoryPicker({ mode: 'readwrite' }),
-		opfsOpens: () =>
-			navigator.storage.getDirectory().then(
-				() => true,
-				() => false
-			)
+		showDirectoryPicker: () => window.showDirectoryPicker({ mode: 'readwrite' })
 	};
 }
 
@@ -162,8 +147,6 @@ export async function openOutput(location: SaveLocation, name: string): Promise<
 			return sinkOnly({ ...location, name });
 		case 'sw-download':
 			return streamedOutput(name);
-		case 'opfs':
-			return stagedOutput(name);
 	}
 }
 

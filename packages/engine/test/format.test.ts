@@ -55,7 +55,6 @@ describe('sniffing', () => {
 	test.each([
 		['age-encryption.org/v1\n-> scrypt', 'age'],
 		['-----BEGIN AGE ENCRYPTED FILE-----\n', 'age-armored'],
-		['encryptee.io\x00\x01', 'legacy'],
 		['%PDF-1.7', 'plain'],
 		['', 'plain']
 	])('%j is %s', (head, kind) => {

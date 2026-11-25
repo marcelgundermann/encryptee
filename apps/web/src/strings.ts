@@ -4,9 +4,6 @@ import { EngineError, type EngineErrorCode, type PreflightWarning } from '@encry
 
 const files = (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`;
 
-/** Where legacy files open. The tool links it where a message names it. */
-export const V1_SITE = 'v1.encryptee.io';
-
 export const strings = {
 	wordmark: 'encryptee',
 	/** The document's title on each route. `index.html` repeats the tool's, for link previews. */
@@ -141,7 +138,6 @@ export const strings = {
 	errors: {
 		'wrong-credentials': 'That doesn’t match. Check the passphrase or key file.',
 		'not-encrypted': 'This isn’t an encrypted file.',
-		'legacy-file': `This file is from the old Encryptee. Open it at ${V1_SITE}.`,
 		armored: 'Armored age files (-----BEGIN AGE ENCRYPTED FILE-----) aren’t supported yet.',
 		corrupted: 'This file was changed or is incomplete. Nothing was saved.',
 		'invalid-public-key': 'That isn’t a valid public key.',
@@ -150,16 +146,14 @@ export const strings = {
 		'save-failed': 'Saving failed.',
 		'storage-full': 'There isn’t enough space to save the file.',
 		unsupported:
-			'This browser can’t save files this way. Use a current Chrome, Edge, Firefox or Safari.',
+			'Encryptee can’t save files in this window yet. Reload the page; if that doesn’t help, use a window that isn’t private.',
 		internal: 'Something went wrong.'
 	} satisfies Record<EngineErrorCode, string>,
 	warnings: {
 		'ios-large-job':
 			'Large job for an iPhone or iPad: keep Encryptee open and in front, and check there’s enough free space.',
 		'over-browser-limit':
-			'This file is larger than this browser saves reliably. For large files, use Chrome or Edge on a computer.',
-		'low-storage': 'There may not be enough free space for the result.',
-		'needs-double-space': 'This browser needs room for two copies of the result while saving.'
+			'This file is larger than this browser saves reliably. For large files, use Chrome or Edge on a computer.'
 	} satisfies Record<PreflightWarning['code'], string>
 };
 

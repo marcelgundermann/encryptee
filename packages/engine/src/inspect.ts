@@ -1,12 +1,12 @@
-import { REFUSALS, readHeader, stanzaTypes } from './format/age.ts';
+import { readHeader, stanzaTypes } from './format/age.ts';
 
 /** What a file is, which decides between encrypt and decrypt. */
 export type FileInfo =
 	| { kind: 'plaintext' }
 	/** Opened with a passphrase when its only stanza is scrypt, else with a private key. */
 	| { kind: 'encrypted'; unlock: 'passphrase' | 'private-key' }
-	/** A file Encryptee recognizes but can't decrypt. */
-	| { kind: 'unusable'; reason: 'legacy-file' | 'armored' };
+	/** Armored age, which Encryptee recognizes but can't decrypt. */
+	| { kind: 'armored' };
 
 /**
  * Looks at a file's first bytes to decide between encrypt and decrypt. This
@@ -20,7 +20,7 @@ export async function inspectFile(file: Blob): Promise<FileInfo> {
 
 	if (kind === 'plain') return { kind: 'plaintext' };
 
-	if (kind !== 'age') return { kind: 'unusable', reason: REFUSALS[kind] };
+	if (kind === 'age-armored') return { kind: 'armored' };
 	// An unreadable header names no stanzas, so a private key gets to try it
 	// and the job says what's wrong with it.
 	const types = header ? stanzaTypes(header) : [];

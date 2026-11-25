@@ -1,5 +1,5 @@
 import { generatePassphrase } from '@encryptee/engine';
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { strings } from '#/strings.ts';
 import { Hint, LineField, StableLabel, TextButton, useCopy } from './ui.tsx';
 
@@ -22,7 +22,6 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 	// A mismatch shows once the repeat is complete or left, then updates live.
 	const [checkRepeat, setCheckRepeat] = useState(false);
 	const { isCopied, copy } = useCopy();
-	const output = useRef<HTMLOutputElement>(null);
 
 	const passphrase = ownMode ? (own !== '' && own === repeat ? own : null) : generated;
 	const mismatch = checkRepeat && repeat !== '' && repeat !== own;
@@ -74,7 +73,6 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 						</p>
 						<div className="mt-2 flex items-start gap-4 border-b-2 border-fg pb-2">
 							<output
-								ref={output}
 								id={`${id}-generated`}
 								aria-labelledby={`${id}-generated-label`}
 								// Page translation can run in the cloud; the passphrase never leaves the device.
@@ -83,7 +81,7 @@ export function usePassphraseChoice(id: string): PassphraseChoice {
 							>
 								{generated}
 							</output>
-							<TextButton className="mt-1" onClick={() => void copy(generated, output.current)}>
+							<TextButton className="mt-1" onClick={() => void copy(generated)}>
 								<StableLabel
 									labels={[strings.passphrase.copy, strings.passphrase.copied]}
 									shown={isCopied(generated) ? 1 : 0}

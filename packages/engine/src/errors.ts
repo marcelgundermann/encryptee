@@ -7,8 +7,6 @@ export type EngineErrorCode =
 	| 'wrong-credentials'
 	/** The input does not start with an age header. */
 	| 'not-encrypted'
-	/** The input is a v1 `.cre` file; open it on v1.encryptee.io. */
-	| 'legacy-file'
 	/** ASCII-armored age (`-----BEGIN AGE ENCRYPTED FILE-----`); not supported. */
 	| 'armored'
 	/** Authentication failed: the file was modified, truncated or reordered. */
@@ -18,7 +16,10 @@ export type EngineErrorCode =
 	| 'cancelled'
 	| 'save-failed'
 	| 'storage-full'
-	/** This browser can't save the output, or lacks a cipher backend a benchmark or test forced. */
+	/**
+	 * No service worker controls the page to stream a download, or this browser
+	 * lacks a cipher backend a benchmark or test forced.
+	 */
 	| 'unsupported'
 	| 'internal';
 

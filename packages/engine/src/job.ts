@@ -54,7 +54,6 @@ export interface Job {
 const FILE_LOCAL_ERRORS = new Set<EngineErrorCode>([
 	'wrong-credentials',
 	'not-encrypted',
-	'legacy-file',
 	'armored',
 	'corrupted'
 ]);
@@ -78,7 +77,7 @@ export interface CheckedCredentials {
  * Opens the first file's header with `credentials` in a new decrypt job's
  * workers, so wrong credentials fail before the user picks where to save, and
  * the job doesn't run scrypt for that header a second time. Rejects with the
- * header's error: `wrong-credentials`, `not-encrypted`, `legacy-file`, … or,
+ * header's error: `wrong-credentials`, `not-encrypted`, `armored`, … or,
  * once `signal` aborts, at once with `cancelled`: the workers stop, scrypt and all.
  */
 export async function checkCredentials(options: {

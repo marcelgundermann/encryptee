@@ -7,7 +7,7 @@ const PAGES = ['/how-it-works', '/security', '/faq'];
 
 /**
  * Native pickers can't be automated, so these tests hide them and exercise
- * the paths Firefox and Safari use: the service-worker download and OPFS.
+ * the path Firefox and Safari use: the service-worker download.
  */
 const hidePickers = () => {
 	Reflect.deleteProperty(window, 'showSaveFilePicker');
@@ -153,12 +153,6 @@ for (const [path, title] of [
 	});
 }
 
-test('an old address with a trailing slash still opens its page', async ({ page }) => {
-	await page.goto('/faq/');
-	await expect(page.getByRole('heading', { name: 'Frequently asked questions' })).toBeVisible();
-	await expect(page).toHaveURL(/\/faq$/);
-});
-
 /** What `_headers` sends with every response. Weakening one is a change to this list too. */
 const SECURITY_HEADERS = {
 	'content-security-policy':
@@ -189,6 +183,15 @@ test('encrypt and decrypt round trip through the service-worker download', async
 	expect(violations).toEqual([]);
 });
 
+test('a streamed download keeps a name with accents, quotes and parentheses', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, "Müller's (1).txt", randomBytes(1000));
+	const encrypted = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+	// WebKit on a Mac reports the ü decomposed, as the file system stores it.
+	expect((await encrypted).suggestedFilename().normalize('NFC')).toBe("Müller's (1).txt.age");
+});
+
 test('works offline once installed', async ({ page, context }) => {
 	await openTool(page);
 	await context.setOffline(true);
@@ -209,14 +212,13 @@ test('content pages open offline once installed', async ({ page, context }) => {
 test.describe('without a service worker', () => {
 	test.use({ serviceWorkers: 'block' });
 
-	test('falls back to OPFS staging', async ({ page, browserName }) => {
+	test('saving asks to reload the page', async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'serviceWorkers: block is Chromium-only');
-		const violations = watchCsp(page);
 		await page.addInitScript(hidePickers);
 		await page.goto('/');
-		const plain = randomBytes(1024 * 1024 + 3);
-		expect((await roundTrip(page, plain)).equals(plain)).toBe(true);
-		expect(violations).toEqual([]);
+		await dropFile(page, 'a.txt', randomBytes(1000));
+		await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+		await expect(page.getByRole('alert')).toContainText('Reload the page');
 	});
 });
 
@@ -224,15 +226,6 @@ test('the generated passphrase is left out of page translation', async ({ page }
 	await openTool(page);
 	await dropFile(page, 'a.txt', randomBytes(1000));
 	await expect(page.locator('#encrypt-generated')).toHaveAttribute('translate', 'no');
-});
-
-test('a legacy file links to v1.encryptee.io, where it opens', async ({ page }) => {
-	await openTool(page);
-	await dropFile(page, 'report.pdf.cre', Buffer.from(`encryptee.io${'x'.repeat(100)}`));
-	await expect(page.getByRole('link', { name: 'v1.encryptee.io' })).toHaveAttribute(
-		'href',
-		'https://v1.encryptee.io'
-	);
 });
 
 test('a wrong passphrase is rejected on the card, before anything is saved', async ({ page }) => {

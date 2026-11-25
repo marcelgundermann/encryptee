@@ -26,7 +26,6 @@ class UnreadableBlob extends Blob {
 
 const passphraseFile = ageFile('notes.txt.age', 'scrypt');
 const keyFile = ageFile('photo.jpg.age', 'mlkem768x25519');
-const legacyFile = new File(['encryptee.io…'], 'report.pdf.cre');
 const armoredFile = new File(['-----BEGIN AGE ENCRYPTED FILE-----\n'], 'armored.age');
 
 test('no files are no selection', async () => {
@@ -62,17 +61,11 @@ test.each([
 		[passphraseFile, keyFile],
 		strings.selection.mixedLocks
 	],
-	['a legacy file', [legacyFile], strings.errors['legacy-file']],
-	[
-		'a legacy file among others',
-		[plain('a.txt'), keyFile, legacyFile],
-		strings.errors['legacy-file']
-	],
 	['an armored age file', [armoredFile], strings.errors.armored],
 	[
-		'an armored and a legacy file, the legacy one first',
-		[armoredFile, legacyFile],
-		strings.errors['legacy-file']
+		'an armored age file among others',
+		[plain('a.txt'), keyFile, armoredFile],
+		strings.errors.armored
 	]
 ])('%s can’t be used, and say why', async (_, files, message) => {
 	expect(await classify(files)).toEqual({ kind: 'invalid', files, message });

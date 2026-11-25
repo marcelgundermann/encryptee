@@ -29,14 +29,13 @@ export function detectCapabilities(): Capabilities {
 
 	if (ios || (/Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua))) browser = 'safari';
 	else if (/Firefox\//.test(ua)) browser = 'firefox';
-	else if (brands?.brands.some((b) => b.brand === 'Chromium') || /Chrome\//.test(ua))
-		browser = 'chromium';
+	else if (brands?.brands.some((b) => b.brand === 'Chromium')) browser = 'chromium';
 
 	return {
 		browser,
 		ios,
 		mobile: brands?.mobile ?? (ios || /Android|Mobi/.test(ua)),
-		cores: navigator.hardwareConcurrency || 2,
+		cores: navigator.hardwareConcurrency,
 		savePicker: 'showSaveFilePicker' in window,
 		directoryPicker: 'showDirectoryPicker' in window,
 		serviceWorkerDownload: !!navigator.serviceWorker?.controller

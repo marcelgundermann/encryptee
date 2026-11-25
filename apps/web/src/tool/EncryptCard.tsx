@@ -183,7 +183,7 @@ export function EncryptCard(props: {
 				)}
 
 				{error && <Hint tone="error">{error}</Hint>}
-				<Warnings mode="encrypt" files={props.files} />
+				<Warnings files={props.files} />
 				<BigButton type="submit" disabled={!ready || starting}>
 					{strings.encrypt.submit(props.files.length)}
 					<Arrow />

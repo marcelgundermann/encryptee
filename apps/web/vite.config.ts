@@ -58,7 +58,9 @@ export default defineConfig({
 		})
 	]),
 	worker: { format: 'es' },
+	// The browsers Encryptee supports. All of them preload modules themselves.
 	build: {
-		target: 'baseline-widely-available'
+		target: ['chrome140', 'edge140', 'firefox133', 'safari18.2', 'ios18.2'],
+		modulePreload: { polyfill: false }
 	}
 });

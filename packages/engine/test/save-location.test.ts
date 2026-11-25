@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vite-plus/test';
 import type { Capabilities } from '../src/capabilities.ts';
 import { startJob } from '../src/index.ts';
 import { chooseSaveLocationIn, type SaveEnvironment } from '../src/sinks/save-location.ts';
-import { OPFS_STAGING_DIR } from '../src/sinks/sink.ts';
 import { decrypt, encrypt, equalBytes, file, passphrase, randomBytes } from './helpers.ts';
 
 /** WebKit refuses OPFS in Playwright's ephemeral contexts, which is how Vitest runs it. */
@@ -16,12 +15,6 @@ async function pickedDirectory(): Promise<FileSystemDirectoryHandle> {
 	const root = await navigator.storage.getDirectory();
 
 	return root.getDirectoryHandle(`picked-${crypto.randomUUID()}`, { create: true });
-}
-
-async function stagingDirectory(): Promise<FileSystemDirectoryHandle> {
-	const root = await navigator.storage.getDirectory();
-
-	return root.getDirectoryHandle(OPFS_STAGING_DIR, { create: true });
 }
 
 async function names(directory: FileSystemDirectoryHandle): Promise<string[]> {
@@ -143,48 +136,6 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 	});
 });
 
-describe.skipIf(!opfs)('staging in OPFS', () => {
-	test('a staged output holds the whole encrypted file and goes to the downloads', async () => {
-		const staging = await stagingDirectory();
-		const before = await names(staging);
-		const plain = randomBytes(3 * 64 * 1024 + 5);
-
-		const result = await startJob({
-			mode: 'encrypt',
-			credentials: passphrase.encrypt,
-			files: [file(plain, 'a.txt')],
-			save: { kind: 'opfs' }
-		}).done;
-
-		expect(result.files[0]).toMatchObject({ status: 'done', output: { kind: 'downloaded' } });
-		const staged = (await names(staging)).find((name) => !before.includes(name));
-		const sealed = await readFile(await staging.getFileHandle(staged!));
-		expect(equalBytes((await decrypt(sealed, passphrase.decrypt)).output!, plain)).toBe(true);
-	});
-
-	test('staging removes files left behind and keeps files still being downloaded', async () => {
-		const staging = await stagingDirectory();
-
-		const job = {
-			mode: 'encrypt',
-			credentials: passphrase.encrypt,
-			save: { kind: 'opfs' }
-		} as const;
-
-		const before = await names(staging);
-		await startJob({ ...job, files: [file(randomBytes(100), 'first.txt')] }).done;
-		const first = (await names(staging)).filter((name) => !before.includes(name));
-		expect(first).toHaveLength(1);
-
-		await writeFile(staging, 'left-behind.part', 'from a closed tab');
-		await startJob({ ...job, files: [file(randomBytes(100), 'second.txt')] }).done;
-		const after = await names(staging);
-
-		expect(after).not.toContain('left-behind.part');
-		expect(after).toContain(first[0]);
-	});
-});
-
 /** A browser with the given capabilities whose pickers must not be called unless a test says so. */
 function fakeBrowser(
 	capabilities: Partial<Capabilities>,
@@ -203,7 +154,6 @@ function fakeBrowser(
 		},
 		showSaveFilePicker: () => Promise.reject(new Error('unexpected save picker')),
 		showDirectoryPicker: () => Promise.reject(new Error('unexpected folder picker')),
-		opfsOpens: () => Promise.resolve(true),
 		...overrides
 	};
 }
@@ -242,19 +192,16 @@ describe('choosing a save location', () => {
 		});
 	});
 
-	test.each([
-		['a service worker controls the page', { serviceWorkerDownload: true }, 'sw-download'],
-		['no service worker controls the page', {}, 'opfs']
-	] as const)('without pickers, when %s, the downloads are %s', async (_, capabilities, kind) => {
-		expect(await chooseSaveLocationIn(fakeBrowser(capabilities), 'encrypt', two)).toEqual({
-			location: { kind }
+	test('without pickers, the downloads are streamed', async () => {
+		const browser = fakeBrowser({ serviceWorkerDownload: true });
+
+		expect(await chooseSaveLocationIn(browser, 'encrypt', two)).toEqual({
+			location: { kind: 'sw-download' }
 		});
 	});
 
-	test('OPFS that refuses to open, as in private windows, is unsupported', async () => {
-		const refusing = fakeBrowser({}, { opfsOpens: () => Promise.resolve(false) });
-
-		await expect(chooseSaveLocationIn(refusing, 'encrypt', one)).rejects.toMatchObject({
+	test('without pickers or a service worker in control, saving is unsupported', async () => {
+		await expect(chooseSaveLocationIn(fakeBrowser({}), 'encrypt', one)).rejects.toMatchObject({
 			code: 'unsupported'
 		});
 	});

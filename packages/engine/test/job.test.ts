@@ -255,7 +255,6 @@ describe('failures', () => {
 	});
 
 	test.each([
-		['an Encryptee v1 file', 'legacy-file', 'encryptee.io' + 'x'.repeat(100)],
 		['an armored age file', 'armored', '-----BEGIN AGE ENCRYPTED FILE-----\nYWdl\n'],
 		['a plaintext file', 'not-encrypted', '\0' + 'x'.repeat(99)]
 	])('%s is refused as %s', async (_, code, contents) => {

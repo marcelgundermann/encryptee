@@ -1,5 +1,5 @@
-/** How long a download may read from its blob URL; large files need a while. */
-export const BLOB_DOWNLOAD_MS = 10 * 60_000;
+/** How long a download may read from its blob URL. */
+const BLOB_DOWNLOAD_MS = 10 * 60_000;
 
 export function downloadBlob(blob: Blob, name: string): void {
 	const url = URL.createObjectURL(blob);

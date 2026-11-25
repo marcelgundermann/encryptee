@@ -11,7 +11,7 @@ import { JobScreen } from './JobScreen.tsx';
 import { KeysDialog } from './KeysScreen.tsx';
 import { classify } from './selection.ts';
 import { firstStep, nextStep, stepName } from './steps.ts';
-import { Card, Headline, Hint, Message, TextButton } from './ui.tsx';
+import { Card, Headline, Hint, TextButton } from './ui.tsx';
 
 /**
  * The tool, in the "Drop" design (prototype variant A): one surface, one card
@@ -67,9 +67,7 @@ export function App() {
 		content = (
 			<Card>
 				<Headline>{strings.selection.unusable(step.files.length)}</Headline>
-				<Hint tone="error">
-					<Message text={step.message} />
-				</Hint>
+				<Hint tone="error">{step.message}</Hint>
 				<TextButton className="mt-6" onClick={reset}>
 					{strings.selection.other}
 				</TextButton>

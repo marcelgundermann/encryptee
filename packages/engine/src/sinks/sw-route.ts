@@ -86,7 +86,11 @@ function downloadResponse(id: string, download: PendingDownload): Response {
 }
 
 function contentDisposition(name: string): string {
-	const fallback = name.replace(/[^\x20-\x7e]|["\\]/g, '_');
+	// The characters `encodeURIComponent` leaves that `filename*` doesn't allow (RFC 8187).
+	const encoded = encodeURIComponent(name).replace(
+		/['()*]/g,
+		(char) => `%${char.charCodeAt(0).toString(16)}`
+	);
 
-	return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+	return `attachment; filename*=UTF-8''${encoded}`;
 }

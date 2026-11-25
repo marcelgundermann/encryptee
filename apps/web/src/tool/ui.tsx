@@ -1,13 +1,5 @@
-import {
-	useEffect,
-	useId,
-	useRef,
-	useState,
-	type ComponentProps,
-	type ReactNode,
-	type Ref
-} from 'react';
-import { formatBytes, strings, V1_SITE } from '#/strings.ts';
+import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { formatBytes, strings } from '#/strings.ts';
 
 /*
  * Building blocks of the "Drop" design (variant A of the prototypes):
@@ -34,18 +26,14 @@ export function useFocusIfLost<T extends HTMLElement>(enabled = true) {
 	return ref;
 }
 
-/** Copies text; if the clipboard refuses, selects it in `fallback` to copy by hand. */
+/** Copies text, which then counts as copied for two seconds. */
 export function useCopy() {
 	const [copied, setCopied] = useState<string | null>(null);
 
-	const copy = async (text: string, fallback: HTMLElement | null) => {
-		try {
-			await navigator.clipboard.writeText(text);
-			setCopied(text);
-			setTimeout(() => setCopied((current) => (current === text ? null : current)), 2000);
-		} catch {
-			if (fallback) getSelection()?.selectAllChildren(fallback);
-		}
+	const copy = async (text: string) => {
+		await navigator.clipboard.writeText(text);
+		setCopied(text);
+		setTimeout(() => setCopied((current) => (current === text ? null : current)), 2000);
 	};
 
 	// Per text, so a new passphrase never shows as copied.
@@ -239,23 +227,6 @@ export function LineField(props: {
 	);
 }
 
-/** A message, with the v1 site linked where it names it, as the legacy-file message does. */
-export function Message({ text }: { text: string }) {
-	const [before, after] = text.split(V1_SITE);
-
-	if (after === undefined) return text;
-
-	return (
-		<>
-			{before}
-			<a className="underline underline-offset-2" href={`https://${V1_SITE}`}>
-				{V1_SITE}
-			</a>
-			{after}
-		</>
-	);
-}
-
 export function Hint({
 	children,
 	tone,
@@ -275,21 +246,11 @@ export function Hint({
 	);
 }
 
-export function MonoBox({
-	label,
-	children,
-	ref
-}: {
-	label: string;
-	children: ReactNode;
-	ref?: Ref<HTMLParagraphElement>;
-}) {
+export function MonoBox({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<div className="mt-8 rounded-2xl bg-surface p-4">
 			<p className="text-xs text-muted">{label}</p>
-			<p ref={ref} className="mt-2 font-mono text-sm break-all select-all">
-				{children}
-			</p>
+			<p className="mt-2 font-mono text-sm break-all select-all">{children}</p>
 		</div>
 	);
 }

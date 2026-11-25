@@ -1,10 +1,6 @@
 /// <reference lib="webworker" />
 import { DOWNLOAD_ROUTE, handleDownloadFetch, handleDownloadMessage } from '@encryptee/engine/sw';
-import {
-	cleanupOutdatedCaches,
-	createHandlerBoundToURL,
-	precacheAndRoute
-} from 'workbox-precaching';
+import { createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -24,9 +20,7 @@ self.addEventListener('message', (event) => {
 // downloads. A later version waits until every Encryptee tab has closed.
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
-cleanupOutdatedCaches();
-
-precacheAndRoute(self.__WB_MANIFEST, { cleanURLs: true, directoryIndex: 'index.html' });
+precacheAndRoute(self.__WB_MANIFEST);
 
 // Every other page is the app too, which routes it, so content pages open offline. A
 // download is a navigation in a hidden iframe, answered by the download route alone.

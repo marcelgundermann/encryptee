@@ -28,7 +28,7 @@ export function streamedOutput(name: string): Output {
 		sink: { kind: 'sw-download', port },
 		transfer: [port],
 		opened(size) {
-			const worker = navigator.serviceWorker?.controller;
+			const worker = navigator.serviceWorker.controller;
 
 			if (!worker) throw new EngineError('save-failed', 'no service worker controls this page');
 

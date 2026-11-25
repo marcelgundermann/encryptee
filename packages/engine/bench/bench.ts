@@ -8,7 +8,6 @@ import {
 } from '../src/index.ts';
 import { outputName } from '../src/format/names.ts';
 import { nativeChaChaAvailable, type Backend } from '../src/payload/cipher.ts';
-import { OPFS_STAGING_DIR } from '../src/sinks/sink.ts';
 
 /**
  * Dev-only throughput bench (plan step 3). Not part of the app build; run with
@@ -50,8 +49,8 @@ const rows: Row[] = [];
 let current: Job | null = null;
 let stopped = false;
 
-/** The OPFS file encrypted by `encrypt-opfs`, reused by `decrypt-opfs`. */
-let staged: File | null = null;
+/** The OPFS file `encrypt-opfs` wrote, which `decrypt-opfs` reads. */
+let encrypted: File | null = null;
 
 $('env', HTMLElement).textContent =
 	`${capabilities.browser}, ${capabilities.cores} cores, mobile: ${capabilities.mobile}, ` +
@@ -91,6 +90,8 @@ $('form', HTMLFormElement).addEventListener('submit', async (event) => {
 
 		const name = outputName(scenario === 'encrypt-picker' ? 'encrypt' : 'decrypt', picked.name);
 		save = { kind: 'file', handle: await window.showSaveFilePicker({ suggestedName: name }) };
+	} else if (scenario === 'encrypt-opfs') {
+		save = { kind: 'file', handle: await opfsFile() };
 	}
 
 	for (const backend of backends) {
@@ -99,13 +100,13 @@ $('form', HTMLFormElement).addEventListener('submit', async (event) => {
 				if (stopped) return;
 
 				const input: JobInput = picked ??
-					(scenario === 'decrypt-opfs' ? staged : null) ?? {
+					(scenario === 'decrypt-opfs' ? encrypted : null) ?? {
 						name: 'synthetic',
 						size,
 						synthetic: true
 					};
 
-				if (scenario === 'decrypt-opfs' && !staged) {
+				if (scenario === 'decrypt-opfs' && !encrypted) {
 					$('status', HTMLElement).textContent = 'Run "Encrypt synthetic → OPFS" first.';
 
 					return;
@@ -119,7 +120,7 @@ $('form', HTMLFormElement).addEventListener('submit', async (event) => {
 								credentials: { kind: 'passphrase' as const, passphrase }
 							}),
 					files: [input],
-					save: scenario === 'encrypt-opfs' ? { kind: 'opfs' } : save,
+					save,
 					tuning: { workers, batchChunks, backend }
 				};
 
@@ -154,7 +155,7 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 		return;
 	}
 
-	if (scenario === 'encrypt-opfs') staged = await latestStagedFile();
+	if (scenario === 'encrypt-opfs') encrypted = await (await opfsFile()).getFile();
 	const seconds = (performance.now() - started) / 1000;
 
 	const row: Row = {
@@ -172,19 +173,11 @@ async function runOne(scenario: Scenario, options: JobOptions): Promise<void> {
 	render();
 }
 
-async function latestStagedFile(): Promise<File | null> {
+/** Stands in for a picked file, so a disk write needs no picker. */
+async function opfsFile(): Promise<FileSystemFileHandle> {
 	const root = await navigator.storage.getDirectory();
-	const dir = await root.getDirectoryHandle(OPFS_STAGING_DIR);
-	let latest: File | null = null;
 
-	for await (const handle of dir.values()) {
-		if (!(handle instanceof FileSystemFileHandle)) continue;
-		const file = await handle.getFile();
-
-		if (!latest || file.lastModified > latest.lastModified) latest = file;
-	}
-
-	return latest;
+	return root.getFileHandle('bench.age', { create: true });
 }
 
 const cells = (r: Row): string[] => [

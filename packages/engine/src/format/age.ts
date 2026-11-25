@@ -22,15 +22,13 @@ const SNIFF_SIZE = 64;
 const encoder = new TextEncoder();
 const AGE_MAGIC = encoder.encode('age-encryption.org/v1\n');
 const ARMOR_MAGIC = encoder.encode('-----BEGIN AGE ENCRYPTED FILE-----');
-const LEGACY_MAGIC = encoder.encode('encryptee.io');
 const MAC_LINE_START = encoder.encode('\n--- ');
 const NEWLINE = 0x0a;
 
-type FileKind = 'age' | 'age-armored' | 'legacy' | 'plain';
+type FileKind = 'age' | 'age-armored' | 'plain';
 
 /** Why a decrypt refuses a file that isn't age. */
 export const REFUSALS = {
-	legacy: 'legacy-file',
 	'age-armored': 'armored',
 	plain: 'not-encrypted'
 } as const satisfies Record<Exclude<FileKind, 'age'>, EngineErrorCode>;
@@ -40,8 +38,6 @@ export function sniffBytes(head: Uint8Array): FileKind {
 	if (startsWith(head, AGE_MAGIC)) return 'age';
 
 	if (startsWith(head, ARMOR_MAGIC)) return 'age-armored';
-
-	if (startsWith(head, LEGACY_MAGIC)) return 'legacy';
 
 	return 'plain';
 }

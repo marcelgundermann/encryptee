@@ -12,13 +12,6 @@ export function Layout() {
 			<main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-12 pb-24 text-lg [&_a]:underline [&_a]:underline-offset-2">
 				<Outlet />
 			</main>
-			<footer className="mx-auto w-full max-w-2xl px-6 py-8 text-sm text-muted">
-				Files encrypted with the old Encryptee (<code>.cre</code>) open at{' '}
-				<a className="underline underline-offset-2" href="https://v1.encryptee.io">
-					v1.encryptee.io
-				</a>
-				.
-			</footer>
 		</div>
 	);
 }

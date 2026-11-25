@@ -28,14 +28,6 @@ function Faq() {
 				Yes. Ask for their age public key (it starts with <code>age1</code>) and encrypt to it. They
 				decrypt with the <code>age</code> tool.
 			</P>
-			<H2>What happened to my .cre files?</H2>
-			<P>
-				Files from the old Encryptee use a different format. Open them at{' '}
-				<a className="underline" href="https://v1.encryptee.io">
-					v1.encryptee.io
-				</a>
-				, which stays online.
-			</P>
 			<H2>Is there a size limit?</H2>
 			<P>
 				Not in Chrome and Edge on a computer, which write straight to the file you choose. Firefox
