@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { H1, H2, P } from '../../pages/Layout.tsx';
-import { strings } from '../../strings.ts';
+import { H1, H2, P } from '#/pages/Layout.tsx';
+import { strings } from '#/strings.ts';
 
 export const Route = createFileRoute('/_pages/how-it-works')({
 	staticData: { title: strings.titles.howItWorks },

@@ -1,8 +1,7 @@
 import './trusted-types.ts';
-import { createRouter, RouterProvider } from '@tanstack/react-router';
-import { StrictMode } from 'react';
+import { RouterProvider } from '@tanstack/react-router';
 import { createRoot } from 'react-dom/client';
-import { routeTree } from './routeTree.gen.ts';
+import { getRouter } from './router.ts';
 
 // Content pages were at `/faq/` before; links and bookmarks to them still open them, at `/faq`.
 if (location.pathname !== '/' && location.pathname.endsWith('/')) {
@@ -13,19 +12,7 @@ if (location.pathname !== '/' && location.pathname.endsWith('/')) {
 	);
 }
 
-const router = createRouter({ routeTree });
-
-declare module '@tanstack/react-router' {
-	interface Register {
-		router: typeof router;
-	}
-}
-
-createRoot(document.getElementById('root')!).render(
-	<StrictMode>
-		<RouterProvider router={router} />
-	</StrictMode>
-);
+createRoot(document.getElementById('root')!).render(<RouterProvider router={getRouter()} />);
 
 // Keeps the tool and the content pages working offline and streams downloads. A new
 // version takes over once every Encryptee tab has closed. The dev server has none.

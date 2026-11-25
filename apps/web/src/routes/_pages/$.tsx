@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { H1, P } from '../../pages/Layout.tsx';
-import { strings } from '../../strings.ts';
+import { H1, P } from '#/pages/Layout.tsx';
+import { strings } from '#/strings.ts';
 
 /** Any address no other route takes. The server and the service worker answer every address with the app. */
 export const Route = createFileRoute('/_pages/$')({

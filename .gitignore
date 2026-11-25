@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.tanstack/
 .wrangler/
 # Real Wrangler configs carry the account_id; only *.example.jsonc is committed.
 wrangler.jsonc

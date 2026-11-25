@@ -1,6 +1,6 @@
 import { readKeyFile, type KeyFileContents } from '@encryptee/engine';
 import { useRef, useState, type ReactNode } from 'react';
-import { errorMessage, strings } from '../strings.ts';
+import { errorMessage, strings } from '#/strings.ts';
 import { Hint, LineField, StableLabel, TextButton, touchScreen } from './ui.tsx';
 
 type Keys = Extract<KeyFileContents, { protected: false }>;

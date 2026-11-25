@@ -111,6 +111,36 @@ test('a header link opens a content page without reloading the document', async 
 	await expect(page.locator('html')).toHaveAttribute('data-loaded', 'once');
 });
 
+/** Ways to leave a content page's document and come back to it, the same one in history. */
+const RETURNS: [way: string, leaveAndReturn: (page: Page) => Promise<void>][] = [
+	[
+		'a reload',
+		async (page) => {
+			await page.reload();
+		}
+	],
+	[
+		'Back from another site',
+		async (page) => {
+			await page.goto('data:text/html,Another site');
+			await page.goBack();
+		}
+	]
+];
+
+for (const [way, leaveAndReturn] of RETURNS) {
+	test(`${way} keeps where a content page was scrolled`, async ({ page }) => {
+		await page.setViewportSize({ width: 800, height: 400 });
+		await page.goto('/security');
+		await expect(page.locator('main')).toBeVisible();
+		await page.evaluate(() => window.scrollTo(0, 700));
+		// The router notes the scroll on its event, which comes with the next frame.
+		await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+		await leaveAndReturn(page);
+		await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+	});
+}
+
 for (const [path, title] of [
 	['/', 'Encryptee · Encrypt files in your browser'],
 	['/faq', 'Encryptee FAQ'],

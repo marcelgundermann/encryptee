@@ -126,7 +126,8 @@ A protected key file asks for its passphrase first.
   Content Security Policy with Trusted Types allows scripts only from Encryptee's own origin
   ([`_headers`](apps/web/public/_headers)).
 - **Private keys are never stored.** You keep them in a key file. Encryptee keeps no records in the browser
-  either (no saved public keys, no settings) and never reads or writes a key in a URL.
+  either (no saved public keys, no settings) and never reads or writes a key in a URL. Only a page's scroll offset is kept, in
+  session storage, until the tab closes.
 - **Each file gets its own random key.** Every 64 KiB chunk is sealed with ChaCha20-Poly1305 and
   numbered, and the last chunk is marked as last, so any change, reordering or truncation is
   detected and the job fails. A decrypt into a download checks the whole file before the download

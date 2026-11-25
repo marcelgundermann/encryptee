@@ -1,5 +1,5 @@
 import { inspectFile, type FileInfo } from '@encryptee/engine';
-import { errorMessage, strings } from '../strings.ts';
+import { errorMessage, strings } from '#/strings.ts';
 
 /** What the dropped files are, decided by their headers, never their names. */
 export type Selection =

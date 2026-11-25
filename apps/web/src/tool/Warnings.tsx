@@ -1,6 +1,6 @@
 import { preflight, type PreflightWarning } from '@encryptee/engine';
 import { useEffect, useState } from 'react';
-import { strings } from '../strings.ts';
+import { strings } from '#/strings.ts';
 import { Hint } from './ui.tsx';
 
 /** Pre-flight warnings for a selection: iPhone, size limits, free space (D22, D23). */

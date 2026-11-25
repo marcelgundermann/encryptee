@@ -3,40 +3,15 @@ import tailwindcss from '@tailwindcss/vite';
 import { redact } from '@tanstack/redact/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
-import { defineConfig, lazyPlugins, type Plugin } from 'vite-plus';
+import { defineConfig, lazyPlugins } from 'vite-plus';
 import { VitePWA } from 'vite-plugin-pwa';
-
-/** What renders the app in a build: `react-dom`, or `redact` in its place. */
-const { RENDERER = 'react-dom' } = process.env;
-
-/**
- * Redact resolves `react` and `react-dom` to itself. Only builds do it:
- * development stays on React DOM, whose Strict Mode runs effects twice.
- */
-function renderer(): Plugin[] {
-	if (RENDERER === 'react-dom') return [];
-
-	// A misspelt renderer would otherwise build React DOM, and be taken for the other one.
-	if (RENDERER !== 'redact') throw new Error(`RENDERER is react-dom or redact, not ${RENDERER}`);
-
-	// The app renders no server HTML, and uses neither Activity nor Fragment refs.
-	const plugins: Plugin[] = redact({
-		environments: ['client'],
-		features: { hydration: false, activity: false, fragmentRefs: false }
-	});
-
-	for (const plugin of plugins) plugin.apply = 'build';
-
-	return plugins;
-}
 
 export default defineConfig({
 	// Cached by Vite+ (`vp run`). e2e stays a package.json script, never cached:
 	// it depends on wrangler and the browsers, which the cache can't fingerprint.
 	run: {
 		tasks: {
-			// Without RENDERER in the fingerprint, one renderer's build would replay for the other.
-			build: { command: 'vp build', cache: { env: ['RENDERER'] } },
+			build: 'vp build',
 			test: 'vp test run',
 			typecheck: 'tsc -p tsconfig.json && tsc -p tsconfig.sw.json && tsc -p tsconfig.node.json'
 		}
@@ -46,7 +21,12 @@ export default defineConfig({
 		tanstackRouter({ target: 'react' }),
 		react(),
 		babel({ presets: [reactCompilerPreset()] }),
-		...renderer(),
+		// Redact renders the app in React DOM's place. The app renders no
+		// server HTML, and uses neither Activity nor Fragment refs.
+		redact({
+			environments: ['client'],
+			features: { hydration: false, activity: false, fragmentRefs: false }
+		}),
 		tailwindcss(),
 		VitePWA({
 			strategies: 'injectManifest',

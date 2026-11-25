@@ -1,5 +1,5 @@
 import type { JobFile, JobSnapshot } from '@encryptee/engine';
-import { formatBytes, formatDuration, strings } from '../strings.ts';
+import { formatBytes, formatDuration, strings } from '#/strings.ts';
 import { BigButton, Card, Headline, Hint, OutlineButton, shownFiles, StepHeading } from './ui.tsx';
 
 /** A running job as one giant number; afterwards, what happened to each file. */

@@ -1,8 +1,8 @@
 import type { Job } from '@encryptee/engine';
 import { useEffect, useReducer, useState } from 'react';
-import { useLaunchedFiles } from '../launched-files.ts';
-import { navItemClass, SiteHeader } from '../SiteHeader.tsx';
-import { strings } from '../strings.ts';
+import { useLaunchedFiles } from '#/launched-files.ts';
+import { navItemClass, SiteHeader } from '#/SiteHeader.tsx';
+import { strings } from '#/strings.ts';
 import { DecryptCard } from './DecryptCard.tsx';
 import { DropOverlay, DropSurface, useWindowDrop } from './DropSurface.tsx';
 import { EncryptCard } from './EncryptCard.tsx';

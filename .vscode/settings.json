@@ -19,5 +19,14 @@
 	},
 	"oxc.disableNestedConfig": true,
 	"oxc.fmt.disableNestedConfig": true,
-	"editor.formatOnSaveMode": "file"
+	"editor.formatOnSaveMode": "file",
+	"files.watcherExclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"search.exclude": {
+		"**/routeTree.gen.ts": true
+	},
+	"files.readonlyInclude": {
+		"**/routeTree.gen.ts": true
+	}
 }

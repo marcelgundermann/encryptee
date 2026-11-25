@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { strings } from '../strings.ts';
+import { strings } from '#/strings.ts';
 import { useFocusIfLost } from './ui.tsx';
 
 /**

@@ -2,10 +2,7 @@
 	"$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
 	"workspaces": {
 		".": {},
-		"apps/web": {
-			// index.html links it as a stylesheet, which Knip doesn't follow, unlike its script.
-			"entry": ["src/styles.css"]
-		},
+		"apps/web": {},
 		"packages/engine": {
 			// The bench script runs `vp dev --config bench/vite.config.ts`, whose page loads
 			// bench.ts; Knip reads neither from a `vp` command line.

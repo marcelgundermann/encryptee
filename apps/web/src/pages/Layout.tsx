@@ -1,6 +1,6 @@
 import { Outlet } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { SiteHeader } from '../SiteHeader.tsx';
+import { SiteHeader } from '#/SiteHeader.tsx';
 
 /**
  * Shell for the content pages, in the same "Drop" look as the tool.

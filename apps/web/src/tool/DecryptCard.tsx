@@ -6,7 +6,7 @@ import {
 	type Job
 } from '@encryptee/engine';
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react';
-import { errorMessage, strings } from '../strings.ts';
+import { errorMessage, strings } from '#/strings.ts';
 import { Warnings } from './Warnings.tsx';
 import {
 	Arrow,

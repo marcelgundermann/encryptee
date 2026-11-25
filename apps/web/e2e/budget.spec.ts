@@ -4,8 +4,11 @@ import { expect, test, type Browser, type Response } from '@playwright/test';
 /** The tool and the content pages. */
 const ROUTES = ['/', '/how-it-works', '/security', '/faq'];
 
-/** The most a cold load fetches, in bytes after Brotli at its highest level. */
-const BUDGET = { js: 150_000, routeJs: 50_000, css: 20_000 };
+/**
+ * The most a cold load fetches, in bytes after Brotli at its highest level. A
+ * build that fell back to React DOM is over the JS budget.
+ */
+const BUDGET = { js: 90_000, routeJs: 50_000, css: 20_000 };
 
 /** What a cold load fetched: the compressed size of each file, by path. */
 interface Fetched {

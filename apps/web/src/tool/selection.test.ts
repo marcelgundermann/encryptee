@@ -1,5 +1,5 @@
 import { expect, test } from 'vite-plus/test';
-import { strings } from '../strings.ts';
+import { strings } from '#/strings.ts';
 import { classify } from './selection.ts';
 
 /** An age file whose header has these stanzas' recipient types, e.g. `scrypt`; never decryptable. */

@@ -7,7 +7,7 @@ import {
 	type ReactNode,
 	type Ref
 } from 'react';
-import { formatBytes, strings, V1_SITE } from '../strings.ts';
+import { formatBytes, strings, V1_SITE } from '#/strings.ts';
 
 /*
  * Building blocks of the "Drop" design (variant A of the prototypes):

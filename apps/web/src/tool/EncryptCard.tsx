@@ -7,7 +7,7 @@ import {
 	type Job
 } from '@encryptee/engine';
 import { useState, type FormEvent } from 'react';
-import { errorMessage, strings } from '../strings.ts';
+import { errorMessage, strings } from '#/strings.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
 import { Warnings } from './Warnings.tsx';
 import {

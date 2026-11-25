@@ -1,7 +1,8 @@
 import { createRootRoute, Outlet, useMatches } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { useLaunchQueue } from '../launched-files.ts';
-import { strings } from '../strings.ts';
+import { useLaunchQueue } from '#/launched-files.ts';
+import { strings } from '#/strings.ts';
+import '#/styles.css';
 
 declare module '@tanstack/react-router' {
 	interface StaticDataRouteOption {

@@ -1,6 +1,6 @@
 import { generateKeyPair, saveKeyFile, type KeyPair, type KeyType } from '@encryptee/engine';
 import { useEffect, useRef, useState } from 'react';
-import { errorMessage, strings } from '../strings.ts';
+import { errorMessage, strings } from '#/strings.ts';
 import { usePassphraseChoice } from './PassphraseChoice.tsx';
 import {
 	BigButton,
