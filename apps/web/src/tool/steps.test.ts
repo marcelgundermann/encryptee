@@ -1,5 +1,5 @@
 import type { Job, JobSnapshot } from '@encryptee/engine';
-import { expect, test } from 'vite-plus/test';
+import { expect, test } from 'vitest';
 import { firstStep, nextStep, stepName, type StepEvent, type Steps } from './steps.ts';
 
 const snapshot: JobSnapshot = {

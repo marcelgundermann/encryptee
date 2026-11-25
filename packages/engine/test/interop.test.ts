@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vite-plus/test';
-import { commands } from 'vite-plus/test/browser';
+import { describe, expect, test } from 'vitest';
+import { commands } from 'vitest/browser';
 import { generateKeyPair } from '../src/index.ts';
 import { keyFileText } from '../src/keys/key-pair.ts';
 import { protectKeyFile } from '../src/keys/keys.ts';

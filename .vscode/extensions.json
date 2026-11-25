@@ -1,3 +1,1 @@
-{
-	"recommendations": ["oxc.oxc-vscode", "VoidZero.vite-plus-extension-pack"]
-}
+{ "recommendations": ["oxc.oxc-vscode"] }

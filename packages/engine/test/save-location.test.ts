@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vite-plus/test';
+import { describe, expect, test } from 'vitest';
 import type { Capabilities } from '../src/capabilities.ts';
 import { startJob } from '../src/index.ts';
 import { chooseSaveLocationIn, type SaveEnvironment } from '../src/sinks/save-location.ts';

@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vite-plus/test';
+import { expect, test, vi } from 'vitest';
 import headers from '../public/_headers?raw';
 
 /**

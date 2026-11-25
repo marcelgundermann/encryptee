@@ -23,14 +23,15 @@ catalog:
   babel-plugin-react-compiler: 1.0.0
   cctv-age: 0.2.0
   knip: 6.45.1
+  oxfmt: 0.79.0
+  oxlint: 1.94.0
   playwright: 1.65.1
   react: 19.3.1
   react-dom: 19.3.1
   tailwindcss: 4.3.5
   typescript: 7.0.2
-  vite: npm:@voidzero-dev/vite-plus-core@8.3.8000
+  vite: 8.3.8
   vite-plugin-pwa: 2.0.0
-  vite-plus: 1.7.0
   vitest: 5.1.0
   workbox-precaching: 7.4.1
   workbox-routing: 7.4.1
@@ -44,18 +45,3 @@ minimumReleaseAge: 1440
 allowBuilds:
   esbuild: true
   workerd: true
-
-# Vite+ ships Vite as @voidzero-dev/vite-plus-core (the `vite` catalog alias);
-# every package and plugin resolves vite and vitest to the catalog's.
-overrides:
-  vite@*: 'catalog:'
-  vitest@*: 'catalog:'
-
-# Plugins' `vite ^8` peer ranges don't match the alias's own version number.
-peerDependencyRules:
-  allowAny:
-    - vite
-    - vitest
-  allowedVersions:
-    vite: '*'
-    vitest: '*'

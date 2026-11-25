@@ -6,8 +6,11 @@
 		"#/*": "./src/*"
 	},
 	"scripts": {
-		"dev": "vp dev",
-		"preview": "vp preview",
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sw.json && tsc -p tsconfig.node.json",
+		"test": "vitest run",
 		"e2e": "playwright test",
 		"serve": "wrangler dev -c ../../wrangler.jsonc --port 8799"
 	},
@@ -38,7 +41,7 @@
 		"typescript": "catalog:",
 		"vite": "catalog:",
 		"vite-plugin-pwa": "catalog:",
-		"vite-plus": "catalog:",
+		"vitest": "catalog:",
 		"wrangler": "catalog:"
 	}
 }

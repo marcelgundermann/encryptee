@@ -3,10 +3,6 @@
 	"workspaces": {
 		".": {},
 		"apps/web": {},
-		"packages/engine": {
-			// The bench script runs `vp dev --config bench/vite.config.ts`, whose page loads
-			// bench.ts; Knip reads neither from a `vp` command line.
-			"entry": ["bench/vite.config.ts", "bench/bench.ts"]
-		}
+		"packages/engine": {}
 	}
 }

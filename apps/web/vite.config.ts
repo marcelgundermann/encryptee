@@ -3,20 +3,11 @@ import tailwindcss from '@tailwindcss/vite';
 import { redact } from '@tanstack/redact/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
-import { defineConfig, lazyPlugins } from 'vite-plus';
+import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-	// Cached by Vite+ (`vp run`). e2e stays a package.json script, never cached:
-	// it depends on wrangler and the browsers, which the cache can't fingerprint.
-	run: {
-		tasks: {
-			build: 'vp build',
-			test: 'vp test run',
-			typecheck: 'tsc -p tsconfig.json && tsc -p tsconfig.sw.json && tsc -p tsconfig.node.json'
-		}
-	},
-	plugins: lazyPlugins(() => [
+	plugins: [
 		// Writes src/routeTree.gen.ts from src/routes/. It must come before react().
 		tanstackRouter({ target: 'react' }),
 		react(),
@@ -56,7 +47,7 @@ export default defineConfig({
 				maximumFileSizeToCacheInBytes: 4 * 1024 * 1024
 			}
 		})
-	]),
+	],
 	worker: { format: 'es' },
 	// The browsers Encryptee supports. All of them preload modules themselves.
 	build: {

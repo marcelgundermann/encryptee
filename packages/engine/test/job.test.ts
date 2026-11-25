@@ -1,6 +1,6 @@
 import { Decrypter, Encrypter } from 'age-encryption';
-import { describe, expect, test } from 'vite-plus/test';
-import { server } from 'vite-plus/test/browser';
+import { describe, expect, test } from 'vitest';
+import { server } from 'vitest/browser';
 import {
 	checkCredentials,
 	generateKeyPair,
