@@ -18,14 +18,14 @@ let worker: Worker | null = null;
 /** The key tool `name` from `keys/keys.ts`, run in the tools worker. */
 function tool<K extends ToolName>(name: K) {
 	return (...args: ToolArgs[K]): Promise<ToolResult[K]> => {
-		worker ??= new Worker(new URL('./workers/tools.worker.ts', import.meta.url), {
+		worker ??= new Worker(new URL('./workers/typage.worker.ts', import.meta.url), {
 			type: 'module',
 			name: 'encryptee-tools'
 		});
 
 		// Each call gets its own channel, so the one response on it is this call's.
 		const { port1, port2 } = new MessageChannel();
-		const request: ToolRequest<K> = { tool: name, args, port: port2 };
+		const request: ToolRequest<K> = { type: 'tool', tool: name, args, port: port2 };
 
 		const response = new Promise<ToolResult[K]>((resolve, reject) => {
 			port1.onmessage = ({ data }: MessageEvent<ToolResponse<K>>) => {

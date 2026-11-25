@@ -3,17 +3,8 @@ import { PAYLOAD_NONCE_SIZE, REFUSALS, readHeader } from '../format/age.ts';
 import { openHeader, sealHeader } from '../format/header.ts';
 import { derivePayloadKey } from '../payload/cipher.ts';
 import { openLayout, sealLayout } from '../payload/layout.ts';
-import type {
-	HeaderRequest,
-	HeaderResponse,
-	Prepared,
-	Source,
-	TaskOperation,
-	WorkerConnect
-} from './protocol.ts';
+import type { HeaderRequest, HeaderResponse, Prepared, Source, TaskOperation } from './protocol.ts';
 import { reader } from './source.ts';
-
-declare const self: DedicatedWorkerGlobalScope;
 
 /**
  * Seals and opens the coordinator's headers, one at a time, in the order it
@@ -21,8 +12,7 @@ declare const self: DedicatedWorkerGlobalScope;
  * files before. How many of these run, and so how many times scrypt's 256 MiB
  * are there at once, is the job's tuning.
  */
-self.onmessage = ({ data }: MessageEvent<WorkerConnect>) => {
-	const { port } = data;
+export function serveHeaders(port: MessagePort): void {
 	let previous = Promise.resolve();
 
 	port.onmessage = ({ data: request }: MessageEvent<HeaderRequest>) => {
@@ -30,7 +20,7 @@ self.onmessage = ({ data }: MessageEvent<WorkerConnect>) => {
 	};
 
 	port.start();
-};
+}
 
 async function answer(port: MessagePort, request: HeaderRequest): Promise<void> {
 	let response: HeaderResponse;

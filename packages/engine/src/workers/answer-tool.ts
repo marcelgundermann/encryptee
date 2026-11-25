@@ -8,16 +8,15 @@ import type {
 	ToolResult
 } from './tools-protocol.ts';
 
-declare const self: DedicatedWorkerGlobalScope;
-
 const tools: {
 	[K in ToolName]: (...args: ToolArgs[K]) => ToolResult[K] | Promise<ToolResult[K]>;
 } = keys;
 
-self.onmessage = async ({ data }: MessageEvent<ToolRequest>) => {
-	data.port.postMessage(await respond(data));
-	data.port.close();
-};
+/** Runs a key tool, and answers on the request's port. */
+export async function answerTool(request: ToolRequest): Promise<void> {
+	request.port.postMessage(await respond(request));
+	request.port.close();
+}
 
 async function respond<K extends ToolName>(request: ToolRequest<K>): Promise<ToolResponse<K>> {
 	try {

@@ -7,8 +7,10 @@ const ROUTES = ['/', '/how-it-works', '/security', '/faq'];
 /**
  * The most a cold load fetches, in bytes after Brotli at its highest level. A
  * build that fell back to React DOM is over the JS budget.
+ * `cachedJs` is all the JS the service worker caches on a first visit, the
+ * engine's workers included; a build with typage in two of them is over it.
  */
-const BUDGET = { js: 90_000, routeJs: 50_000, css: 20_000 };
+const BUDGET = { js: 90_000, routeJs: 50_000, css: 20_000, cachedJs: 125_000 };
 
 /** What a cold load fetched: the compressed size of each file, by path. */
 interface Fetched {
@@ -77,4 +79,18 @@ test('what a route adds to the JS every route loads stays within its budget', as
 			BUDGET.routeJs
 		);
 	}
+});
+
+test('the JS a first visit caches for offline use stays within its budget', async ({ request }) => {
+	const serviceWorker = await (await request.get('/sw.js')).text();
+	const cached = new Map<string, number>();
+
+	for (const path of new Set(serviceWorker.match(/assets\/[\w.-]+\.js/g))) {
+		const body = await (await request.get(`/${path}`)).body();
+		cached.set(path, brotliCompressSync(body).length);
+	}
+
+	// The entry and the engine's workers; a list that read as empty would pass any limit.
+	expect(cached.size).toBeGreaterThan(2);
+	expect(total(cached), JSON.stringify([...cached])).toBeLessThanOrEqual(BUDGET.cachedJs);
 });

@@ -209,7 +209,7 @@ function spawnWorkers(tuning: Tuning): JobWorkers {
 	const headers = Array.from(
 		{ length: tuning.headerWorkers },
 		() =>
-			new Worker(new URL('./workers/header.worker.ts', import.meta.url), {
+			new Worker(new URL('./workers/typage.worker.ts', import.meta.url), {
 				type: 'module',
 				name: 'encryptee-header'
 			})

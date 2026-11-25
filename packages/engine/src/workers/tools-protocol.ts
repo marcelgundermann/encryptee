@@ -16,7 +16,7 @@ export type ToolResult = { [K in ToolName]: Awaited<ReturnType<Tools[K]>> };
  * generic `K`, `tools[request.tool]` takes `request.args`.
  */
 export type ToolRequest<K extends ToolName = ToolName> = {
-	[P in K]: { tool: P; args: ToolArgs[P]; port: MessagePort };
+	[P in K]: { type: 'tool'; tool: P; args: ToolArgs[P]; port: MessagePort };
 }[K];
 
 export type ToolResponse<K extends ToolName> =
