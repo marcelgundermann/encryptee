@@ -14,15 +14,9 @@ declare global {
 export async function openSink(descriptor: SinkDescriptor): Promise<ByteSink> {
 	switch (descriptor.kind) {
 		case 'file':
-			return saving(() => FsaSink.open(descriptor.handle, null));
+			return saving(() => FsaSink.intoFile(descriptor.handle));
 		case 'directory':
-			return saving(async () => {
-				const name = await uniqueName(descriptor.handle, descriptor.name);
-				const handle = await descriptor.handle.getFileHandle(name, { create: true });
-
-				return FsaSink.open(handle, { directory: descriptor.handle, name });
-			});
-
+			return saving(() => FsaSink.intoDirectory(descriptor.handle, descriptor.name));
 		case 'sw-download':
 			return new SwDownloadSink(descriptor.port);
 		case 'memory':
@@ -41,23 +35,32 @@ async function saving<T>(step: () => Promise<T>): Promise<T> {
 	}
 }
 
+/** Writes to the user's disk through a `FileSystemWritableFileStream`. */
 class FsaSink implements ByteSink {
 	private constructor(
-		private readonly handle: FileSystemFileHandle,
 		private readonly writable: FileSystemWritableFileStream,
-		/** Set when we created the file, so a failed job may delete it. */
-		private readonly created: { directory: FileSystemDirectoryHandle; name: string } | null,
-		private readonly wasEmpty: boolean
+		/** Removes the file the save made, if it made one. Runs after a failure, and may throw. */
+		private readonly discard: () => Promise<void>
 	) {}
 
-	static async open(
-		handle: FileSystemFileHandle,
-		created: { directory: FileSystemDirectoryHandle; name: string } | null
-	): Promise<FsaSink> {
+	static async intoFile(handle: FileSystemFileHandle): Promise<FsaSink> {
+		// showSaveFilePicker creates an empty file up front. Remove that, but
+		// never a file that had content before (abort keeps it intact).
 		const wasEmpty = (await handle.getFile()).size === 0;
-		const writable = await handle.createWritable({ keepExistingData: false });
 
-		return new FsaSink(handle, writable, created, wasEmpty);
+		return new FsaSink(await handle.createWritable({ keepExistingData: false }), async () => {
+			if (wasEmpty) await handle.remove?.();
+		});
+	}
+
+	/** Into a new file in `directory` named `name`, or numbered if that's taken. */
+	static async intoDirectory(directory: FileSystemDirectoryHandle, name: string): Promise<FsaSink> {
+		const unique = await uniqueName(directory, name);
+		const handle = await directory.getFileHandle(unique, { create: true });
+
+		return new FsaSink(await handle.createWritable({ keepExistingData: false }), () =>
+			directory.removeEntry(unique)
+		);
 	}
 
 	async write(chunk: Uint8Array<ArrayBuffer>): Promise<void> {
@@ -76,14 +79,7 @@ class FsaSink implements ByteSink {
 		// Nothing written through a writable is visible until close(), so
 		// abort() leaves no partial plaintext or ciphertext behind.
 		await this.writable.abort(reason).catch(() => {});
-
-		if (this.created) {
-			await this.created.directory.removeEntry(this.created.name).catch(() => {});
-		} else if (this.wasEmpty) {
-			// showSaveFilePicker creates an empty file up front. Remove it, but
-			// never a file that had content before (abort kept that intact).
-			await this.handle.remove?.().catch(() => {});
-		}
+		await this.discard().catch(() => {});
 	}
 }
 
@@ -121,15 +117,20 @@ class DiscardSink implements ByteSink {
 	async abort(): Promise<void> {}
 }
 
-/** `name`, or the first numbered name `directory` doesn't have yet. */
+/** `name`, or the first numbered name no file or folder in `directory` has yet. */
 async function uniqueName(directory: FileSystemDirectoryHandle, name: string): Promise<string> {
 	for (let n = 0; ; n++) {
 		const candidate = numberedName(name, n);
 
 		try {
 			await directory.getFileHandle(candidate);
-		} catch {
-			return candidate;
+		} catch (cause) {
+			const error = cause instanceof DOMException ? cause.name : null;
+
+			if (error === 'NotFoundError') return candidate;
+
+			// TypeMismatchError: a folder has the name.
+			if (error !== 'TypeMismatchError') throw cause;
 		}
 	}
 }

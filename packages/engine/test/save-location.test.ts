@@ -101,6 +101,21 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		expect(equalBytes((await decrypt(sealed, passphrase.decrypt)).output!, plain)).toBe(true);
 	});
 
+	test('a folder that has the output’s name is renamed around, like a file', async () => {
+		const directory = await pickedDirectory();
+		await directory.getDirectoryHandle('a.txt.age', { create: true });
+
+		const result = await startJob({
+			mode: 'encrypt',
+			credentials: passphrase.encrypt,
+			files: [file(randomBytes(100), 'a.txt')],
+			save: { kind: 'directory', handle: directory }
+		}).done;
+
+		expect(result.status).toBe('done');
+		expect(await names(directory)).toEqual(['a (1).txt.age', 'a.txt.age']);
+	});
+
 	test('a corrupted file removes only the output it created in the folder', async () => {
 		const directory = await pickedDirectory();
 		await writeFile(directory, 'other.txt', 'not ours');
@@ -151,6 +166,21 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		}).done;
 
 		expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'save-failed' } });
+	});
+
+	test('a corrupted file removes the empty file the save picker made for it', async () => {
+		const directory = await pickedDirectory();
+		const handle = await directory.getFileHandle('out.txt', { create: true });
+
+		const result = await startJob({
+			mode: 'decrypt',
+			credentials: passphrase.decrypt,
+			files: [file(await corrupted(randomBytes(100)), 'out.txt.age')],
+			save: { kind: 'file', handle }
+		}).done;
+
+		expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
+		expect(await names(directory)).toEqual([]);
 	});
 
 	test('a corrupted file leaves a picked file as it was', async () => {
