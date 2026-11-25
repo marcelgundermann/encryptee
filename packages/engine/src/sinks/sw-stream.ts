@@ -49,8 +49,7 @@ export class SwDownloadSink implements ByteSink {
 
 	async write(chunk: Uint8Array<ArrayBuffer>): Promise<void> {
 		for (let offset = 0; offset < chunk.length; offset += SW_MAX_MESSAGE_BYTES) {
-			const streaming = await this.credit();
-			streaming.credits--;
+			await this.spendCredit();
 			const piece = chunk.slice(offset, offset + SW_MAX_MESSAGE_BYTES).buffer;
 			this.post({ type: 'chunk', data: piece }, [piece]);
 		}
@@ -76,8 +75,8 @@ export class SwDownloadSink implements ByteSink {
 		this.end();
 	}
 
-	/** The streaming download, once it has a credit to spend. */
-	private async credit(): Promise<Extract<Download, { status: 'streaming' }>> {
+	/** Resolves once the service worker has granted a credit, which it spends. */
+	private async spendCredit(): Promise<void> {
 		for (;;) {
 			const { download } = this;
 
@@ -86,7 +85,12 @@ export class SwDownloadSink implements ByteSink {
 			if (download.status === 'taken')
 				throw new EngineError('internal', 'a write after the download ended');
 
-			if (download.status === 'streaming' && download.credits > 0) return download;
+			if (download.status === 'streaming' && download.credits > 0) {
+				download.credits--;
+
+				return;
+			}
+
 			await this.change();
 		}
 	}

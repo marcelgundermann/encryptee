@@ -25,7 +25,7 @@ self.onmessage = ({ data: init }: MessageEvent<CoordinatorInit>) => {
 
 	const prepare = (id: number, operation: TaskOperation, source: Source) => {
 		const header = headers.prepare(operation, source, tuning.batchChunks);
-		header.catch(() => {}); // Its check or run reports it; until then it's nobody's.
+		header.catch(() => {}); // Reported by its check or its run; no unhandled rejection before that.
 		prepared.set(id, header);
 
 		return header;
