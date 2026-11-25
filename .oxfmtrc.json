@@ -4,8 +4,5 @@
 	"singleQuote": true,
 	"trailingComma": "none",
 	"printWidth": 100,
-	"ignorePatterns": [
-		"pnpm-lock.yaml",
-		"apps/web/src/routeTree.gen.ts"
-	]
+	"ignorePatterns": ["pnpm-lock.yaml", "apps/web/src/routeTree.gen.ts"]
 }

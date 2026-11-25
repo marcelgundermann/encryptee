@@ -22,9 +22,9 @@ Use it at <https://encryptee.io>.
 
 ## Browser support
 
-Encryptee supports current browser releases only. Each minimum below is the first release
-with every API the engine uses, the latest being `Uint8Array.prototype.toBase64`. Older releases
-get no fallbacks.
+Encryptee supports current browser releases only. Each minimum below is the first release with every
+API the engine uses, the latest being `Uint8Array.prototype.toBase64`. Older releases get no
+fallbacks.
 
 | Browser                      | Minimum          | Save location                                                               | Size warning above       | Tested in CI   |
 | ---------------------------- | ---------------- | --------------------------------------------------------------------------- | ------------------------ | -------------- |
@@ -64,15 +64,14 @@ use doesn't grow with the file. What limits a file is where it's saved.
 Tested so far:
 
 - Files over 60 GB, by hand, through the save picker in Chrome on a computer.
-- 10 GiB encrypted and decrypted end to end through OPFS in Chromium and WebKit, by the
-  benchmark.
+- 10 GiB encrypted and decrypted end to end through OPFS in Chromium and WebKit, by the benchmark.
 - In CI, jobs of up to 64 MiB in Chromium, Firefox and WebKit.
 - Not yet tested: multi-GB downloads in Firefox and Safari, and an iPhone.
 
 ## Performance
 
-From the benchmark (`pnpm --filter @encryptee/engine bench`): 10 GiB through OPFS on an Apple M5 Pro,
-headless, with synthetic input and scrypt included in the timing.
+From the benchmark (`pnpm --filter @encryptee/engine bench`): 10 GiB through OPFS on an Apple M5
+Pro, headless, with synthetic input and scrypt included in the timing.
 
 | Browser                                                              | Workers | Encrypt    | Decrypt    |
 | -------------------------------------------------------------------- | ------- | ---------- | ---------- |
@@ -118,13 +117,14 @@ A protected key file asks for its passphrase first.
 ## Security
 
 - **Nothing leaves your device.** Files, passphrases and keys are processed in the browser and never
-  sent anywhere. Encryptee is static files with no server code, so nothing on a server could see them.
+  sent anywhere. Encryptee is static files with no server code, so nothing on a server could see
+  them.
 - **Only Encryptee's own code runs.** It loads no third-party scripts and has no analytics. A strict
   Content Security Policy with Trusted Types allows scripts only from Encryptee's own origin
   ([`_headers`](apps/web/public/_headers)).
-- **Private keys are never stored.** You keep them in a key file. Encryptee keeps no records in the browser
-  either (no saved public keys, no settings) and never reads or writes a key in a URL. Only a page's scroll offset is kept, in
-  session storage, until the tab closes.
+- **Private keys are never stored.** You keep them in a key file. Encryptee keeps no records in the
+  browser either (no saved public keys, no settings) and never reads or writes a key in a URL. Only
+  a page's scroll offset is kept, in session storage, until the tab closes.
 - **Each file gets its own random key.** Every 64 KiB chunk is sealed with ChaCha20-Poly1305 and
   numbered, and the last chunk is marked as last, so any change, reordering or truncation is
   detected and the job fails. A decrypt into a download checks the whole file before the download
