@@ -177,6 +177,31 @@ test('the tool, a content page and the not-found page get the security headers',
 	}
 });
 
+test('the tool, a content page and the not-found page forbid changing them on the way', async ({
+	request
+}) => {
+	for (const path of ['/', '/faq', '/no-such-page']) {
+		const { 'cache-control': cacheControl } = (await request.get(path)).headers();
+		expect(cacheControl, path).toBe('public, max-age=0, must-revalidate, no-transform');
+	}
+});
+
+test('an asset is cached for good, and the service worker’s script is always checked', async ({
+	request
+}) => {
+	const [asset] = (await (await request.get('/')).text()).match(/\/assets\/[^"]+\.js/) ?? [];
+	expect(asset).toBeDefined();
+
+	for (const [path, expected] of [
+		[asset!, 'public, max-age=31536000, immutable'],
+		['/sw.js', 'no-cache']
+	] as const) {
+		const response = await request.get(path);
+		expect(response.status(), path).toBe(200);
+		expect(response.headers()['cache-control'], path).toBe(expected);
+	}
+});
+
 test('encrypt and decrypt round trip through the service-worker download', async ({ page }) => {
 	const violations = watchCsp(page);
 	await openTool(page);
