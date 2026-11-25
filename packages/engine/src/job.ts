@@ -2,6 +2,7 @@ import { detectCapabilities } from './capabilities.ts';
 import {
 	EngineError,
 	deserializeError,
+	saveError,
 	serializeError,
 	type EngineErrorCode,
 	type SerializedError
@@ -9,7 +10,7 @@ import {
 import type { DecryptCredentials } from './format/header.ts';
 import { outputName } from './format/names.ts';
 import { acquireJobGuards } from './guards.ts';
-import { openOutput, saveError, type SaveLocation } from './sinks/save-location.ts';
+import { openOutput, type SaveLocation } from './sinks/save-location.ts';
 import { checksFirst, type FileOutput, type Output, type SinkResult } from './sinks/sink.ts';
 import {
 	fileDone,
@@ -55,7 +56,8 @@ const FILE_LOCAL_ERRORS = new Set<EngineErrorCode>([
 	'wrong-credentials',
 	'not-encrypted',
 	'armored',
-	'corrupted'
+	'corrupted',
+	'read-failed'
 ]);
 
 /** Starts an encrypt or decrypt job over `files`. One input file → one output file. */

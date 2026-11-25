@@ -144,6 +144,7 @@ export const strings = {
 		'invalid-public-key': 'That isn’t a valid public key.',
 		'invalid-key-file': 'That isn’t a valid key file.',
 		cancelled: 'Cancelled. Nothing was saved.',
+		'read-failed': 'This file can’t be read. It may have been moved, changed or deleted.',
 		'save-failed': 'Saving failed.',
 		'storage-full': 'There isn’t enough space to save the file.',
 		unsupported:

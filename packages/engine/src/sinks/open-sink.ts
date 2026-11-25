@@ -1,4 +1,4 @@
-import type { SerializedError } from '../errors.ts';
+import { deserializeError, saveError, type SerializedError } from '../errors.ts';
 import { numberedName } from '../format/names.ts';
 import type { ByteSink, SinkDescriptor, SinkResult } from './sink.ts';
 import { SwDownloadSink } from './sw-stream.ts';
@@ -14,13 +14,14 @@ declare global {
 export async function openSink(descriptor: SinkDescriptor): Promise<ByteSink> {
 	switch (descriptor.kind) {
 		case 'file':
-			return FsaSink.open(descriptor.handle, null);
-		case 'directory': {
-			const name = await uniqueName(descriptor.handle, descriptor.name);
-			const handle = await descriptor.handle.getFileHandle(name, { create: true });
+			return saving(() => FsaSink.open(descriptor.handle, null));
+		case 'directory':
+			return saving(async () => {
+				const name = await uniqueName(descriptor.handle, descriptor.name);
+				const handle = await descriptor.handle.getFileHandle(name, { create: true });
 
-			return FsaSink.open(handle, { directory: descriptor.handle, name });
-		}
+				return FsaSink.open(handle, { directory: descriptor.handle, name });
+			});
 
 		case 'sw-download':
 			return new SwDownloadSink(descriptor.port);
@@ -28,6 +29,15 @@ export async function openSink(descriptor: SinkDescriptor): Promise<ByteSink> {
 			return new MemorySink();
 		case 'discard':
 			return new DiscardSink();
+	}
+}
+
+/** Runs a step that saves. What the browser throws in it is a failed save, not a bug. */
+async function saving<T>(step: () => Promise<T>): Promise<T> {
+	try {
+		return await step();
+	} catch (cause) {
+		throw deserializeError(saveError(cause));
 	}
 }
 
@@ -51,13 +61,13 @@ class FsaSink implements ByteSink {
 	}
 
 	async write(chunk: Uint8Array<ArrayBuffer>): Promise<void> {
-		await this.writable.write(chunk);
+		await saving(() => this.writable.write(chunk));
 	}
 
 	async drain(): Promise<void> {}
 
 	async close(): Promise<SinkResult> {
-		await this.writable.close();
+		await saving(() => this.writable.close());
 
 		return { kind: 'saved' };
 	}

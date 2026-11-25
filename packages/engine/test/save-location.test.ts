@@ -120,6 +120,39 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		expect(await names(directory)).toEqual(['a.txt', 'other.txt']);
 	});
 
+	test('a file changed since it was chosen fails as read-failed, and the files after it still run', async () => {
+		const directory = await pickedDirectory();
+		const handle = await writeFile(directory, 'changed.txt', 'as it was chosen');
+		const changed = await handle.getFile();
+		await writeFile(directory, 'changed.txt', 'as it is now, with more in it');
+
+		const result = await startJob({
+			mode: 'encrypt',
+			credentials: passphrase.encrypt,
+			files: [changed, file(randomBytes(100), 'b.txt')],
+			save: { kind: 'memory' }
+		}).done;
+
+		expect(result.files).toMatchObject([
+			{ status: 'failed', error: { code: 'read-failed' } },
+			{ status: 'done' }
+		]);
+	});
+
+	test('a folder deleted since it was picked fails the save', async () => {
+		const directory = await pickedDirectory();
+		await (await navigator.storage.getDirectory()).removeEntry(directory.name);
+
+		const result = await startJob({
+			mode: 'encrypt',
+			credentials: passphrase.encrypt,
+			files: [file(randomBytes(100), 'a.txt')],
+			save: { kind: 'directory', handle: directory }
+		}).done;
+
+		expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'save-failed' } });
+	});
+
 	test('a corrupted file leaves a picked file as it was', async () => {
 		const directory = await pickedDirectory();
 		const handle = await writeFile(directory, 'out.txt', 'previous');

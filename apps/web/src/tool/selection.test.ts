@@ -89,6 +89,6 @@ test('a file that can’t be read can’t be used', async () => {
 	expect(await classify(files)).toEqual({
 		kind: 'invalid',
 		files,
-		message: strings.errors.internal
+		message: strings.errors['read-failed']
 	});
 });

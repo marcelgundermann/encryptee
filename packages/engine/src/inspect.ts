@@ -1,4 +1,5 @@
 import { readHeader, stanzaTypes } from './format/age.ts';
+import { readBlob } from './read.ts';
 
 /** What a file is, which decides between encrypt and decrypt. */
 export type FileInfo =
@@ -13,10 +14,7 @@ export type FileInfo =
  * sniffs the header, never the extension, and does no cryptography.
  */
 export async function inspectFile(file: Blob): Promise<FileInfo> {
-	const { kind, header } = await readHeader(
-		(start, end) => file.slice(start, end).arrayBuffer(),
-		file.size
-	);
+	const { kind, header } = await readHeader(readBlob(file), file.size);
 
 	if (kind === 'plain') return { kind: 'plaintext' };
 

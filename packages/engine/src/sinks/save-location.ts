@@ -1,5 +1,5 @@
 import { detectCapabilities, type Capabilities } from '../capabilities.ts';
-import { EngineError, serializeError, type SerializedError } from '../errors.ts';
+import { EngineError } from '../errors.ts';
 import { outputName } from '../format/names.ts';
 import type { Output, SinkDescriptor } from './sink.ts';
 import { streamedOutput } from './sw-download.ts';
@@ -148,13 +148,6 @@ export async function openOutput(location: SaveLocation, name: string): Promise<
 		case 'sw-download':
 			return streamedOutput(name);
 	}
-}
-
-/** A failure while saving: its own code (`storage-full`, `cancelled`, …) or `save-failed`. */
-export function saveError(cause: unknown): SerializedError {
-	const error = serializeError(cause);
-
-	return error.code === 'internal' ? { code: 'save-failed', message: error.message } : error;
 }
 
 /** Outputs whose sink does all the work. */

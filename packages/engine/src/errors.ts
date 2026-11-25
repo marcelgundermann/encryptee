@@ -14,6 +14,8 @@ export type EngineErrorCode =
 	| 'invalid-public-key'
 	| 'invalid-key-file'
 	| 'cancelled'
+	/** The input couldn't be read, or gave less than it had when it was chosen. */
+	| 'read-failed'
 	| 'save-failed'
 	| 'storage-full'
 	/**
@@ -47,16 +49,19 @@ export class EngineError extends Error {
 export function serializeError(cause: unknown): SerializedError {
 	if (cause instanceof EngineError) return cause.toJSON();
 
-	if (cause instanceof DOMException) {
-		if (cause.name === 'AbortError') return { code: 'cancelled', message: cause.message };
-
-		if (cause.name === 'QuotaExceededError')
-			return { code: 'storage-full', message: cause.message };
-	}
+	if (cause instanceof DOMException && cause.name === 'QuotaExceededError')
+		return { code: 'storage-full', message: cause.message };
 
 	const message = cause instanceof Error ? cause.message : String(cause);
 
 	return { code: 'internal', message };
+}
+
+/** A failure while saving: its own code (`storage-full`, `cancelled`, …) or `save-failed`. */
+export function saveError(cause: unknown): SerializedError {
+	const error = serializeError(cause);
+
+	return error.code === 'internal' ? { code: 'save-failed', message: error.message } : error;
 }
 
 export function deserializeError(error: SerializedError): EngineError {
