@@ -42,7 +42,7 @@ export default defineConfig({
 				launch_handler: { client_mode: 'focus-existing' }
 			},
 			injectManifest: {
-				globPatterns: ['**/*.{js,css,html,svg,png,woff2,wasm,webmanifest}'],
+				globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
 				globIgnores: ['_headers', 'robots.txt'],
 				maximumFileSizeToCacheInBytes: 4 * 1024 * 1024
 			}

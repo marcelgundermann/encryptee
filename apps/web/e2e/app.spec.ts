@@ -158,7 +158,7 @@ for (const [path, title] of [
 /** What `_headers` sends with every response. Weakening one is a change to this list too. */
 const SECURITY_HEADERS = {
 	'content-security-policy':
-		"default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types default",
+		"default-src 'none'; script-src 'self'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types default",
 	'strict-transport-security': 'max-age=31536000; includeSubDomains',
 	'referrer-policy': 'no-referrer',
 	'x-content-type-options': 'nosniff',
