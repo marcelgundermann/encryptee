@@ -9,5 +9,7 @@
 	"assets": {
 		"directory": "./apps/web/dist",
 		"not_found_handling": "single-page-application"
-	}
+	},
+	// `wrangler preview` needs the block, though a Preview has no settings of its own.
+	"previews": {}
 }
