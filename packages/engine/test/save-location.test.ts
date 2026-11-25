@@ -168,20 +168,24 @@ describe.skipIf(!opfs)('picked files and folders', () => {
 		expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'save-failed' } });
 	});
 
-	test('a corrupted file removes the empty file the save picker made for it', async () => {
-		const directory = await pickedDirectory();
-		const handle = await directory.getFileHandle('out.txt', { create: true });
+	// Firefox can't remove a file by its handle, and has no save picker that would make one.
+	test.skipIf(!('remove' in FileSystemHandle.prototype))(
+		'a corrupted file removes the empty file the save picker made for it',
+		async () => {
+			const directory = await pickedDirectory();
+			const handle = await directory.getFileHandle('out.txt', { create: true });
 
-		const result = await startJob({
-			mode: 'decrypt',
-			credentials: passphrase.decrypt,
-			files: [file(await corrupted(randomBytes(100)), 'out.txt.age')],
-			save: { kind: 'file', handle }
-		}).done;
+			const result = await startJob({
+				mode: 'decrypt',
+				credentials: passphrase.decrypt,
+				files: [file(await corrupted(randomBytes(100)), 'out.txt.age')],
+				save: { kind: 'file', handle }
+			}).done;
 
-		expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
-		expect(await names(directory)).toEqual([]);
-	});
+			expect(result.files[0]).toMatchObject({ status: 'failed', error: { code: 'corrupted' } });
+			expect(await names(directory)).toEqual([]);
+		}
+	);
 
 	test('a corrupted file leaves a picked file as it was', async () => {
 		const directory = await pickedDirectory();

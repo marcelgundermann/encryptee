@@ -1,5 +1,9 @@
 import { expect, test } from 'vitest';
-import { SW_CREDIT_WINDOW, SW_MAX_MESSAGE_BYTES } from '../src/sinks/sw-protocol.ts';
+import {
+	SW_CREDIT_WINDOW,
+	SW_MAX_MESSAGE_BYTES,
+	type DownloadPortMessage
+} from '../src/sinks/sw-protocol.ts';
 import { SwDownloadSink, createPortStream } from '../src/sinks/sw-stream.ts';
 import { concat, sha256Hex } from './helpers.ts';
 
@@ -104,6 +108,23 @@ test('cancelling the download in the browser fails the waiting write as cancelle
 	await tick();
 	await reader.cancel();
 	await expect(write).rejects.toMatchObject({ code: 'cancelled' });
+});
+
+test('a chunk delivered after the download was cancelled is dropped', async () => {
+	const { port2 } = new MessageChannel();
+	await createPortStream(port2).cancel();
+	const errors: string[] = [];
+	const listening = new AbortController();
+
+	// What a listener throws is reported to the window.
+	addEventListener('error', ({ message }) => errors.push(message), { signal: listening.signal });
+
+	// Firefox delivers the messages that were queued before the port closed.
+	const chunk: DownloadPortMessage = { type: 'chunk', data: new ArrayBuffer(1) };
+	port2.dispatchEvent(new MessageEvent('message', { data: chunk }));
+	listening.abort();
+
+	expect(errors).toEqual([]);
 });
 
 test('an abort errors the stream, so the browser fails the download', async () => {

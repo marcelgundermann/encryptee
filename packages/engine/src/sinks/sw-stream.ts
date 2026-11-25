@@ -190,6 +190,8 @@ export function createPortStream(port: MessagePort): ReadableStream<Uint8Array> 
 			pull: step,
 			cancel() {
 				port.postMessage({ type: 'cancelled' } satisfies DownloadPortMessage);
+				// Firefox still delivers what was queued, and a closed stream takes no chunks.
+				port.onmessage = null;
 				port.close();
 			}
 		},
