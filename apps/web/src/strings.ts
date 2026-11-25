@@ -35,6 +35,7 @@ export const strings = {
 		other: 'Choose other files',
 		more: (n: number) => `and ${n.toLocaleString('en')} more ${n === 1 ? 'file' : 'files'}`,
 		unusable: (n: number) => (n === 1 ? 'Can’t use this file.' : 'Can’t use these files.'),
+		folder: 'Encryptee works on files, not folders. Drop the files inside it instead.',
 		mixed: 'Drop either files to encrypt or encrypted files to decrypt, not both at once.',
 		mixedLocks: 'Some of these files use a passphrase and some use a key. Decrypt them separately.'
 	},

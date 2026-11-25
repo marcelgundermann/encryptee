@@ -1,15 +1,16 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { strings } from '#/strings.ts';
+import { droppedFiles, type Dropped } from './dropped.ts';
 import { useFocusIfLost } from './ui.tsx';
 
 /**
  * Makes the whole window a drop target. Returns whether files are being
  * dragged over it, so the UI can show the drop surface on top of any step.
  */
-export function useWindowDrop(onFiles: (files: File[]) => void): boolean {
+export function useWindowDrop(onDropped: (dropped: Dropped) => void): boolean {
 	const [dragging, setDragging] = useState(false);
 	const depth = useRef(0);
-	const receive = useEffectEvent(onFiles);
+	const receive = useEffectEvent(onDropped);
 
 	useEffect(() => {
 		const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false;
@@ -32,10 +33,12 @@ export function useWindowDrop(onFiles: (files: File[]) => void): boolean {
 		};
 
 		const onDrop = (event: DragEvent) => {
+			// Text dropped into a field is the field's.
+			if (!event.dataTransfer || !hasFiles(event)) return;
 			event.preventDefault();
 			depth.current = 0;
 			setDragging(false);
-			receive([...(event.dataTransfer?.files ?? [])]);
+			receive(droppedFiles(event.dataTransfer));
 		};
 
 		addEventListener('dragenter', onEnter);

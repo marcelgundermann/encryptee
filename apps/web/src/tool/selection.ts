@@ -8,9 +8,13 @@ export type Selection =
 	| { kind: 'decrypt'; files: File[]; unlock: 'passphrase' | 'private-key' }
 	| { kind: 'invalid'; files: File[]; message: string };
 
-export async function classify(files: File[]): Promise<Selection> {
-	if (files.length === 0) return { kind: 'none' };
+/** What `files` are; `folder` says one of them is a folder, which no file's bytes tell. */
+export async function classify(files: File[], folder = false): Promise<Selection> {
 	const invalid = (message: string): Selection => ({ kind: 'invalid', files, message });
+
+	if (folder) return invalid(strings.selection.folder);
+
+	if (files.length === 0) return { kind: 'none' };
 	let infos: FileInfo[];
 
 	try {

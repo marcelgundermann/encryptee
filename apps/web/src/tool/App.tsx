@@ -30,14 +30,14 @@ export function App() {
 
 	// A running job keeps the screen: files dropped or opened meanwhile are ignored.
 	// Files chosen while Keys is open close it, and the tool shows them.
-	const choose = async (files: File[]) => {
-		if (running || files.length === 0) return;
+	const choose = async (files: File[], folder = false) => {
+		if (running || (files.length === 0 && !folder)) return;
 		setKeysOpen(false);
 		dispatch({ type: 'chose', files });
-		dispatch({ type: 'classified', files, selection: await classify(files) });
+		dispatch({ type: 'classified', files, selection: await classify(files, folder) });
 	};
 
-	const dragging = useWindowDrop(choose) && !running;
+	const dragging = useWindowDrop(({ files, folder }) => choose(files, folder)) && !running;
 
 	useLaunchedFiles(choose);
 

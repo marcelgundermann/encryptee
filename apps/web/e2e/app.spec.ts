@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 /** The content pages' addresses. */
@@ -376,6 +378,27 @@ test('files dropped on a finished job never bring back the card before it', asyn
 	await dropOnWindow(page, 'a.txt.age', sealed);
 	await expect(page.getByRole('heading', { name: 'Encrypted with a passphrase.' })).toBeVisible();
 	expect(await headings.jsonValue()).not.toContain('Encrypting 1 file');
+});
+
+test('a dropped folder is refused, and says why', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'only Chromium’s DevTools can drop a folder from disk');
+	await openTool(page);
+	const folder = await mkdtemp(join(tmpdir(), 'encryptee-folder-'));
+	await writeFile(join(folder, 'a.txt'), 'inside the folder');
+
+	try {
+		const devtools = await page.context().newCDPSession(page);
+		const data = { items: [], files: [folder], dragOperationsMask: 1 };
+
+		for (const type of ['dragEnter', 'dragOver', 'drop'] as const)
+			await devtools.send('Input.dispatchDragEvent', { type, x: 300, y: 300, data });
+
+		await expect(page.getByRole('alert')).toHaveText(
+			'Encryptee works on files, not folders. Drop the files inside it instead.'
+		);
+	} finally {
+		await rm(folder, { recursive: true });
+	}
 });
 
 test('Keys, closed with Esc, opens again', async ({ page }) => {

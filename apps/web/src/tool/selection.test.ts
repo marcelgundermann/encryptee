@@ -71,6 +71,18 @@ test.each([
 	expect(await classify(files)).toEqual({ kind: 'invalid', files, message });
 });
 
+test.each([
+	['a folder the browser lists as an empty file', [new File([], 'photos')]],
+	['a folder the browser lists no file for', []],
+	['files dropped with a folder', [plain('a.txt'), new File([], 'photos')]]
+])('%s can’t be used, and says why', async (_, files) => {
+	expect(await classify(files, true)).toEqual({
+		kind: 'invalid',
+		files,
+		message: strings.selection.folder
+	});
+});
+
 test('a file that can’t be read can’t be used', async () => {
 	const files = [plain('a.txt'), new UnreadableFile([], 'gone.txt')];
 
