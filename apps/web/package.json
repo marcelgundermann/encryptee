@@ -22,6 +22,7 @@
 		"@playwright/test": "catalog:",
 		"@rolldown/plugin-babel": "catalog:",
 		"@tailwindcss/vite": "catalog:",
+		"@tanstack/redact": "catalog:",
 		"@tanstack/router-plugin": "catalog:",
 		"@types/babel__core": "catalog:",
 		"@types/node": "catalog:",

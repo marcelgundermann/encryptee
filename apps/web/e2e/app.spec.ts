@@ -338,6 +338,19 @@ test('files dropped on a finished job never bring back the card before it', asyn
 	expect(await headings.jsonValue()).not.toContain('Encrypting 1 file');
 });
 
+test('Keys, closed with Esc, opens again', async ({ page }) => {
+	await openTool(page);
+	const open = page.getByRole('button', { name: 'Keys' });
+	const dialog = page.getByRole('dialog', { name: 'Keys' });
+	await open.click();
+	await expect(dialog).toBeVisible();
+	// The browser hides the dialog by itself; only its `close` event lets it open again.
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	await open.click();
+	await expect(dialog).toBeVisible();
+});
+
 test('a file that isn’t a key file leaves no key loaded', async ({ page }) => {
 	await openTool(page);
 	await page.getByRole('button', { name: 'Keys' }).click();

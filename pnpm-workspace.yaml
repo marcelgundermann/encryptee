@@ -10,6 +10,7 @@ catalog:
   '@rolldown/plugin-babel': 0.3.1
   '@tailwindcss/vite': 4.3.5
   '@tanstack/react-router': 1.170.46
+  '@tanstack/redact': 0.3.1
   '@tanstack/router-plugin': 1.169.0
   '@types/babel__core': 7.20.5
   '@types/node': 26.6.6
