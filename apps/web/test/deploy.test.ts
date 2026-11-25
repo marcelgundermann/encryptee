@@ -5,15 +5,19 @@ import { experimental_readRawConfig } from 'wrangler';
 
 const WEB = resolve(import.meta.dirname, '..');
 
-test('Wrangler serves the folder Vite builds into', async () => {
-	// The example, since the real wrangler.jsonc isn't committed; CI copies it as it is.
-	const { rawConfig, configPath } = experimental_readRawConfig({
-		config: resolve(WEB, '../../wrangler.example.jsonc')
-	});
+// The example, since the real wrangler.jsonc isn't committed; CI copies it as it is.
+const { rawConfig, configPath } = experimental_readRawConfig({
+	config: resolve(WEB, '../../wrangler.example.jsonc')
+});
 
+test('Wrangler serves the folder Vite builds into', async () => {
 	const vite = await resolveConfig({ root: WEB }, 'build');
 
 	expect(resolve(dirname(configPath ?? ''), rawConfig.assets?.directory ?? '')).toBe(
 		resolve(vite.root, vite.build.outDir)
 	);
+});
+
+test('a branch can get a Preview, which Wrangler refuses without a previews block', () => {
+	expect(rawConfig.previews).toBeDefined();
 });
