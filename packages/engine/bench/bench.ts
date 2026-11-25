@@ -11,7 +11,7 @@ import { nativeChaChaAvailable, type Backend } from '../src/payload/cipher.ts';
 
 /**
  * Dev-only throughput bench (plan step 3). Not part of the app build; run with
- * `pnpm vp run @encryptee/engine#bench`.
+ * `pnpm --filter @encryptee/engine bench`.
  */
 const SCENARIOS = [
 	'encrypt-discard',

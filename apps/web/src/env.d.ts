@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 /** Browser APIs the DOM typings lack; browsers without them leave them undefined. */
 interface Window {
 	/** Trusted Types, the part of it `trusted-types.ts` uses. */

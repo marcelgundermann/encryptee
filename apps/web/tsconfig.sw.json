@@ -1,8 +1,7 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"lib": ["es2024", "webworker", "webworker.iterable"],
-		"types": []
+		"lib": ["es2024", "webworker"]
 	},
 	"include": ["src/sw.ts"]
 }

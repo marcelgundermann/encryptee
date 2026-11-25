@@ -87,7 +87,7 @@ export type HeaderResponse =
 
 /** Coordinator → crypto worker. */
 export type CryptoRequest =
-	| { type: 'key'; key: Uint8Array<ArrayBuffer>; backend?: Backend }
+	| { type: 'key'; key: Uint8Array<ArrayBuffer>; backend: Backend | undefined }
 	| ({ type: 'seal' | 'open'; task: number; data: ArrayBuffer } & BatchPosition)
 	| { type: 'forget' };
 

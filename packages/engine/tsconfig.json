@@ -12,6 +12,6 @@
 		"src/workers/source.ts",
 		"src/sinks/open-sink.ts",
 		"src/sinks/sw-route.ts",
-		"test/*.worker.ts"
+		"bench/vite.config.ts"
 	]
 }

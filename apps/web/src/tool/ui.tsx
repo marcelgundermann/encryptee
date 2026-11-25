@@ -66,7 +66,7 @@ export function Kicker({ children, heading = false }: { children: ReactNode; hea
 	);
 }
 
-export function Headline({ children, tone }: { children: ReactNode; tone?: 'error' }) {
+export function Headline({ children, tone }: { children: ReactNode; tone?: 'error' | undefined }) {
 	return (
 		<StepHeading
 			className={`text-3xl font-semibold tracking-tight text-balance sm:text-4xl ${tone === 'error' ? 'text-danger' : ''}`}
