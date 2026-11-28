@@ -43,6 +43,9 @@ function KeysScreen() {
 		if (keys) setStage({ kind: 'show', publicKey: keys.publicKeys[0]!, pair: null, savedAs: null });
 	});
 
+	// React Compiler skips a component whose try has a `finally`, or a
+	// condition inside it. So `create` and `save` clear `pending` after the
+	// catch, which takes every error, and `save` picks the passphrase before.
 	const create = async () => {
 		setPending('create');
 		setError(null);
@@ -51,23 +54,24 @@ function KeysScreen() {
 			setStage({ kind: 'save', pair: await generateKeyPair(type) });
 		} catch (cause) {
 			setError(errorMessage(cause));
-		} finally {
-			setPending(null);
 		}
+
+		setPending(null);
 	};
 
 	const save = async (pair: KeyPair) => {
 		setPending('save');
 		setError(null);
+		const keyFilePassphrase = protect ? passphrase! : null;
 
 		try {
-			const savedAs = await saveKeyFile(pair, protect ? passphrase! : null);
+			const savedAs = await saveKeyFile(pair, keyFilePassphrase);
 			setStage({ kind: 'show', publicKey: pair.publicKey, pair, savedAs });
 		} catch (cause) {
 			setError(errorMessage(cause));
-		} finally {
-			setPending(null);
 		}
+
+		setPending(null);
 	};
 
 	return (
