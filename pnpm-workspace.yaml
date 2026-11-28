@@ -41,6 +41,15 @@ catalog:
 # Supply-chain guard: never install a version published less than a day ago.
 minimumReleaseAge: 1440
 
+# workbox-build asks for glob ^11, which keeps walking after an abort
+# (GHSA-3g3m-2fjr-6pw4) and brings minimatch 10, whose patterns can blow up
+# (GHSA-g3hv-75wg-m249). glob 14 fixes the first and brings minimatch 11,
+# which fixes the second. workbox-build only calls globSync with cwd, follow
+# and ignore, and the app's ignores don't start with /, the one ignore that
+# glob 14 resolves differently. Drop this once workbox-build asks for glob 14.
+overrides:
+  workbox-build>glob: 14.0.6
+
 # Postinstall scripts allowed to run (both are wrangler's native binaries).
 allowBuilds:
   esbuild: true
