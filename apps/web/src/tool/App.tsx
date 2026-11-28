@@ -1,5 +1,5 @@
-import type { Job } from '@encryptee/engine';
-import { useEffect, useReducer, useState } from 'react';
+import type { Job, JobSnapshot } from '@encryptee/engine';
+import { useEffect, useReducer, useState, type ComponentProps } from 'react';
 import { useLaunchedFiles } from '#/launched-files.ts';
 import { navItemClass, SiteHeader } from '#/SiteHeader.tsx';
 import { strings } from '#/strings.ts';
@@ -10,7 +10,7 @@ import { useJobSnapshot } from './job.ts';
 import { JobScreen } from './JobScreen.tsx';
 import { KeysDialog } from './KeysScreen.tsx';
 import { classify } from './selection.ts';
-import { firstStep, nextStep, stepName } from './steps.ts';
+import { firstStep, nextStep, stepName, type Steps } from './steps.ts';
 import { Card, Headline, Hint, TextButton } from './ui.tsx';
 
 /**
@@ -53,28 +53,6 @@ export function App() {
 	// grows down, so nothing above the pointer moves when it changes height.
 	const centered = name === 'none' || name === 'job-running';
 
-	let content;
-
-	if (job && snapshot)
-		content = <JobScreen snapshot={snapshot} onCancel={job.cancel} onReset={reset} />;
-	else if (step.kind === 'encrypt')
-		content = <EncryptCard files={step.files} onStart={start} onBack={reset} />;
-	else if (step.kind === 'decrypt')
-		content = (
-			<DecryptCard files={step.files} unlock={step.unlock} onStart={start} onBack={reset} />
-		);
-	else if (step.kind === 'invalid')
-		content = (
-			<Card>
-				<Headline>{strings.selection.unusable(step.files.length)}</Headline>
-				<Hint tone="error">{step.message}</Hint>
-				<TextButton className="mt-6" onClick={reset}>
-					{strings.selection.other}
-				</TextButton>
-			</Card>
-		);
-	else content = <DropSurface onFiles={choose} dragging={dragging} returning={shown.changed} />;
-
 	return (
 		<div className="flex min-h-dvh flex-col">
 			<SiteHeader onWordmarkClick={() => dispatch({ type: 'home' })}>
@@ -91,11 +69,60 @@ export function App() {
 					key={job ? name : `${name} ${steps.selections}`}
 					className={`flex w-full justify-center ${shown.changed ? 'motion-safe:animate-step-in' : ''}`}
 				>
-					{content}
+					<StepCard
+						step={step}
+						snapshot={snapshot}
+						onStart={start}
+						onReset={reset}
+						drop={{ onFiles: choose, dragging, returning: shown.changed }}
+					/>
 				</div>
 			</main>
 			{dragging && name !== 'none' && <DropOverlay />}
 			{keysOpen && <KeysDialog onClose={() => setKeysOpen(false)} />}
 		</div>
 	);
+}
+
+/** The step's card: the job, the form for the files chosen, why they can't be used, or the drop surface. */
+function StepCard({
+	step,
+	snapshot,
+	onStart,
+	onReset,
+	drop
+}: {
+	step: Steps['step'];
+	snapshot: JobSnapshot | null;
+	onStart: (job: Job) => void;
+	onReset: () => void;
+	drop: ComponentProps<typeof DropSurface>;
+}) {
+	if (step.kind === 'job' && snapshot) {
+		return <JobScreen snapshot={snapshot} onCancel={step.job.cancel} onReset={onReset} />;
+	}
+
+	if (step.kind === 'encrypt') {
+		return <EncryptCard files={step.files} onStart={onStart} onBack={onReset} />;
+	}
+
+	if (step.kind === 'decrypt') {
+		return (
+			<DecryptCard files={step.files} unlock={step.unlock} onStart={onStart} onBack={onReset} />
+		);
+	}
+
+	if (step.kind === 'invalid') {
+		return (
+			<Card>
+				<Headline>{strings.selection.unusable(step.files.length)}</Headline>
+				<Hint tone="error">{step.message}</Hint>
+				<TextButton className="mt-6" onClick={onReset}>
+					{strings.selection.other}
+				</TextButton>
+			</Card>
+		);
+	}
+
+	return <DropSurface {...drop} />;
 }

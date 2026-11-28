@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { formatBytes, strings } from '#/strings.ts';
+import { rowKey } from './row-key.ts';
 
 /*
  * Building blocks of the "Drop" design (variant A of the prototypes):
@@ -84,13 +85,13 @@ export function shownFiles<T>(files: readonly T[]) {
 }
 
 /** The first few files, then a count, so a big selection never pushes the button away. */
-export function FileLines({ files }: { files: ReadonlyArray<{ name: string; size: number }> }) {
+export function FileLines({ files }: { files: readonly File[] }) {
 	const shown = shownFiles(files);
 
 	return (
 		<ul className="space-y-1">
-			{shown.map((file, i) => (
-				<li key={`${i}-${file.name}`} className="flex justify-between gap-4 text-xl">
+			{shown.map((file) => (
+				<li key={rowKey(file)} className="flex justify-between gap-4 text-xl">
 					<span className="truncate" translate="no">
 						{file.name}
 					</span>
