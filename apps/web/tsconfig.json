@@ -1,9 +1,9 @@
 {
-	"extends": "../../tsconfig.base.json",
-	"compilerOptions": {
-		"jsx": "react-jsx",
-		"types": ["vite/client", "wicg-file-system-access"]
-	},
-	"include": ["src"],
-	"exclude": ["src/sw.ts"]
+	// Editors and Vite look for tsconfig.json only, and find each file's own config through these.
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.dom.json" },
+		{ "path": "./tsconfig.sw.json" },
+		{ "path": "./tsconfig.node.json" }
+	]
 }
