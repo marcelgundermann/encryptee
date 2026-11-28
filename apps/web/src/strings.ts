@@ -14,12 +14,13 @@ export const strings = {
 		faq: 'Encryptee FAQ',
 		notFound: 'Page not found · Encryptee'
 	},
-	/** The header's items: the Keys button and a link to each content page. */
+	/** The header's items: the Keys button, a link to each content page and one to the code. */
 	nav: {
 		keys: 'Keys',
 		'/how-it-works': 'How it works',
 		'/security': 'Security',
-		'/faq': 'FAQ'
+		'/faq': 'FAQ',
+		github: 'GitHub'
 	},
 	drop: {
 		title: 'Drop files.',

@@ -5,6 +5,9 @@ import { strings } from './strings.ts';
 /** The content pages the header links to, in its order. */
 const PAGES = ['/how-it-works', '/security', '/faq'] as const;
 
+/** The code, which the header's last item opens in a new tab. */
+const REPOSITORY_URL = 'https://github.com/marcelgundermann/encryptee';
+
 const wordmarkClass = 'hit-area focus-ring font-semibold tracking-tight';
 
 /** The router marks the link to the page that shows with `aria-current="page"`. */
@@ -46,6 +49,15 @@ export function SiteHeader({
 						{strings.nav[page]}
 					</Link>
 				))}
+				<a
+					href={REPOSITORY_URL}
+					target="_blank"
+					rel="noreferrer"
+					// No room for it on a phone; there the Security page links to the code.
+					className={`${navItemClass} hidden sm:inline`}
+				>
+					{strings.nav.github}
+				</a>
 			</nav>
 		</header>
 	);
