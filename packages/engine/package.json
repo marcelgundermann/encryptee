@@ -7,7 +7,7 @@
 		"./sw": "./src/sinks/sw-route.ts"
 	},
 	"scripts": {
-		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json && tsc -p tsconfig.node.json",
+		"typecheck": "tsc -p tsconfig.dom.json && tsc -p tsconfig.worker.json && tsc -p tsconfig.node.json",
 		"test": "vitest run",
 		"bench": "vite --config bench/vite.config.ts"
 	},
