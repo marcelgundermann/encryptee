@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * E2E runs against the production build served by `wrangler dev`, so the real
  * `_headers` (CSP, Trusted Types) apply. Build first: `pnpm build && pnpm e2e`.
+ * It runs locally only; CI doesn't run it.
  * `BROWSERS=chromium,webkit` narrows the run; all three by default.
  */
 const browsers = (process.env.BROWSERS ?? 'chromium,firefox,webkit').split(',');
@@ -12,14 +13,11 @@ export default defineConfig({
 	testDir: 'e2e',
 	timeout: 120_000,
 	fullyParallel: true,
-	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 1 : 0,
-	reporter: process.env.CI ? 'github' : 'list',
 	use: { baseURL: `http://localhost:${PORT}`, acceptDownloads: true, trace: 'retain-on-failure' },
 	webServer: {
 		command: 'pnpm serve',
 		url: `http://localhost:${PORT}`,
-		reuseExistingServer: !process.env.CI
+		reuseExistingServer: true
 	},
 	projects: [
 		{ name: 'chromium', use: { ...devices['Desktop Chrome'] } },
