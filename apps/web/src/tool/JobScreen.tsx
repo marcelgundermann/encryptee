@@ -1,5 +1,6 @@
 import type { JobFile, JobSnapshot } from '@encryptee/engine';
 import { formatBytes, formatDuration, strings } from '#/strings.ts';
+import { rowKey } from './row-key.ts';
 import { BigButton, Card, Headline, Hint, OutlineButton, shownFiles, StepHeading } from './ui.tsx';
 
 /** A running job as one giant number; afterwards, what happened to each file. */
@@ -98,23 +99,24 @@ function stepLine(snapshot: JobSnapshot, current: JobFile): string {
 	return bytes ? `${step} ${bytes}` : step;
 }
 
-const order = { failed: 0, cancelled: 1, checking: 1, running: 1, waiting: 1, done: 2 } as const;
+/** What the job came to, for its headline: cancelled, or how many of its files are done. */
+function finishedHeadline(snapshot: JobSnapshot, done: number): string {
+	const total = snapshot.files.length;
+
+	if (snapshot.status === 'cancelled') return strings.failed.cancelled;
+
+	if (done === total) return strings.done[snapshot.mode](total);
+
+	if (done > 0) return strings.done.partial[snapshot.mode](done, total);
+
+	return strings.failed[snapshot.mode];
+}
 
 function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () => void }) {
 	const total = snapshot.files.length;
 	const done = snapshot.files.filter((file) => file.status === 'done');
 	const failed = snapshot.files.filter((file) => file.status === 'failed');
 	const downloaded = done.some((file) => file.output.kind === 'downloaded');
-	// Failures first, so they're never behind the "and N more" line.
-	const listed = snapshot.files.toSorted((a, b) => order[a.status] - order[b.status]);
-	const shown = shownFiles(listed);
-
-	let headline: string;
-
-	if (snapshot.status === 'cancelled') headline = strings.failed.cancelled;
-	else if (done.length === total) headline = strings.done[snapshot.mode](total);
-	else if (done.length > 0) headline = strings.done.partial[snapshot.mode](done.length, total);
-	else headline = strings.failed[snapshot.mode];
 	const ok = snapshot.status === 'done';
 	const savedTo = downloaded ? strings.done.downloaded : strings.done.saved;
 
@@ -133,7 +135,9 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 				</svg>
 			)}
 			<div className={ok ? 'mt-6' : ''}>
-				<Headline tone={snapshot.status === 'failed' ? 'error' : undefined}>{headline}</Headline>
+				<Headline tone={snapshot.status === 'failed' ? 'error' : undefined}>
+					{finishedHeadline(snapshot, done.length)}
+				</Headline>
 			</div>
 			{snapshot.status === 'cancelled' && done.length === 0 && (
 				<Hint>{strings.failed.cancelledHint}</Hint>
@@ -162,28 +166,38 @@ function Finished({ snapshot, onReset }: { snapshot: JobSnapshot; onReset: () =>
 					)}
 				</>
 			)}
-			{(total > 1 || failed.length > 0) && (
-				<ul className="mt-6 space-y-1 text-sm">
-					{shown.map((file, i) => (
-						<li key={`${i}-${file.name}`} className="flex justify-between gap-4">
-							<span className="truncate" translate="no">
-								{file.outputName}
-							</span>
-							<span className={file.status === 'failed' ? 'text-danger' : 'text-muted'}>
-								{file.status === 'done'
-									? strings.done.file
-									: file.status === 'failed'
-										? strings.errors[file.error.code]
-										: strings.failed.cancelled}
-							</span>
-						</li>
-					))}
-					{shown.length < listed.length && (
-						<li className="text-muted">{strings.selection.more(listed.length - shown.length)}</li>
-					)}
-				</ul>
-			)}
+			{(total > 1 || failed.length > 0) && <JobFileLines files={snapshot.files} />}
 			<BigButton onClick={onReset}>{ok ? strings.done.again : strings.failed.again}</BigButton>
 		</Card>
+	);
+}
+
+const order = { failed: 0, cancelled: 1, checking: 1, running: 1, waiting: 1, done: 2 } as const;
+
+/** What happened to each file, failures first, so they're never behind the "and N more" line. */
+function JobFileLines({ files }: { files: readonly JobFile[] }) {
+	const listed = files.toSorted((a, b) => order[a.status] - order[b.status]);
+	const shown = shownFiles(listed);
+
+	return (
+		<ul className="mt-6 space-y-1 text-sm">
+			{shown.map((file) => (
+				<li key={rowKey(file)} className="flex justify-between gap-4">
+					<span className="truncate" translate="no">
+						{file.outputName}
+					</span>
+					<span className={file.status === 'failed' ? 'text-danger' : 'text-muted'}>
+						{file.status === 'done'
+							? strings.done.file
+							: file.status === 'failed'
+								? strings.errors[file.error.code]
+								: strings.failed.cancelled}
+					</span>
+				</li>
+			))}
+			{shown.length < listed.length && (
+				<li className="text-muted">{strings.selection.more(listed.length - shown.length)}</li>
+			)}
+		</ul>
 	);
 }

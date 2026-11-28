@@ -20,7 +20,7 @@ import {
 	TextButton,
 	touchScreen
 } from './ui.tsx';
-import { useKeyFile } from './useKeyFile.tsx';
+import { useKeyFile, type KeyFileReader } from './useKeyFile.tsx';
 
 /** Where the card's check of the credentials stands. */
 type Check =
@@ -142,24 +142,7 @@ export function DecryptCard(props: {
 					/>
 				) : (
 					<>
-						<button
-							type="button"
-							onClick={keyFile.choose}
-							className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg"
-						>
-							<span className="min-w-0 truncate">
-								{keyFile.picked ? (
-									<span translate="no">{keyFile.picked.name}</span>
-								) : (
-									strings.keyFile.choose
-								)}
-							</span>
-							<span className="shrink-0 text-sm text-muted">
-								{keyFile.picked?.keys
-									? strings.keyFile.loaded(keyFile.picked.name)
-									: strings.keyFile.hint}
-							</span>
-						</button>
+						<KeyFileButton keyFile={keyFile} />
 						{keyFile.field}
 					</>
 				)}
@@ -187,5 +170,27 @@ export function DecryptCard(props: {
 				)}
 			</form>
 		</Card>
+	);
+}
+
+/** Chooses the key file, and shows the one chosen and whether its keys are loaded. */
+function KeyFileButton({ keyFile }: { keyFile: KeyFileReader }) {
+	return (
+		<button
+			type="button"
+			onClick={keyFile.choose}
+			className="focus-ring mt-6 flex w-full items-baseline justify-between gap-4 border-b-2 border-fg pb-2 text-left text-lg"
+		>
+			<span className="min-w-0 truncate">
+				{keyFile.picked ? (
+					<span translate="no">{keyFile.picked.name}</span>
+				) : (
+					strings.keyFile.choose
+				)}
+			</span>
+			<span className="shrink-0 text-sm text-muted">
+				{keyFile.picked?.keys ? strings.keyFile.loaded(keyFile.picked.name) : strings.keyFile.hint}
+			</span>
+		</button>
 	);
 }
