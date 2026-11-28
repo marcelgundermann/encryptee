@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /** The content pages' addresses. */
 const PAGES = ['/how-it-works', '/security', '/faq'];
@@ -373,19 +373,162 @@ test('public keys: create a key, encrypt to it, decrypt with the key file', asyn
 /** Unpadded base64 of random bytes, as in an age header. */
 const randomBase64 = (size: number) => randomBytes(size).toString('base64').replace(/=+$/, '');
 
+/** A valid X25519 public key. */
+const X25519_KEY = 'age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p';
+
 test('a public key pasted but not added is still encrypted to', async ({ page }) => {
 	await openTool(page);
 	await dropFile(page, 'notes.txt', randomBytes(1000));
 	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
-	await page
-		.locator('#encrypt-paste')
-		.fill('age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p');
+	await page.locator('#encrypt-paste').fill(X25519_KEY);
 	const submit = page.getByRole('button', { name: 'Encrypt 1 file' });
 	await expect(submit).toBeEnabled();
 	const encrypted = page.waitForEvent('download');
 	await submit.click();
 	const sealed = await readFile(await (await encrypted).path());
 	expect(sealed.toString('latin1')).toContain('\n-> X25519 ');
+});
+
+const INVALID_KEY = 'That isn’t a valid public key.';
+
+/** Drops a file, then adds text that isn't a public key on the encrypt card. Resolves with the error it shows. */
+async function addInvalidKey(page: Page): Promise<Locator> {
+	await openTool(page);
+	await dropFile(page, 'notes.txt', randomBytes(1000));
+	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
+	await page.locator('#encrypt-paste').fill('not a key');
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+	return page.getByText(INVALID_KEY);
+}
+
+test('an error about a pasted key is gone once the method switches', async ({ page }) => {
+	const error = await addInvalidKey(page);
+	await expect(error).toBeVisible();
+	await page.getByRole('radio', { name: 'Passphrase' }).check({ force: true });
+	await expect(error).toBeHidden();
+	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
+	await expect(error).toBeHidden();
+});
+
+test('editing a pasted key clears the error about it', async ({ page }) => {
+	const error = await addInvalidKey(page);
+	await expect(error).toBeVisible();
+	await page.locator('#encrypt-paste').press('x');
+	await expect(error).toBeHidden();
+});
+
+test('a pasted key that isn’t valid marks the paste field invalid, described by the error', async ({
+	page
+}) => {
+	await addInvalidKey(page);
+	const paste = page.locator('#encrypt-paste');
+	await expect(paste).toHaveAttribute('aria-invalid', 'true');
+	await expect(paste).toHaveAccessibleDescription(INVALID_KEY);
+});
+
+test('the paste field, once its error clears, is no longer marked invalid', async ({ page }) => {
+	const error = await addInvalidKey(page);
+	await expect(error).toBeVisible();
+	const paste = page.locator('#encrypt-paste');
+	await paste.press('x');
+	await expect(paste).not.toHaveAttribute('aria-invalid');
+	await expect(paste).toHaveAccessibleDescription('');
+});
+
+test('editing the paste field leaves an error from saving up', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'notes.txt', randomBytes(1000));
+	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
+	const paste = page.locator('#encrypt-paste');
+	await paste.fill(X25519_KEY);
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	await expect(paste).toHaveValue('');
+	await page.evaluate(() =>
+		Reflect.set(window, 'showSaveFilePicker', async () => {
+			throw new Error('broken');
+		})
+	);
+
+	const error = page.getByRole('alert').filter({ hasText: 'Saving failed.' });
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+	await expect(error).toBeVisible();
+	await paste.press('x');
+	await expect(error).toBeVisible();
+});
+
+/**
+ * Puts in a save picker that stays open until the test answers it through
+ * the handle, which holds the Encrypt clicked before then in flight, as the
+ * paste field's check does for a moment. Put it in after the drop: the
+ * capability is read at the click.
+ */
+async function holdSavePicker(page: Page) {
+	return page.evaluateHandle(() => {
+		const held = { shown: 0, answer: Promise.withResolvers<unknown>() };
+
+		Reflect.set(window, 'showSaveFilePicker', () => {
+			held.shown++;
+
+			return held.answer.promise;
+		});
+
+		return held;
+	});
+}
+
+test('an Encrypt left behind by a method switch shows no error', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'a.txt', randomBytes(1000));
+	const picker = await holdSavePicker(page);
+	await page.getByRole('button', { name: 'Encrypt 1 file' }).click();
+	await expect.poll(() => picker.evaluate((held) => held.shown)).toBe(1);
+	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
+	await picker.evaluate((held) => held.answer.reject(new Error('broken')));
+	// The picker's answer reaches the card within a frame or two.
+	await page.waitForTimeout(500);
+	await expect(page.getByRole('alert').filter({ hasText: 'Saving failed.' })).toBeHidden();
+});
+
+test('an Encrypt left behind by a method switch starts no job', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'a.txt', randomBytes(1000));
+	const picker = await holdSavePicker(page);
+	const submit = page.getByRole('button', { name: 'Encrypt 1 file' });
+	await submit.click();
+	await expect.poll(() => picker.evaluate((held) => held.shown)).toBe(1);
+	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
+	// A job would replace the card at once, before it writes to the file.
+	await picker.evaluate((held) => held.answer.resolve({}));
+	await page.waitForTimeout(500);
+	await expect(submit).toBeVisible();
+});
+
+test('a save picker dismissed after one that failed leaves no error', async ({ page }) => {
+	await openTool(page);
+	await dropFile(page, 'a.txt', randomBytes(1000));
+
+	// The first picker breaks, and the user closes the second.
+	const picker = await page.evaluateHandle(() => {
+		const state = { shown: 0 };
+
+		Reflect.set(window, 'showSaveFilePicker', async () => {
+			state.shown++;
+
+			throw state.shown === 1 ? new Error('broken') : new DOMException('', 'AbortError');
+		});
+
+		return state;
+	});
+
+	const submit = page.getByRole('button', { name: 'Encrypt 1 file' });
+	const error = page.getByRole('alert').filter({ hasText: 'Saving failed.' });
+	await submit.click();
+	await expect(error).toBeVisible();
+	await submit.click();
+	await expect.poll(async () => (await picker.jsonValue()).shown).toBe(2);
+	await expect(submit).toBeEnabled();
+	await expect(error).toBeHidden();
 });
 
 test('files dropped on a finished job never bring back the card before it', async ({ page }) => {
@@ -482,9 +625,7 @@ test('a double-click on Encrypt starts one job', async ({ page }) => {
 	await dropFile(page, 'notes.txt', randomBytes(1000));
 	await page.getByRole('radio', { name: 'Public keys' }).check({ force: true });
 	// Checking the pasted key starts the key tools' worker, which gives the second click time to land.
-	await page
-		.locator('#encrypt-paste')
-		.fill('age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p');
+	await page.locator('#encrypt-paste').fill(X25519_KEY);
 	let downloads = 0;
 	page.on('download', () => downloads++);
 	await page.getByRole('button', { name: 'Encrypt 1 file' }).dblclick();
