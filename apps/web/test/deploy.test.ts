@@ -5,7 +5,7 @@ import { experimental_readRawConfig } from 'wrangler';
 
 const WEB = resolve(import.meta.dirname, '..');
 
-// The example, since the real wrangler.jsonc isn't committed; CI copies it as it is.
+// The example, since the real wrangler.jsonc isn't committed and is copied from it.
 const { rawConfig, configPath } = experimental_readRawConfig({
 	config: resolve(WEB, '../../wrangler.example.jsonc')
 });

@@ -14,7 +14,6 @@ concurrency:
 
 env:
   AGE_VERSION: v1.3.2
-  WRANGLER_SEND_METRICS: 'false'
 
 jobs:
   check:
@@ -53,25 +52,3 @@ jobs:
           echo "AGE_BIN=$PWD/age" >> "$GITHUB_ENV"
       - run: pnpm --filter @encryptee/engine exec playwright install --with-deps chromium firefox webkit
       - run: pnpm --filter @encryptee/engine test
-
-  e2e:
-    name: E2E (Chromium, Firefox, WebKit)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @encryptee/web exec playwright install --with-deps chromium firefox webkit
-      - run: pnpm build
-      - run: cp wrangler.example.jsonc wrangler.jsonc
-      - run: pnpm e2e
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: playwright-traces
-          path: apps/web/test-results
-          retention-days: 7

@@ -45,9 +45,10 @@ fallbacks.
   [noble-ciphers](https://github.com/paulmillr/noble-ciphers), about three times slower per worker.
 - Other Chromium browsers (Brave, Opera, Vivaldi, …) aren't tested. They should work as far as they
   ship the same APIs.
-- CI runs the engine's tests and the end-to-end tests in Playwright 1.65.1's Chromium, Firefox and
-  WebKit on Linux. That WebKit is Safari's engine, not Safari. The end-to-end tests hide the save
-  pickers, so only the engine's tests cover that path. Phones aren't tested.
+- CI runs the engine's tests in Playwright 1.65.1's Chromium, Firefox and WebKit on Linux. The
+  end-to-end tests run in the same three browsers, locally rather than in CI. That WebKit is Safari's
+  engine, not Safari. The end-to-end tests hide the save pickers, so only the engine's tests cover
+  that path. Phones aren't tested.
 
 ## File sizes
 
